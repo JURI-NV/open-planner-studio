@@ -10,6 +10,7 @@ import type { ExtensionManifest, InstalledExtension } from '@/extensions/types';
 import { setConsentAsker, resetConsentAsker, type ConsentAsker } from '@/extensions';
 import { copyScreenshotToClipboard } from '@/services/feedback/feedbackService';
 import { isTauri } from '@/utils/platform';
+import { lastSize, paintCount, taskBarPoint } from '@/utils/ganttTestDriver';
 
 /**
  * Dev-only inspectie- en controle-haak voor geautomatiseerd zelf-testen.
@@ -209,6 +210,12 @@ export interface OpsDevBridge {
   store: typeof useAppStore;
   /** In-memory log-bus: `.snapshot()` geeft gelogde regels + opgevangen fouten. */
   log: typeof appLog;
+  /** Observer-only Gantt-naad voor echte browserinteractie; bevat bewust geen setter of dragfunctie. */
+  gantt: {
+    taskBarPoint: typeof taskBarPoint;
+    paintCount: typeof paintCount;
+    lastSize: typeof lastSize;
+  };
   /** Niveau 1: serialiseer→parse round-trip, meet dataverlies (werkt ook in de browser). */
   roundTrip: typeof roundTrip;
   /** Niveau 2 (Tauri): schrijf de state als IFC naar een expliciet pad. */
@@ -255,6 +262,7 @@ export function installDevBridge(): void {
   window.__OPS__ = {
     store: useAppStore,
     log: appLog,
+    gantt: { taskBarPoint, paintCount, lastSize },
     roundTrip,
     saveToPath,
     openFromPath,

@@ -2235,6 +2235,32 @@ export class GanttRenderer {
     return ids;
   }
 
+  /** Dev/browser-testnaad: vind de werkelijk getekende sleepbalk zonder geometrie te dupliceren.
+   *  De methode blijft bewust in de renderer: alleen die bezit rijpositie, tijdas en hit-testbeleid.
+   *  Datumloze terugvalstubs, nulduurmijlpalen en verzameltaken zijn niet sleepbaar en leveren
+   *  daarom net als `getTaskBarBounds` geen fictieve rechthoek op. */
+  getTaskBarRect(taskId: string): { left: number; right: number; top: number; bottom: number } | null {
+    const rowIndex = this.rowIndexByTask.get(taskId);
+    if (rowIndex === undefined) return null;
+    const row = this.rows[rowIndex];
+    if (row?.kind !== 'task') return null;
+    const task = row.task;
+    if (task.childIds.length > 0 || isZeroDurationMilestone(task)) return null;
+    if (!(task.time.earlyStart || task.time.scheduleStart) || !(task.time.earlyFinish || task.time.scheduleFinish)) {
+      return null;
+    }
+
+    const { x1, x2 } = this.barGeometry(task);
+    const barHeight = this.opts.rowHeight * 0.5;
+    const top = this.rowToY(rowIndex) + (this.opts.rowHeight - barHeight) / 2;
+    return {
+      left: x1,
+      right: x1 + Math.max(x2 - x1, 4),
+      top,
+      bottom: top + barHeight,
+    };
+  }
+
   /** Hit test: get task bar bounds for a task at row index (for drag & drop) */
   getTaskBarBounds(canvasX: number, canvasY: number): { task: Task; edge: 'left' | 'right' | 'body' } | null {
     if (canvasX < this.opts.taskTableWidth) return null;

@@ -344,6 +344,11 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   RDCHECK="$DIR/.renderer-dateless.mjs"
   if bundle_check "$DIR/check-renderer-dateless.ts" "$RDCHECK"; then node "$RDCHECK" || STATUS=1; fi
 
+  # Dev-only Gantt-testdriver: reverse locator gebruikt exact de renderer-eigen balkgeometrie en
+  # behoudt het bestaande hit-testbeleid voor datumloze taken, mijlpalen en verzameltaken.
+  GTDCHECK="$DIR/.gantt-test-driver.mjs"
+  if bundle_check "$DIR/check-gantt-test-driver.ts" "$GTDCHECK"; then node "$GTDCHECK" || STATUS=1; fi
+
   # M3 (Opus-review T15-iteratie-2, "UI-rimpel"): een mijlpaal-met-duur (T15) moet als gewone balk
   # tekenen (drawTaskBar/roundRect, niet drawMilestone/ruit), haar eigen duurtekst tonen (niet "0d")
   # en sleep-/resize-baar zijn — dezelfde discriminator als de solver (isZeroDurationMilestone).

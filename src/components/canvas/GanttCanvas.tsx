@@ -42,6 +42,7 @@ import { usePan } from './hooks/usePan';
 import { useBoxSelect } from './hooks/useBoxSelect';
 import { useRowDrag } from './hooks/useRowDrag';
 import { useDependencyDraw } from './hooks/useDependencyDraw';
+import { recordGanttPaint, registerGanttTestSurface } from '@/utils/ganttTestDriver';
 
 // Basisgeometrie op Tekengrootte 100% (issue #60): de component leidt hieruit de EFFECTIEVE
 // `rowHeight`/`headerHeight` af (× ui.uiFontScale/100) — gebruik binnen de component die geschaalde
@@ -207,6 +208,24 @@ export function GanttCanvas() {
   const secondaryContainerRef = useRef<HTMLDivElement>(null);
   const secondaryCanvasRef = useRef<HTMLCanvasElement>(null);
   const secondaryRendererRef = useRef<GanttRenderer | null>(null);
+
+  // Dev-only browsernaad: registreer uitsluitend de levende refs. De registry bewaart geen
+  // rendererdata en kan zelf geen paint of productmutatie starten.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const unregisterPrimary = registerGanttTestSurface('primary', {
+      canvas: canvasRef,
+      renderer: rendererRef,
+    });
+    const unregisterSecondary = registerGanttTestSurface('secondary', {
+      canvas: secondaryCanvasRef,
+      renderer: secondaryRendererRef,
+    });
+    return () => {
+      unregisterSecondary();
+      unregisterPrimary();
+    };
+  }, []);
   const [isResizingSplit, setIsResizingSplit] = useState(false);
   const [primaryChartWidth, setPrimaryChartWidth] = useState(0);
   // Idem voor het secundaire pane (issue #35 punt 1): daar is taskTableWidth 0, dus de chart-breedte
@@ -444,6 +463,7 @@ export function GanttCanvas() {
     });
     histogramRendererRef.current = renderer;
     renderer.render();
+    if (import.meta.env.DEV) recordGanttPaint('histogram', width, height);
   }, [histogramSeries, histogramPicker, histogramResourceId, effectiveView, taskTableWidth, resourceLoadResult, resources.length, tCommon, uiTheme, sharedAxis, canvasFontFamily, fontScale]);
 
   useCanvasLayer({
@@ -580,6 +600,7 @@ export function GanttCanvas() {
     const renderer = new GanttRenderer(ctx, opts);
     rendererRef.current = renderer;
     renderer.render();
+    if (import.meta.env.DEV) recordGanttPaint('primary', width, height);
   }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showResourceAccent, barColorSelection, activityCodeTypes, customFieldDefs, taskTypeLabels, resources, assignments, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis, canvasFontFamily, durationDrag, fontScale, rowHeight, headerHeight, tTask]);
 
   useCanvasLayer({ canvasRef, containerRef, draw: drawPrimary });
@@ -658,6 +679,7 @@ export function GanttCanvas() {
     }));
     secondaryRendererRef.current = renderer;
     renderer.render();
+    if (import.meta.env.DEV) recordGanttPaint('secondary', width, height);
   }, [splitView, viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, statusDate, showStatusDateLine, showProgressLine, showResourceAccent, barColorSelection, activityCodeTypes, customFieldDefs, taskTypeLabels, resources, assignments, showBaselineOverlay, baselineOverlay, effectiveCalById, barSplitMode, compressNonWorkdays, canvasFontFamily, fontScale, rowHeight, headerHeight, tTask]);
 
   useCanvasLayer({
@@ -1389,6 +1411,7 @@ export function GanttCanvas() {
       >
         <canvas
           ref={canvasRef}
+          data-testid="gantt-primary-canvas"
           className="absolute inset-0"
           style={{
             cursor: tableSplitter.isResizing
@@ -1538,6 +1561,7 @@ export function GanttCanvas() {
           >
             <canvas
               ref={secondaryCanvasRef}
+              data-testid="gantt-secondary-canvas"
               className="absolute inset-0"
               onClick={handleSecondaryClick}
             />
@@ -1598,6 +1622,7 @@ export function GanttCanvas() {
           >
             <canvas
               ref={histogramCanvasRef}
+              data-testid="gantt-histogram-canvas"
               className="absolute inset-0"
               style={{ cursor: 'pointer' }}
               onClick={handleHistogramClick}
