@@ -58,10 +58,19 @@ ok(!RESOURCE_PALETTE.includes('#DC2626'), 'palet vermijdt kritiek-rood');
 // ── barColors: modi, segmenten, randen (#21, ontwerp §4) ───────────────────────────────────────
 import { computeBarColors } from '@/services/print/barColors';
 import type { BarPalette } from '@/services/print/barColors';
+import {
+  effectiveBarColorSelection,
+  resolveBarCategoryValues,
+  visibleBarColorCategories,
+  type BarColorContext,
+} from '@/services/print/barColorCategories';
 import type { Task, TaskTime } from '@/types/task';
 import type { Resource, ResourceAssignment } from '@/types/resource';
 
-const PAL: BarPalette = { critical: '#DC2626', normal: '#2563EB', nearCritical: '#F59E0B', milestone: '#7C3AED' };
+const PAL: BarPalette = {
+  critical: '#DC2626', normal: '#2563EB', nearCritical: '#F59E0B',
+  milestone: '#7C3AED', uncategorized: '#94A3B8',
+};
 
 const mkTime = (over: Partial<TaskTime> = {}): TaskTime => ({
   earlyStart: '2026-01-05', earlyFinish: '2026-01-09', lateStart: '', lateFinish: '',
@@ -70,7 +79,8 @@ const mkTime = (over: Partial<TaskTime> = {}): TaskTime => ({
   ...over,
 } as TaskTime);
 const mkTask = (id: string, extra: Partial<Task> = {}): Task => ({
-  id, name: id, parentId: undefined, childIds: [], isMilestone: false,
+  id, name: id, description: '', wbsCode: '1.1', taskType: 'CONSTRUCTION', status: 'NOT_STARTED',
+  priority: 500, parentId: null, childIds: [], isMilestone: false, resourceIds: [],
   time: mkTime(),
   ...extra,
 } as unknown as Task);
@@ -79,43 +89,109 @@ const mkRes = (id: string, color?: string): Resource =>
 const mkAsg = (taskId: string, resourceId: string, unitsPerDay: number): ResourceAssignment =>
   ({ id: `a-${taskId}-${resourceId}`, taskId, resourceId, unitsPerDay });
 
+const RESOURCES = [mkRes('r1', '#111111'), mkRes('r2', '#222222'), mkRes('rx')];
+const CTX: BarColorContext = {
+  activityCodeTypes: [{
+    id: 'discipline', name: 'Discipline', values: [
+      { id: 'elektra', code: 'E', description: 'Elektra', color: '#11AA55' },
+      { id: 'bouw', code: 'B', description: 'Bouw' },
+    ],
+  }],
+  customFieldDefs: [
+    { id: 'text', name: 'Tekst', type: 'text' },
+    { id: 'number', name: 'Getal', type: 'number' },
+    { id: 'integer', name: 'Geheel', type: 'integer' },
+    { id: 'cost', name: 'Kosten', type: 'cost' },
+    { id: 'date', name: 'Datum', type: 'date' },
+    { id: 'boolean', name: 'Ja/nee', type: 'boolean' },
+  ],
+  resources: RESOURCES,
+  assignments: [],
+  taskTypeLabels: { CONSTRUCTION: 'Constructie', INSTALLATION: 'Installatie' },
+  noneLabel: '(geen)',
+};
+const withAssignments = (assignments: ResourceAssignment[]): BarColorContext => ({ ...CTX, assignments });
+
 // 7. critical-modus (default): huidige gedrag ongewijzigd — kritiek rood, bijna-kritiek oranje,
 //    rest blauw.
 {
-  const crit = computeBarColors(mkTask('t1', { time: mkTime({ isCritical: true }) }), [], [], 'critical', PAL);
+  const crit = computeBarColors(mkTask('t1', { time: mkTime({ isCritical: true }) }), { mode: 'critical' }, CTX, PAL);
   ok(crit.kind === 'solid' && crit.fill === PAL.critical, 'critical-modus: kritieke taak rood');
-  const near = computeBarColors(mkTask('t2', { time: mkTime({ isNearCritical: true }) }), [], [], 'critical', PAL);
+  const near = computeBarColors(mkTask('t2', { time: mkTime({ isNearCritical: true }) }), { mode: 'critical' }, CTX, PAL);
   ok(near.kind === 'solid' && near.fill === PAL.nearCritical, 'critical-modus: bijna-kritiek oranje');
-  const plain = computeBarColors(mkTask('t2b'), [], [], 'critical', PAL);
+  const plain = computeBarColors(mkTask('t2b'), { mode: 'critical' }, CTX, PAL);
   ok(plain.kind === 'solid' && plain.fill === PAL.normal, 'critical-modus: gewone taak blauw');
 }
 
-// 8. task-modus: Task.color wint; zonder Task.color valt terug op critical-logica.
+// 8. Task.color is inert: dezelfde taakuitkomst in iedere overgebleven modus, ongeacht legacydata.
 {
-  const withColor = computeBarColors(mkTask('t3', { color: '#123456' }), [], [], 'task', PAL);
-  ok(withColor.kind === 'solid' && withColor.fill === '#123456', 'task-modus: Task.color wint');
-  const without = computeBarColors(mkTask('t4'), [], [], 'task', PAL);
-  ok(without.kind === 'solid' && without.fill === PAL.normal, 'task-modus: zonder kleur → critical-logica');
+  const modes = [
+    { mode: 'critical' } as const,
+    { mode: 'auto' } as const,
+    { mode: 'category', field: { src: 'builtin', key: 'taskType' } } as const,
+  ];
+  for (const selection of modes) {
+    const colored = computeBarColors(mkTask('same', { color: '#123456' }), selection, CTX, PAL);
+    const plain = computeBarColors(mkTask('same'), selection, CTX, PAL);
+    ok(JSON.stringify(colored) === JSON.stringify(plain), `Task.color inert in ${selection.mode}`);
+  }
 }
 
 // 9. auto-modus: hash op taak-id, stabiel, onafhankelijk van positie; kritieke taak krijgt rode rand.
 {
-  const a = computeBarColors(mkTask('t5'), [], [], 'auto', PAL);
-  const b = computeBarColors(mkTask('t5'), [], [], 'auto', PAL);
+  const a = computeBarColors(mkTask('t5'), { mode: 'auto' }, CTX, PAL);
+  const b = computeBarColors(mkTask('t5'), { mode: 'auto' }, CTX, PAL);
   ok(a.kind === 'solid' && b.kind === 'solid' && a.fill === b.fill, 'auto-modus: stabiel per id');
   ok(a.kind === 'solid' && a.fill === paletteColorForId('t5'), 'auto-modus: gebruikt palet-hash');
-  const critAuto = computeBarColors(mkTask('t6', { time: mkTime({ isCritical: true }) }), [], [], 'auto', PAL);
+  const critAuto = computeBarColors(mkTask('t6', { time: mkTime({ isCritical: true }) }), { mode: 'auto' }, CTX, PAL);
   ok(critAuto.kind === 'solid' && critAuto.outline === PAL.critical, 'auto-modus: kritieke taak → rode rand');
-  const plainAuto = computeBarColors(mkTask('t6b'), [], [], 'auto', PAL);
+  const plainAuto = computeBarColors(mkTask('t6b'), { mode: 'auto' }, CTX, PAL);
   ok(plainAuto.kind === 'solid' && plainAuto.outline === undefined, 'auto-modus: niet-kritieke taak → géén rand');
 }
 
-// 10. resource-modus: segmenten naar rato van unitsPerDay, exact vullend; zonder resource → blauw;
-//     kritiek → rode rand om het geheel; kleurloze resource → hash-fallback.
+// 10. Alle Group-categorieën: sleutel/label/kleur, ontbrekende waarde en verwijderde-veldterugval.
 {
-  const resources = [mkRes('r1', '#111111'), mkRes('r2', '#222222')];
+  const task = mkTask('cat', {
+    wbsCode: '1.2', taskType: 'CONSTRUCTION', activityCodes: { discipline: 'elektra' },
+    customFields: { text: 'Noord', number: 1.5, integer: 3, cost: 1250, date: '2026-08-24', boolean: true },
+  });
+  ok(resolveBarCategoryValues(task, { src: 'builtin', key: 'wbsCode' }, CTX)[0].label === '1.2', 'WBS-label');
+  ok(resolveBarCategoryValues(task, { src: 'builtin', key: 'taskType' }, CTX)[0].label === 'Constructie', 'taaktype vertaald');
+  const code = resolveBarCategoryValues(task, { src: 'activityCode', typeId: 'discipline' }, CTX)[0];
+  ok(code.label === 'E — Elektra' && code.color === '#11AA55', 'activity code gebruikt label + expliciete kleur');
+  const expectedCustom: Record<string, string> = {
+    text: 'Noord', number: '1.5', integer: '3', cost: '1250', date: '2026-08-24', boolean: 'true',
+  };
+  for (const [defId, label] of Object.entries(expectedCustom)) {
+    ok(resolveBarCategoryValues(task, { src: 'customField', defId }, CTX)[0].label === label, `gebruikersveld ${defId}`);
+  }
+  const none = resolveBarCategoryValues(mkTask('none'), { src: 'customField', defId: 'text' }, CTX)[0];
+  ok(none.isNone && none.label === '(geen)', 'ontbrekende categoriewaarde → (geen)');
+  const missing = effectiveBarColorSelection(
+    { mode: 'category', field: { src: 'activityCode', typeId: 'verwijderd' } }, CTX,
+  );
+  ok(
+    missing.effective.mode === 'category'
+      && missing.effective.field.src === 'builtin'
+      && missing.effective.field.key === 'taskType'
+      && missing.missingField?.src === 'activityCode',
+    'verwijderd veld valt tijdelijk terug op taaktype en bewaart missingField',
+  );
+  const missingFill = computeBarColors(
+    mkTask('missing'), { mode: 'category', field: { src: 'customField', defId: 'text' } }, CTX, PAL,
+  );
+  ok(missingFill.kind === 'solid' && missingFill.fill === PAL.uncategorized, 'geen waarde → neutraal grijs');
+  const sameA = computeBarColors(mkTask('a', { wbsCode: '2.1' }), { mode: 'category', field: { src: 'builtin', key: 'wbsCode' } }, CTX, PAL);
+  const sameB = computeBarColors(mkTask('b', { wbsCode: '2.1' }), { mode: 'category', field: { src: 'builtin', key: 'wbsCode' } }, CTX, PAL);
+  ok(sameA.kind === 'solid' && sameB.kind === 'solid' && sameA.fill === sameB.fill, 'zelfde categoriewaarde → zelfde kleur');
+}
+
+// 11. Resource als categorie: segmenten naar inzet, expliciete/hashkleur, neutrale lege waarde.
+{
   const asg = [mkAsg('t7', 'r1', 1), mkAsg('t7', 'r2', 3)];
-  const seg = computeBarColors(mkTask('t7'), resources, asg, 'resource', PAL);
+  const seg = computeBarColors(
+    mkTask('t7'), { mode: 'category', field: { src: 'resource' } }, withAssignments(asg), PAL,
+  );
   ok(seg.kind === 'segments', 'resource-modus met 2 resources: segmenten');
   if (seg.kind === 'segments') {
     const total = seg.segments.reduce((acc, s) => acc + s.weight, 0);
@@ -123,42 +199,63 @@ const mkAsg = (taskId: string, resourceId: string, unitsPerDay: number): Resourc
     ok(Math.abs(seg.segments[0].weight - 0.25) < 1e-9 && Math.abs(seg.segments[1].weight - 3 / 4) < 1e-9, 'verhouding volgt unitsPerDay (1:3)');
     ok(seg.segments[0].color === '#111111' && seg.segments[1].color === '#222222', 'eigen resourcekleur gebruikt');
   }
-  const none = computeBarColors(mkTask('t8'), [mkRes('r1')], [], 'resource', PAL);
-  ok(none.kind === 'solid' && none.fill === PAL.normal, 'resource-modus zonder toewijzing → neutraal blauw');
-  const fallback = computeBarColors(mkTask('t9'), [mkRes('rx')], [mkAsg('t9', 'rx', 2)], 'resource', PAL);
+  const none = computeBarColors(mkTask('t8'), { mode: 'category', field: { src: 'resource' } }, CTX, PAL);
+  ok(none.kind === 'solid' && none.fill === PAL.uncategorized, 'resource zonder toewijzing → neutraal grijs');
+  const fallback = computeBarColors(
+    mkTask('t9'), { mode: 'category', field: { src: 'resource' } },
+    withAssignments([mkAsg('t9', 'rx', 2)]), PAL,
+  );
   ok(fallback.kind === 'solid' && fallback.fill === paletteColorForId('rx'), 'kleurloze resource → hash-fallback-kleur');
-  const critSeg = computeBarColors(mkTask('t10', { time: mkTime({ isCritical: true }) }), resources, [mkAsg('t10', 'r1', 1)], 'resource', PAL);
+  const critSeg = computeBarColors(
+    mkTask('t10', { time: mkTime({ isCritical: true }) }),
+    { mode: 'category', field: { src: 'resource' } }, withAssignments([mkAsg('t10', 'r1', 1)]), PAL,
+  );
   ok(critSeg.kind !== 'solid' || critSeg.outline === PAL.critical, 'resource-modus: kritiek → rode rand (solid)');
   if (critSeg.kind === 'segments') ok(critSeg.outline === PAL.critical, 'resource-modus: kritiek → rode rand (segments)');
   // Eén resource → solide die ene kleur (géén segmenten-ruis).
-  const single = computeBarColors(mkTask('t10b'), resources, [mkAsg('t10b', 'r2', 2)], 'resource', PAL);
+  const single = computeBarColors(
+    mkTask('t10b'), { mode: 'category', field: { src: 'resource' } },
+    withAssignments([mkAsg('t10b', 'r2', 2)]), PAL,
+  );
   ok(single.kind === 'solid' && single.fill === '#222222', 'resource-modus met 1 resource → solide kleur');
 }
 
-// 11. Smalbalk-fallback: barPx < 12 in resource-modus → solide eerste-kleur i.p.v. segmenten.
+// 12. Smalbalk-fallback + zichtbare legenda-uniekheid.
 {
-  const resources = [mkRes('r1', '#111111'), mkRes('r2', '#222222')];
   const asg = [mkAsg('t11', 'r1', 1), mkAsg('t11', 'r2', 1)];
-  const narrow = computeBarColors(mkTask('t11'), resources, asg, 'resource', PAL, 8);
+  const narrow = computeBarColors(
+    mkTask('t11'), { mode: 'category', field: { src: 'resource' } }, withAssignments(asg), PAL, 8,
+  );
   ok(narrow.kind === 'solid' && narrow.fill === '#111111', 'smalbalk (8px) → solide eerste resourcekleur');
-  const wide = computeBarColors(mkTask('t11'), resources, asg, 'resource', PAL, 40);
+  const wide = computeBarColors(
+    mkTask('t11'), { mode: 'category', field: { src: 'resource' } }, withAssignments(asg), PAL, 40,
+  );
   ok(wide.kind === 'segments', 'brede balk (40px) → wel segmenten');
+  const legend = visibleBarColorCategories(
+    [mkTask('l1', { taskType: 'CONSTRUCTION' }), mkTask('l2', { taskType: 'CONSTRUCTION' }),
+      mkTask('l3', { taskType: 'INSTALLATION' }), mkTask('summary', { childIds: ['l1'] })],
+    { src: 'builtin', key: 'taskType' }, CTX,
+  );
+  ok(legend.length === 2 && legend[0].label === 'Constructie' && legend[1].label === 'Installatie',
+    'legenda dedupliceert zichtbare bladtaken in first-appearance-volgorde');
 }
 
-// 12. Mijlpalen: volgen de modusregel (task/auto/resource uit eigen kleur/hash; zonder resource →
-//     milestone-paars uit het palet). In critical-modus: milestone-kleur (huidig).
+// 13. Mijlpalen volgen critical/auto/categorie; ontbrekende categoriewaarde wordt grijs.
 {
   const ms = mkTask('t12', { isMilestone: true });
-  const c = computeBarColors(ms, [], [], 'critical', PAL);
+  const c = computeBarColors(ms, { mode: 'critical' }, CTX, PAL);
   ok(c.kind === 'solid' && c.fill === PAL.milestone, 'mijlpaal critical-modus → milestone-kleur');
-  const mres = computeBarColors(mkTask('t13', { isMilestone: true }), [mkRes('r1', '#111111')], [mkAsg('t13', 'r1', 1)], 'resource', PAL);
+  const mres = computeBarColors(
+    mkTask('t13', { isMilestone: true }), { mode: 'category', field: { src: 'resource' } },
+    withAssignments([mkAsg('t13', 'r1', 1)]), PAL,
+  );
   ok(mres.kind === 'solid' && mres.fill === '#111111', 'mijlpaal resource-modus → resourcekleur (solide ruit)');
-  const mnone = computeBarColors(mkTask('t14', { isMilestone: true }), [], [], 'resource', PAL);
-  ok(mnone.kind === 'solid' && mnone.fill === PAL.milestone, 'mijlpaal zonder resource → milestone-kleur');
-  const mauto = computeBarColors(mkTask('t14b', { isMilestone: true }), [], [], 'auto', PAL);
+  const mnone = computeBarColors(
+    mkTask('t14', { isMilestone: true }), { mode: 'category', field: { src: 'resource' } }, CTX, PAL,
+  );
+  ok(mnone.kind === 'solid' && mnone.fill === PAL.uncategorized, 'mijlpaal zonder resource → neutraal grijs');
+  const mauto = computeBarColors(mkTask('t14b', { isMilestone: true }), { mode: 'auto' }, CTX, PAL);
   ok(mauto.kind === 'solid' && mauto.fill === paletteColorForId('t14b'), 'mijlpaal auto-modus → hash-kleur');
-  const mtask = computeBarColors(mkTask('t14c', { isMilestone: true, color: '#ABCDEF' }), [], [], 'task', PAL);
-  ok(mtask.kind === 'solid' && mtask.fill === '#ABCDEF', 'mijlpaal task-modus met kleur → eigen kleur');
 }
 
 // 12b. ensureThemeVisible (#21 user-bevinding: donker palet onzichtbaar op donker scherm).

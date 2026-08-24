@@ -1,116 +1,197 @@
-// Balkkleurmodi voor de rapportexport (#21 punt 1-nieuw, ontwerpdoc 2026-08-14 §4). PUUR: één
-// functie per balk, geen Draw2D/store — headless testbaar. De printlaag (printPreview.ts) vertaalt
-// het resultaat naar fill-/roundRect-/strokeRect-aanroepen; de scherm-accent-renderer gebruikt
-// `assignmentsFor` direct.
-//
-// Modi (PrintOptions.barColorMode):
-//  - 'critical': huidige gedrag — kritiek rood, bijna-kritiek oranje, rest blauw (default).
-//  - 'task':     Task.color als gezet, anders critical-logica (B6).
-//  - 'auto':     hash op taak-id → paletkleur; stabiel bij herordenen (B6).
-//  - 'resource': segmenten naar rato van unitsPerDay per toegewezen resource; zonder toewijzing
-//                neutraal blauw; kleurloze resource → hash-fallback (B5/B7/B8).
-// Kritieke taken krijgen in de NIET-critical-modi een rode outline i.p.v. massaal rood (B5) — de
-// vulling blijft de modus trouw, het kritieke pad blijft leesbaar.
+// Pure kleurengine voor scherm en rapport. De nieuwe API ontvangt één app-globale selectie en
+// een BarColorContext; de tijdelijke legacy-overload houdt tussencommits compileerbaar totdat alle
+// bestaande scherm-/printaanroepers in taken 3 en 4 zijn omgezet.
 import { paletteColorForId, resourceDisplayColor } from '@/engine/renderer/resourcePalette';
-import type { Task } from '@/types/task';
+import {
+  effectiveBarColorSelection,
+  resolveBarCategoryValues,
+  type BarCategoryValue,
+  type BarColorContext,
+} from '@/services/print/barColorCategories';
+import type { BarColorSelection } from '@/types/barColor';
 import type { Resource, ResourceAssignment } from '@/types/resource';
+import type { Task } from '@/types/task';
 
+/** @deprecated Tijdelijke brug voor nog niet gemigreerde aanroepers. */
 export type BarColorMode = 'critical' | 'task' | 'auto' | 'resource';
 
-/** De kleuren die de printlaag doorgeeft — bewust letterlijk (geen PRINT_PALETTE-import): zo blijft
- *  deze module vrij van de themePalette-module en volledig headless testbaar. */
 export interface BarPalette {
   critical: string;
   normal: string;
   nearCritical: string;
   milestone: string;
+  /** Neutrale kleur voor taken zonder waarde in de gekozen categorie. */
+  uncategorized?: string;
 }
 
-/** Eén kleuradvies voor een balk: solide, of gesegmenteerd (meer resources op één taak). */
 export type BarFill =
   | { kind: 'solid'; fill: string; outline?: string }
   | { kind: 'segments'; segments: { color: string; weight: number }[]; outline?: string };
 
-/** Drempel waaronder segmenten zinloos zijn (onleesbare reepjes) → solide eerste kleur (§4). */
 export const SEGMENT_MIN_PX = 12;
+const DEFAULT_UNCATEGORIZED = '#94A3B8';
 
-/** De critical-logica van vóór deze feature, gedeeld door 'critical' en de 'task'-fallback.
- *  Spiegelt printPreview's oorspronkelijke kleurkeuze (critical → nearCritical → normal), plus
- *  Task.color als laatste eigen kleur — precies wat de oude code voor niet-kritieke bladbalken al
- *  kon (al gebruikte de print het niet); in critical-modus blijft Task.color dus werkend. */
-function criticalFill(task: Task, pal: BarPalette): string {
-  if (task.isMilestone) return pal.milestone;
-  if (task.time.isCritical) return pal.critical;
-  if (task.time.isNearCritical) return pal.nearCritical;
-  return task.color || pal.normal;
+/** Critical-kleuring negeert bewust het oude Task.color-veld. */
+function criticalFill(task: Task, palette: BarPalette): string {
+  if (task.isMilestone) return palette.milestone;
+  if (task.time.isCritical) return palette.critical;
+  if (task.time.isNearCritical) return palette.nearCritical;
+  return palette.normal;
 }
 
-/** Toegewezen resources voor een taak, als (displaykleur, units)-paren in toewijzingsvolgorde.
- *  Onbekende resource-id's (dode toewijzing) worden overgeslagen. */
+/** Exacte oude critical-vulling, uitsluitend voor de tijdelijke overload. */
+function legacyCriticalFill(task: Task, palette: BarPalette): string {
+  if (task.isMilestone) return palette.milestone;
+  if (task.time.isCritical) return palette.critical;
+  if (task.time.isNearCritical) return palette.nearCritical;
+  return task.color || palette.normal;
+}
+
+/** Bestaande hulpfunctie voor Resource accent en tijdelijke legacy-aanroepers. */
 export function assignmentsFor(
   taskId: string,
   resources: ReadonlyArray<Resource>,
   assignments: ReadonlyArray<ResourceAssignment>,
 ): { color: string; unitsPerDay: number; resourceId: string; name: string }[] {
-  const byId = new Map(resources.map(r => [r.id, r]));
-  const out: { color: string; unitsPerDay: number; resourceId: string; name: string }[] = [];
-  for (const a of assignments) {
-    if (a.taskId !== taskId) continue;
-    const res = byId.get(a.resourceId);
-    if (!res) continue;
-    out.push({ color: resourceDisplayColor(res), unitsPerDay: a.unitsPerDay, resourceId: res.id, name: res.name });
+  const byId = new Map(resources.map(resource => [resource.id, resource]));
+  const rows: { color: string; unitsPerDay: number; resourceId: string; name: string }[] = [];
+  for (const assignment of assignments) {
+    if (assignment.taskId !== taskId) continue;
+    const resource = byId.get(assignment.resourceId);
+    if (!resource) continue;
+    rows.push({
+      color: resourceDisplayColor(resource),
+      unitsPerDay: assignment.unitsPerDay,
+      resourceId: resource.id,
+      name: resource.name,
+    });
   }
-  return out;
+  return rows;
 }
 
-/**
- * Kleuradvies voor één balk. `barPx` is de balkbreedte in logische px (alleen nodig voor de
- * smalbalk-fallback; ontbreekt ⇒ segmenten altijd toestaan). Mijlpalen zijn altijd solide (ruit).
- * In 'critical'-modus is de uitkomst exact de oude kleurkeuze — geen outline.
- */
+function displayColor(value: BarCategoryValue, palette: BarPalette): string {
+  if (value.isNone) return palette.uncategorized ?? DEFAULT_UNCATEGORIZED;
+  return value.color ?? paletteColorForId(value.key);
+}
+
+function computeSelectionColors(
+  task: Task,
+  selection: BarColorSelection,
+  context: BarColorContext,
+  palette: BarPalette,
+  barPx?: number,
+): BarFill {
+  if (selection.mode === 'critical') {
+    return { kind: 'solid', fill: criticalFill(task, palette) };
+  }
+
+  const outline = task.time.isCritical ? palette.critical : undefined;
+  if (selection.mode === 'auto') {
+    return { kind: 'solid', fill: paletteColorForId(task.id), outline };
+  }
+
+  const effective = effectiveBarColorSelection(selection, context).effective;
+  // De fallback van een onbeschikbaar veld is altijd category/taskType.
+  if (effective.mode !== 'category') {
+    return { kind: 'solid', fill: criticalFill(task, palette) };
+  }
+  const values = resolveBarCategoryValues(task, effective.field, context);
+  const firstColor = displayColor(values[0], palette);
+
+  // Een mijlpaal is één ruit; één waarde en een smalle balk hebben evenmin leesbare segmenten.
+  if (task.isMilestone || values.length === 1 || (barPx !== undefined && barPx < SEGMENT_MIN_PX)) {
+    return { kind: 'solid', fill: firstColor, outline };
+  }
+
+  const total = values.reduce((sum, value) => sum + Math.max(0, value.weight), 0) || 1;
+  return {
+    kind: 'segments',
+    segments: values.map(value => ({
+      color: displayColor(value, palette),
+      weight: Math.max(0, value.weight) / total,
+    })),
+    outline,
+  };
+}
+
+export function computeBarColors(
+  task: Task,
+  selection: BarColorSelection,
+  context: BarColorContext,
+  palette: BarPalette,
+  barPx?: number,
+): BarFill;
+/** @deprecated Tijdelijke overload; verdwijnt zodra alle renderers het gedeelde contract gebruiken. */
 export function computeBarColors(
   task: Task,
   resources: ReadonlyArray<Resource>,
   assignments: ReadonlyArray<ResourceAssignment>,
   mode: BarColorMode,
-  pal: BarPalette,
+  palette: BarPalette,
   barPx?: number,
+): BarFill;
+export function computeBarColors(
+  task: Task,
+  selectionOrResources: BarColorSelection | ReadonlyArray<Resource>,
+  contextOrAssignments: BarColorContext | ReadonlyArray<ResourceAssignment>,
+  paletteOrMode: BarPalette | BarColorMode,
+  barPxOrPalette?: number | BarPalette,
+  legacyBarPx?: number,
 ): BarFill {
-  // Mijlpalen: één ruit, geen segmenten. In de modus-modi wél de modus-kleur (indien bepaalbaar).
-  if (task.isMilestone) {
-    if (mode === 'critical') return { kind: 'solid', fill: pal.milestone };
-    if (mode === 'task') {
-      if (task.color) return { kind: 'solid', fill: task.color, outline: task.time.isCritical ? pal.critical : undefined };
-      return { kind: 'solid', fill: pal.milestone };
-    }
-    if (mode === 'auto') {
-      return { kind: 'solid', fill: paletteColorForId(task.id), outline: task.time.isCritical ? pal.critical : undefined };
-    }
-    // resource: eerste toegewezen resource, anders de milestone-kleur.
-    const rows = assignmentsFor(task.id, resources, assignments);
-    return { kind: 'solid', fill: rows.length > 0 ? rows[0].color : pal.milestone, outline: task.time.isCritical ? pal.critical : undefined };
+  if (!Array.isArray(selectionOrResources)) {
+    return computeSelectionColors(
+      task,
+      selectionOrResources as BarColorSelection,
+      contextOrAssignments as BarColorContext,
+      paletteOrMode as BarPalette,
+      barPxOrPalette as number | undefined,
+    );
   }
 
-  // Samenvattende taken (childIds > 0) vallen buiten de modi: hun balk is structuur (summary-stijl),
-  // geen inzet — de printlaag tekent ze zoals altijd. Voor de volledigheid leveren we wel gewoon
-  // het critical-advies; de aanroeper kiest er de summary-opmaak voor.
-  const outline = mode !== 'critical' && task.time.isCritical ? pal.critical : undefined;
+  const resources = selectionOrResources as ReadonlyArray<Resource>;
+  const assignments = contextOrAssignments as ReadonlyArray<ResourceAssignment>;
+  const mode = paletteOrMode as BarColorMode;
+  const palette = barPxOrPalette as BarPalette;
+  const context: BarColorContext = {
+    activityCodeTypes: [],
+    customFieldDefs: [],
+    resources,
+    assignments,
+    noneLabel: '(geen)',
+  };
 
-  if (mode === 'auto') return { kind: 'solid', fill: paletteColorForId(task.id), outline };
-
+  // De oude task-modus blijft alleen in deze compileerbrug functioneel. Nieuwe aanroepers kunnen
+  // hem niet kiezen en de brug wordt bij de UI-migratie verwijderd.
   if (mode === 'task') {
+    const outline = task.time.isCritical ? palette.critical : undefined;
     if (task.color) return { kind: 'solid', fill: task.color, outline };
-    return { kind: 'solid', fill: criticalFill(task, pal) };
+    return { kind: 'solid', fill: legacyCriticalFill(task, palette) };
   }
-
   if (mode === 'resource') {
+    const outline = task.time.isCritical ? palette.critical : undefined;
     const rows = assignmentsFor(task.id, resources, assignments);
-    if (rows.length === 0) return { kind: 'solid', fill: pal.normal, outline };
-    if (rows.length === 1) return { kind: 'solid', fill: rows[0].color, outline };
-    if (barPx !== undefined && barPx < SEGMENT_MIN_PX) return { kind: 'solid', fill: rows[0].color, outline };
-    const total = rows.reduce((a, r) => a + r.unitsPerDay, 0) || 1;
-    return { kind: 'segments', segments: rows.map(r => ({ color: r.color, weight: r.unitsPerDay / total })), outline };
+    if (task.isMilestone) {
+      return {
+        kind: 'solid',
+        fill: rows.length > 0 ? rows[0].color : palette.milestone,
+        outline,
+      };
+    }
+    if (rows.length === 0) return { kind: 'solid', fill: palette.normal, outline };
+    if (rows.length === 1 || (legacyBarPx !== undefined && legacyBarPx < SEGMENT_MIN_PX)) {
+      return { kind: 'solid', fill: rows[0].color, outline };
+    }
+    const total = rows.reduce((sum, row) => sum + row.unitsPerDay, 0) || 1;
+    return {
+      kind: 'segments',
+      segments: rows.map(row => ({ color: row.color, weight: row.unitsPerDay / total })),
+      outline,
+    };
   }
-
-  return { kind: 'solid', fill: criticalFill(task, pal) };
+  if (mode === 'auto') {
+    return computeSelectionColors(task, { mode: 'auto' }, context, palette, legacyBarPx);
+  }
+  return { kind: 'solid', fill: legacyCriticalFill(task, palette) };
 }
+
+export type { BarCategoryValue, BarColorContext };
