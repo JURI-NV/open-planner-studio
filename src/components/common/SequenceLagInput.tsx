@@ -1,6 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Sequence } from '@/types/sequence';
 import { formatLagShort, parseLagInput } from '@/utils/lagFormat';
+
+/** Alleen deze vier velden bepalen de zichtbare lagtekst; type- of eindpuntupdates doen dat niet. */
+function lagSignature(seq: Sequence): string {
+  return [seq.lagDays, seq.lagUnit ?? '', seq.lagPercent ?? '', seq.lagMinutes ?? ''].join('|');
+}
 
 /**
  * Klein lag-invoerveld met MSP-notatie (2d / 3ed / 2u / 50% / -25e%); commit op blur/Enter,
@@ -16,9 +21,12 @@ export function SequenceLagInput({ seq, title, className, onCommit }: {
   onCommit: (patch: Pick<Sequence, 'lagDays' | 'lagUnit' | 'lagPercent' | 'lagMinutes'>) => void;
 }) {
   const [val, setVal] = useState(formatLagShort(seq));
+  const signature = lagSignature(seq);
+  const formattedLagRef = useRef(formatLagShort(seq));
+  formattedLagRef.current = formatLagShort(seq);
   useEffect(() => {
-    setVal(formatLagShort(seq));
-  }, [seq.lagDays, seq.lagUnit, seq.lagPercent, seq.lagMinutes]);
+    setVal(formattedLagRef.current);
+  }, [signature]);
   // Live-afgeleid (zoals `UnitsInput`): rood ZODRA de huidige tekst niet parseerbaar is — dus al
   // tíjdens het typen, niet pas na een stille terugval bij blur (F1-bevinding: het veld sprong
   // eerder terug zonder ENIGE indicatie dat de invoer geweigerd was).
