@@ -19,6 +19,10 @@ src-tauri/gen/
 # Playwright MCP self-test artifacts
 .playwright-mcp/
 
+# Playwright browser-test artifacts
+playwright-report/
+test-results/
+
 # Visual brainstorm companion mockups
 .superpowers/
 
