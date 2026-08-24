@@ -30,7 +30,6 @@ import type { WorkCalendar } from '@/types/calendar';
 import type { ViewRow } from '@/engine/view/visibleRows';
 import { renderReport, type PrintOptions } from '@/services/print/printPreview';
 import type { Draw2D, TextAlign, TextBaseline } from '@/services/pdf/draw2d';
-import { PRINT_PALETTE } from '@/engine/renderer/themePalette';
 
 const S = () => useAppStore.getState();
 
@@ -331,7 +330,7 @@ console.log('-- split-bar-render (print/PDF): voortgangsvulling globaal, niet pe
     const completion = ((seg1.x + seg1.w * 0.5) - overallX1) / overallWidth;
     const passB = makeD2D();
     renderReport(() => passB.d2d, [printTask('p2', '2026-06-01', '2026-07-20', oneGap, completion)], [], PRINT_CAL, 'P', printOptions);
-    const progressFills = passB.rects.filter(r => r.fillStyle === PRINT_PALETTE.normalDark);
+    const progressFills = passB.rects.filter(r => r.fillStyle === 'rgba(0, 0, 0, 0.25)');
     ok('print: minstens 1 voortgangsvulling', progressFills.length > 0);
     const leaksIntoSeg2 = progressFills.some(r => r.x >= seg2.x - 0.01);
     ok('print: GEEN voortgangsvulling in segment 2', !leaksIntoSeg2);

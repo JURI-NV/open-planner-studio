@@ -98,7 +98,7 @@ const EXT_SEQUENCE_KEYS = keys<ExtSequence>()([
 
 const EXT_RESOURCE_KEYS = keys<ExtResource>()([
   'id', 'name', 'type', 'description', 'costPerHour', 'maxUnits', 'calendarId',
-  'availabilitySteps', 'unitOfMeasure', 'parentId',
+  'availabilitySteps', 'unitOfMeasure', 'parentId', 'color',
 ] as const);
 
 const EXT_ASSIGNMENT_KEYS = keys<ExtAssignment>()([

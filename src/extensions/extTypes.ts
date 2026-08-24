@@ -280,6 +280,8 @@ export interface ExtResource {
   availabilitySteps?: ExtAvailabilityStep[];
   unitOfMeasure?: string;
   parentId?: string;
+  /** Optionele weergavekleur voor resource-accenten en resourcegekleurde balken. */
+  color?: string;
 }
 
 /** Ext-facing resource-toewijzing. Spiegelt {@link import('@/types/resource').ResourceAssignment}. */
