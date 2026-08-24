@@ -7,10 +7,11 @@ import type { ExtensionManifest, ReadyExtension, CatalogEntry } from './types';
 import { manifestFromJavaScript, parseCatalog, parseExtensionManifest } from './validation';
 import {
   saveExtensionToDb,
-  removeExtensionFromDb,
   enableExtension,
   disableExtension,
   getActivePlugins,
+  indexedDbExtensionStorage,
+  type ExtensionStorage,
 } from './extensionLoader';
 import { useAppStore } from '@/state/appStore';
 import { appLog } from '@/services/debug/appLog';
@@ -622,12 +623,15 @@ function scanDataDescriptor(
 
 // ── Extensie verwijderen ──
 
-export async function removeExtension(id: string): Promise<void> {
+export async function removeExtension(
+  id: string,
+  storage: ExtensionStorage = indexedDbExtensionStorage,
+): Promise<void> {
   if (getActivePlugins().has(id)) {
-    await disableExtension(id);
+    await disableExtension(id, storage);
   }
 
-  await removeExtensionFromDb(id);
+  await storage.remove(id);
   useAppStore.getState().unregisterExtension(id);
 
   // Instellingen van deze extensie opruimen
@@ -641,11 +645,14 @@ export async function removeExtension(id: string): Promise<void> {
 }
 
 /** Verwijder een onuitvoerbaar opslagrecord via zijn bewaarde IndexedDB-sleutel. */
-export async function removeQuarantinedExtension(quarantineId: string): Promise<void> {
+export async function removeQuarantinedExtension(
+  quarantineId: string,
+  storage: ExtensionStorage = indexedDbExtensionStorage,
+): Promise<void> {
   const store = useAppStore.getState();
   const quarantined = store.quarantinedExtensions[quarantineId];
   if (!quarantined) return;
 
-  await removeExtensionFromDb(quarantined.storageKey);
+  await storage.remove(quarantined.storageKey);
   useAppStore.getState().removeQuarantinedExtension(quarantineId);
 }

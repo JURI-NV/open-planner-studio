@@ -16,7 +16,13 @@ import type {
   ExtensionManifest,
   ParseResult,
 } from '@/extensions/types';
-import { createAppStoreContext } from '@/state/appStore';
+import {
+  disableExtension,
+  enableExtension,
+  getActivePlugins,
+  type ExtensionStorage,
+} from '@/extensions/extensionLoader';
+import { createAppStoreContext, useAppStore } from '@/state/appStore';
 
 const diffs: string[] = [];
 let checks = 0;
@@ -504,6 +510,47 @@ expectStoredFail('opgeslagen assets blijven samen maximaal 48 MiB', storedRecord
     'drie.bin': new Uint8Array((16 * 1024 * 1024) + 1),
   },
 }));
+
+// ── 14. Een status-writefailure verandert de gekozen runtimestatus niet ──────────
+{
+  const id = 'writefailure-test';
+  const manifestInput = { ...volledig(), id, minAppVersion: '0.0.0' };
+  const value = storedRecord(id, { manifest: manifestInput });
+  const manifest = parseExtensionManifest(manifestInput, 'fresh');
+  if (!manifest.ok) throw new Error(manifest.error);
+  let saveAttempts = 0;
+  const failingStorage: ExtensionStorage = {
+    get: async (key) => ({ storageKey: key, value }),
+    getAll: async () => [{ storageKey: id, value }],
+    save: async () => {
+      saveAttempts++;
+      throw new Error('bewuste test-opslagfout');
+    },
+    remove: async () => undefined,
+  };
+  useAppStore.getState().registerReadyExtension({
+    kind: 'ready',
+    id,
+    manifest: manifest.value,
+    status: 'disabled',
+  });
+
+  await enableExtension(id, failingStorage);
+  eq('enable-writefailure laat runtime enabled',
+    useAppStore.getState().installedExtensions[id]?.status, 'enabled');
+  eq('enable-writefailure laat plugin actief', getActivePlugins().has(id), true);
+  eq('enable-writefailure blijft concreet zichtbaar',
+    useAppStore.getState().installedExtensions[id]?.error?.includes('bewuste test-opslagfout'), true);
+
+  await disableExtension(id, failingStorage);
+  eq('disable-writefailure laat runtime disabled',
+    useAppStore.getState().installedExtensions[id]?.status, 'disabled');
+  eq('disable-writefailure ruimt actieve plugin op', getActivePlugins().has(id), false);
+  eq('disable-writefailure blijft concreet zichtbaar',
+    useAppStore.getState().installedExtensions[id]?.error?.includes('bewuste test-opslagfout'), true);
+  eq('beide expliciete statuswrites zijn geprobeerd', saveAttempts, 2);
+  useAppStore.getState().unregisterExtension(id);
+}
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {

@@ -9,6 +9,7 @@ import type {
   ExtensionPlugin,
   QuarantinedExtension,
   ReadyExtension,
+  ReadyStoredExtension,
 } from './types';
 import { createExtensionApi } from './extensionApi';
 import { getExtensionSdk, installExtensionSdk } from './sdk';
@@ -106,6 +107,14 @@ export interface RawStoredExtension {
   value: unknown;
 }
 
+/** Injecteerbare opslagnaad: productcode gebruikt IndexedDB, tests leveren een lokale implementatie. */
+export interface ExtensionStorage {
+  get(key: IDBValidKey): Promise<RawStoredExtension | undefined>;
+  getAll(): Promise<RawStoredExtension[]>;
+  save(extension: StoredExtension): Promise<void>;
+  remove(key: IDBValidKey): Promise<void>;
+}
+
 function bytesToHex(bytes: Uint8Array): string {
   let hex = '';
   for (const byte of bytes) hex += byte.toString(16).padStart(2, '0');
@@ -169,14 +178,61 @@ export async function getAllExtensionRecordsFromDb(): Promise<RawStoredExtension
   });
 }
 
-export async function getExtensionFromDb(id: string): Promise<StoredExtension | undefined> {
+export async function getExtensionRecordFromDb(
+  key: IDBValidKey,
+): Promise<RawStoredExtension | undefined> {
   const db = await openExtensionDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('extensions', 'readonly');
-    const req = tx.objectStore('extensions').get(id);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    const req = tx.objectStore('extensions').openCursor(IDBKeyRange.only(key));
+    req.onsuccess = () => {
+      const cursor = req.result;
+      resolve(cursor
+        ? { storageKey: cursor.primaryKey, value: cursor.value }
+        : undefined);
+    };
+    req.onerror = () => reject(req.error ?? new Error('IndexedDB-recordlezing is mislukt'));
+    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB-recordlezing is afgebroken'));
   });
+}
+
+export const indexedDbExtensionStorage: ExtensionStorage = {
+  get: getExtensionRecordFromDb,
+  getAll: getAllExtensionRecordsFromDb,
+  save: saveExtensionToDb,
+  remove: removeExtensionFromDb,
+};
+
+function storableExtension(
+  extension: ReadyStoredExtension,
+  enabled: boolean,
+): StoredExtension {
+  return {
+    id: extension.id,
+    manifest: extension.manifest,
+    mainCode: extension.mainCode,
+    enabled,
+    ...(extension.assets !== undefined ? { assets: extension.assets } : {}),
+  };
+}
+
+function quarantineRecord(id: string, raw: RawStoredExtension, reason: string): void {
+  const store = useAppStore.getState();
+  store.unregisterExtension(id);
+  store.registerQuarantinedExtension({
+    kind: 'quarantined',
+    quarantineId: quarantineIdForStorageKey(raw.storageKey),
+    storageKey: raw.storageKey,
+    displayName: '',
+    reason,
+    status: 'quarantined',
+  });
+}
+
+function reportStorageWriteFailure(id: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  useAppStore.getState().setExtensionPersistenceError(id, message);
+  appLog.emit('error', 'Extensies', `Status van "${id}" kon niet worden opgeslagen: ${message}`);
 }
 
 /** Voer extensie-code uit in een minimale CommonJS-sandbox.
@@ -224,20 +280,30 @@ export function executeExtensionCode(mainCode: string): ExtensionPlugin {
 }
 
 /** Activeer een extensie: code laden, uitvoeren, onLoad(api) aanroepen. */
-export async function enableExtension(id: string): Promise<void> {
+export async function enableExtension(
+  id: string,
+  storage: ExtensionStorage = indexedDbExtensionStorage,
+): Promise<void> {
   const store = useAppStore.getState();
 
   if (activePlugins.has(id)) return;
   if (enablingExtensions.has(id)) return;
   enablingExtensions.add(id);
 
-  store.setExtensionStatus(id, 'loading');
-
   let api: ReturnType<typeof createExtensionApi> | undefined;
 
   try {
-    const stored = await getExtensionFromDb(id);
-    if (!stored) throw new Error(`Extensie "${id}" niet gevonden in opslag`);
+    const raw = await storage.get(id);
+    if (!raw) throw new Error(`Extensie "${id}" niet gevonden in opslag`);
+    const parsed = parseStoredExtension(raw.value, raw.storageKey);
+    if (!parsed.ok) {
+      quarantineRecord(id, raw, parsed.error);
+      return;
+    }
+    const stored = parsed.value;
+
+    // Pas na een geldige verse parse wordt de readykaart tijdelijk loading.
+    store.setExtensionStatus(id, 'loading');
 
     // Poort 1 — APP-versie (features): weiger als de app ouder is dan minAppVersion.
     const minVersion = stored.manifest.minAppVersion;
@@ -278,9 +344,9 @@ export async function enableExtension(id: string): Promise<void> {
 
     stored.enabled = true;
     try {
-      await saveExtensionToDb(stored);
+      await storage.save(storableExtension(stored, true));
     } catch (persistErr) {
-      console.warn(`[Extensies] Kon enabled-status van "${id}" niet opslaan (extensie draait wel):`, persistErr);
+      reportStorageWriteFailure(id, persistErr);
     }
   } catch (err) {
     // Draai eventuele al-gedane registraties terug (onLoad kan halverwege gefaald zijn).
@@ -298,7 +364,10 @@ export async function enableExtension(id: string): Promise<void> {
 }
 
 /** Deactiveer een extensie en draai alle registraties terug. */
-export async function disableExtension(id: string): Promise<void> {
+export async function disableExtension(
+  id: string,
+  storage: ExtensionStorage = indexedDbExtensionStorage,
+): Promise<void> {
   const active = activePlugins.get(id);
   if (active) {
     try {
@@ -310,22 +379,39 @@ export async function disableExtension(id: string): Promise<void> {
     activePlugins.delete(id);
   }
 
-  useAppStore.getState().setExtensionStatus(id, 'disabled');
+  const store = useAppStore.getState();
+  store.setExtensionStatus(id, 'disabled');
 
-  const stored = await getExtensionFromDb(id);
-  if (stored) {
-    stored.enabled = false;
-    await saveExtensionToDb(stored);
+  try {
+    const raw = await storage.get(id);
+    if (!raw) {
+      reportStorageWriteFailure(id, new Error(`Extensie "${id}" niet gevonden in opslag`));
+      return;
+    }
+    const parsed = parseStoredExtension(raw.value, raw.storageKey);
+    if (!parsed.ok) {
+      quarantineRecord(id, raw, parsed.error);
+      return;
+    }
+    try {
+      await storage.save(storableExtension(parsed.value, false));
+    } catch (persistErr) {
+      reportStorageWriteFailure(id, persistErr);
+    }
+  } catch (readErr) {
+    reportStorageWriteFailure(id, readErr);
   }
 }
 
 /** Laad alle geïnstalleerde extensies bij het opstarten (auto-enable wat aan stond). */
-export async function loadAllExtensions(): Promise<void> {
+export async function loadAllExtensions(
+  storage: ExtensionStorage = indexedDbExtensionStorage,
+): Promise<void> {
   installExtensionSdk();
 
   let allExtensions: RawStoredExtension[];
   try {
-    allExtensions = await getAllExtensionRecordsFromDb();
+    allExtensions = await storage.getAll();
   } catch (err) {
     console.error('[Extensies] Lezen van extensieopslag mislukt:', err);
     return;
@@ -359,7 +445,7 @@ export async function loadAllExtensions(): Promise<void> {
       useAppStore.getState().registerReadyExtension(installed);
 
       if (ext.enabled) {
-        await enableExtension(ext.id);
+        await enableExtension(ext.id, storage);
       }
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);

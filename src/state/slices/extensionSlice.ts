@@ -46,6 +46,7 @@ export interface ExtensionSlice {
   removeQuarantinedExtension: (quarantineId: string) => void;
   unregisterExtension: (id: string) => void;
   setExtensionStatus: (id: string, status: ExtensionStatus, error?: string) => void;
+  setExtensionPersistenceError: (id: string, error: string) => void;
 
   // Ribbon-knoppen
   addExtensionRibbonButton: (btn: ExtensionRibbonButton) => void;
@@ -109,6 +110,12 @@ export const createExtensionSlice: AppSlice<ExtensionSlice> = (set) => ({
         ext.status = status;
         ext.error = error;
       }
+    }),
+
+  setExtensionPersistenceError: (id, error) =>
+    set((s) => {
+      const ext = s.installedExtensions[id];
+      if (ext) ext.error = error;
     }),
 
   addExtensionRibbonButton: (btn) =>

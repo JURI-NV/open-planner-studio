@@ -1,6 +1,6 @@
 import { expect, test, waitForOps } from './fixtures/ops';
 
-test('extension storage: scant vier echte IndexedDB-records zonder code uit te voeren', async ({ page, ops: _ops }) => {
+test('extension storage: scant vier echte IndexedDB-records zonder code uit te voeren', async ({ page, ops }) => {
   test.setTimeout(60_000);
   await page.evaluate(async () => {
     Object.defineProperty(window, '__opsExtensionStorageOnLoad', {
@@ -191,4 +191,103 @@ test('extension storage: scant vier echte IndexedDB-records zonder code uit te v
   });
   expect(remaining.keys).toEqual(['01-legacy', '03-mismatch', '04-modern']);
   expect(remaining.quarantineCount).toBe(1);
+
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('ops-extensions', 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('extensions', 'readwrite');
+      const request = tx.objectStore('extensions').get('01-legacy');
+      request.onsuccess = () => {
+        const value = request.result;
+        value.manifest = 17;
+        tx.objectStore('extensions').put(value);
+      };
+      request.onerror = () => reject(request.error);
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error);
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  });
+
+  const legacyReadyCard = page.getByTestId('extension-ready-card').filter({ hasText: 'Extensie 01-legacy' });
+  await legacyReadyCard.locator('.ext-toggle').click();
+  await expect(legacyReadyCard).toHaveCount(0);
+  await expect(page.getByTestId('extension-quarantine-card')).toHaveCount(2);
+  await expect(page.getByTestId('extension-quarantine-card').filter({
+    hasText: 'manifest moet een object zijn',
+  })).toHaveCount(1);
+  expect(await page.evaluate(() => (
+    window as unknown as { __opsExtensionStorageOnLoad: number }
+  ).__opsExtensionStorageOnLoad)).toBe(1);
+
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('ops-extensions', 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const manifest = (id: string) => ({
+      id,
+      name: `Extensie ${id}`,
+      version: '1.0.0',
+      apiVersion: '1.0',
+      minAppVersion: '0.0.0',
+      author: 'Browserfixture',
+      description: '',
+      category: 'Utility',
+      main: 'main.js',
+      permissions: ['events'],
+    });
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('extensions', 'readwrite');
+      const store = tx.objectStore('extensions');
+      store.put({
+        id: '05-onload-error',
+        manifest: manifest('05-onload-error'),
+        mainCode: 'module.exports = { onLoad() { window.__opsFailingOnLoad += 1; throw new Error("bewuste onLoad-fout"); } };',
+        enabled: true,
+      });
+      store.put({
+        id: '06-after-error',
+        manifest: manifest('06-after-error'),
+        mainCode: 'module.exports = { onLoad() { window.__opsAfterOnLoadError += 1; } };',
+        enabled: true,
+      });
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error);
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  });
+  await page.addInitScript(() => {
+    Object.defineProperty(window, '__opsFailingOnLoad', { configurable: true, writable: true, value: 0 });
+    Object.defineProperty(window, '__opsAfterOnLoadError', { configurable: true, writable: true, value: 0 });
+  });
+  ops.acceptError('Activeren van "05-onload-error" mislukt');
+  await page.reload();
+  await waitForOps(page);
+
+  await expect.poll(() => page.evaluate(() => {
+    const store = window.__OPS__!.store.getState();
+    return {
+      failing: store.installedExtensions['05-onload-error']?.status,
+      after: store.installedExtensions['06-after-error']?.status,
+      readyIds: Object.keys(store.installedExtensions),
+      quarantined: Object.keys(store.quarantinedExtensions).length,
+    };
+  })).toEqual({
+    failing: 'error',
+    after: 'enabled',
+    readyIds: ['04-modern', '05-onload-error', '06-after-error'],
+    quarantined: 2,
+  });
+  expect(await page.evaluate(() => ({
+    failedEffects: (window as unknown as { __opsFailingOnLoad: number }).__opsFailingOnLoad,
+    laterEffects: (window as unknown as { __opsAfterOnLoadError: number }).__opsAfterOnLoadError,
+  }))).toEqual({ failedEffects: 1, laterEffects: 1 });
 });

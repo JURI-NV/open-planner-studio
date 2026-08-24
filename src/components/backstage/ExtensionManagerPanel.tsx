@@ -168,7 +168,11 @@ function InstalledExtensionCard({ ext }: { ext: ReadyExtension }) {
         </div>
         <p className="ext-card-desc">{ext.manifest.description}</p>
         <span className="ext-card-author">{ext.manifest.author}</span>
-        {isError && ext.error && <p className="ext-card-error-msg">{ext.error}</p>}
+        {ext.error && (
+          <p className="ext-card-error-msg">
+            {isError ? ext.error : `${t('extensions.storageWriteFailed')} ${ext.error}`}
+          </p>
+        )}
       </div>
 
       <div className="ext-card-actions">
