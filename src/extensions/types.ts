@@ -153,13 +153,14 @@ export interface RibbonButtonRegistration {
 export interface ExtensionApi {
   readonly extensionId: string;
 
-  /** Registratie van import-formaten (verschijnen in Backstage → Importeren). */
+  /** Appbrede registratie van import-formaten (verschijnen in Backstage → Importeren). */
   importers: {
     register(def: ImporterDefinition): void;
     unregister(id: string): void;
   };
 
-  /** Lees-/schrijftoegang tot de planningsdata. `get*` levert VERSE, MUTEERBARE kopieën (Ext*-DTO's,
+  /** Lees-/schrijftoegang tot de expliciet door de host gebonden documentcontext. `get*` levert
+   *  VERSE, MUTEERBARE kopieën (Ext*-DTO's,
    *  géén bevroren store-objecten): muteren van het resultaat raakt de store NIET — schrijf via
    *  addTask/updateTask/addSequence. Mutaties lopen via store-acties (die zelf undo-snapshots pushen);
    *  na bulk-wijzigingen zelf recalculate() aanroepen. */
@@ -203,7 +204,7 @@ export interface ExtensionApi {
     emit(event: string, data?: unknown): void;
   };
 
-  /** UI-registratie. */
+  /** Appbrede UI-registratie; deze volgt de hostbinding, niet de documentcontext. */
   ui: {
     addRibbonButton(reg: RibbonButtonRegistration): void;
     showNotification(message: string, type?: 'info' | 'warning' | 'error'): void;

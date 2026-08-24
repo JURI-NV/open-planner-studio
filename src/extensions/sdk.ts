@@ -4,7 +4,9 @@
  * In tegenstelling tot de per-extensie `ExtensionApi` (die `onLoad(api)` ontvangt en
  * permissie-checks + opruimen per extensie regelt) is de SDK GLOBAAL en STATELOOS:
  * alleen constanten, versie-info en pure helpers om geldige domeinobjecten te bouwen.
- * Niets hier muteert de store of omzeilt permissies — mutaties lopen via `api.data.*`.
+ * Niets hier muteert de store of omzeilt permissies — mutaties lopen via `api.data.*`, dat door de
+ * host aan één expliciete documentcontext wordt gebonden. Deze SDK, de eventbus en registries
+ * blijven appglobaal.
  */
 import type { ExtensionCategory, ExtensionPermission } from './types';
 import type {

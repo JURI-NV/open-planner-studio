@@ -18,6 +18,15 @@ import {
 } from '@/state/appStore';
 import { capturePayload } from '@/state/documentContract';
 import { createBatchTransactions } from '@/state/runtime/createBatchTransactions';
+import {
+  createExtensionApi,
+  type ExtensionHostBinding,
+} from '@/extensions/extensionApi';
+import { getExtensionSdk } from '@/extensions/sdk';
+import {
+  clearCjkFontProviders,
+  getCjkFontProviders,
+} from '@/services/pdf/fontRegistry';
 
 const diffs: string[] = [];
 let checks = 0;
@@ -158,19 +167,165 @@ eq('2b maar niet met hetzelfde state-object', A.getState() === B.getState(), fal
   eq('14e paste op B laat de app-singleton byte-inhoudelijk gelijk', capturePayload(useAppStore.getState()), appVoor);
 }
 
-// ── 6. De singleton blijft de singleton ────────────────────────────────────
+// ── 6. Extensiedata volgt document B; appregistraties volgen host A ─────────
 {
-  eq('15 useAppStore heeft de bekende Zustandvorm',
+  const extensionA = createAppStoreContext();
+  const extensionB = createAppStoreContext();
+  const A = extensionA.store;
+  const B = extensionB.store;
+
+  A.getState().setProject({ name: 'Hostdocument A' });
+  A.getState().addTask({ name: 'Taak alleen in A' });
+  B.getState().setProject({ name: 'Document B' });
+  B.getState().setCalendar({ ...B.getState().calendar, name: 'Kalender B' });
+  const voorganger = B.getState().addTask({ name: 'Voorganger B' });
+  const opvolger = B.getState().addTask({ name: 'Opvolger B' });
+  B.getState().addSequence({
+    predecessorId: voorganger,
+    successorId: opvolger,
+    type: 'FINISH_START',
+    lagDays: 0,
+  });
+  const resource = B.getState().addResource({
+    name: 'Kraan B',
+    type: 'EQUIPMENT',
+    description: '',
+    maxUnits: 1,
+  });
+  B.getState().assignResource(voorganger, resource, 1);
+
+  const notificationsA: string[] = [];
+  const notificationsB: string[] = [];
+  const hostA: ExtensionHostBinding = {
+    app: extensionA,
+    showNotification: (extensionId, message, type) => {
+      notificationsA.push(`${extensionId}|${type}|${message}`);
+    },
+  };
+  const hostB: ExtensionHostBinding = {
+    app: extensionB,
+    showNotification: (extensionId, message, type) => {
+      notificationsB.push(`${extensionId}|${type}|${message}`);
+    },
+  };
+  const permissions = ['ribbon', 'backstage', 'events', 'pdf-fonts'] as const;
+  const api = createExtensionApi(
+    'context-test', [...permissions], undefined, extensionB, hostA,
+  );
+  const peerApi = createExtensionApi(
+    'context-test', [...permissions], undefined, extensionA, hostB,
+  );
+
+  const aVoorBatch = capturePayload(A.getState());
+  const singletonVoorBatch = capturePayload(useAppStore.getState());
+  const aUndoVoorBatch = A.getState().undoStack.length;
+  const bUndoVoorBatch = B.getState().undoStack.length;
+  const bTakenVoorBatch = B.getState().tasks.length;
+  api.data.batch(() => {
+    api.data.addTask({ name: 'Bulk B 1' });
+    api.data.addTask({ name: 'Bulk B 2' });
+  });
+  eq('17 extensiebatch voegt twee taken toe aan document B',
+    B.getState().tasks.length, bTakenVoorBatch + 2);
+  eq('17a extensiebatch vormt precies één undo-stap in B',
+    B.getState().undoStack.length, bUndoVoorBatch + 1);
+  eq('17b extensiebatch verandert undo van A niet',
+    A.getState().undoStack.length, aUndoVoorBatch);
+  eq('17c extensiebatch laat document A byte-inhoudelijk gelijk',
+    capturePayload(A.getState()), aVoorBatch);
+  eq('17d extensiebatch laat de app-singleton byte-inhoudelijk gelijk',
+    capturePayload(useAppStore.getState()), singletonVoorBatch);
+
+  eq('18 data.getProject leest document B', api.data.getProject().name, 'Document B');
+  eq('18a data.getCalendar leest document B', api.data.getCalendar().name, 'Kalender B');
+  eq('18b data.getTasks leest document B',
+    api.data.getTasks().map(task => task.name),
+    ['Voorganger B', 'Opvolger B', 'Bulk B 1', 'Bulk B 2']);
+  eq('18c data.getSequences leest document B', api.data.getSequences().length, 1);
+  eq('18d data.getResources leest document B', api.data.getResources().map(r => r.name), ['Kraan B']);
+  eq('18e data.getAssignments leest document B', api.data.getAssignments().length, 1);
+
+  A.setState({ scheduleStale: true });
+  B.setState({ scheduleStale: true });
+  const aVoorRecalculate = capturePayload(A.getState());
+  api.data.recalculate();
+  eq('19 recalculate maakt alleen planning B vers', B.getState().scheduleStale, false);
+  eq('19a recalculate raakt planning A niet', capturePayload(A.getState()), aVoorRecalculate);
+
+  const sdk = getExtensionSdk();
+  const geladenProject = sdk.factory.emptyImportResult({
+    project: { ...sdk.factory.createProject(), name: 'Geladen via extensie in B' },
+    tasks: [sdk.factory.createTask({ name: 'Geladen taak B' })],
+  });
+  const aVoorLoad = capturePayload(A.getState());
+  api.data.loadProject(geladenProject);
+  eq('20 loadProject vervangt alleen document B', B.getState().project.name, 'Geladen via extensie in B');
+  eq('20a loadProject vult alleen document B', B.getState().tasks.map(task => task.name), ['Geladen taak B']);
+  eq('20b loadProject rekent document B door', B.getState().scheduleStale, false);
+  eq('20c loadProject laat document A byte-inhoudelijk gelijk', capturePayload(A.getState()), aVoorLoad);
+
+  api.importers.register({
+    id: 'context-importer',
+    name: 'Contextimporter',
+    description: '',
+    fileExtensions: ['.ctx'],
+    handler: async () => sdk.factory.emptyImportResult(),
+  });
+  api.ui.addRibbonButton({
+    tab: 'planning',
+    group: 'Context',
+    label: 'Contextknop',
+    onClick: () => undefined,
+  });
+  api.ui.showNotification('alleen naar host A', 'warning');
+  eq('21 importer landt alleen in hoststore A', A.getState().extensionImporters.length, 1);
+  eq('21a importer landt niet in documentstore B', B.getState().extensionImporters.length, 0);
+  eq('21b ribbonknop landt alleen in hoststore A', A.getState().extensionRibbonButtons.length, 1);
+  eq('21c ribbonknop landt niet in documentstore B', B.getState().extensionRibbonButtons.length, 0);
+  eq('21d notificatie gebruikt alleen de geïnjecteerde A-sink',
+    notificationsA, ['context-test|warning|alleen naar host A']);
+  eq('21e notificatie raakt de B-sink niet', notificationsB, []);
+
+  let eventWaarde: unknown;
+  api.events.on('context-test:event', data => { eventWaarde = data; });
+  peerApi.events.emit('context-test:event', { gedeeld: true });
+  eq('22 eventbus blijft appglobaal over documentcontexten heen', eventWaarde, { gedeeld: true });
+
+  api.settings.set('gedeeld', { context: 'appglobaal' });
+  eq('22a settingsprefix blijft per extensie en appglobaal',
+    peerApi.settings.get('gedeeld', null), { context: 'appglobaal' });
+
+  clearCjkFontProviders();
+  api.pdfFonts.register({
+    id: 'context-font',
+    covers: codepoint => codepoint === 65,
+    getRegularBytes: async () => new Uint8Array([1, 2, 3]),
+  });
+  eq('22b PDF-fontregistry blijft appglobaal',
+    getCjkFontProviders().map(provider => provider.id), ['context-font']);
+
+  api._cleanup();
+  peerApi._cleanup();
+  eq('23 cleanup verwijdert importer uit hoststore A', A.getState().extensionImporters.length, 0);
+  eq('23a cleanup verwijdert ribbonknop uit hoststore A', A.getState().extensionRibbonButtons.length, 0);
+  eq('23b cleanup schrijft geen UI naar documentstore B',
+    [B.getState().extensionImporters.length, B.getState().extensionRibbonButtons.length], [0, 0]);
+  eq('23c cleanup verwijdert globale fontprovider', getCjkFontProviders().length, 0);
+}
+
+// ── 7. De singleton blijft de singleton ────────────────────────────────────
+{
+  eq('24 useAppStore heeft de bekende Zustandvorm',
     ['getState', 'setState', 'subscribe']
       .every(k => typeof (useAppStore as unknown as Record<string, unknown>)[k] === 'function'), true);
-  eq('15a de singleton levert een volledige AppState',
+  eq('24a de singleton levert een volledige AppState',
     ['project', 'tasks', 'sequences', 'resources', 'assignments', 'ui', 'view', 'undoStack']
       .every(k => k in useAppStore.getState()), true);
 
   const C = createAppStore();
   const D = createAppStore();
   for (const veld of ['tasks', 'sequences', 'resources', 'assignments', 'undoStack', 'redoStack'] as const) {
-    eq(`16 "${veld}" is niet gedeeld tussen twee verse instanties`,
+    eq(`25 "${veld}" is niet gedeeld tussen twee verse instanties`,
       (C.getState() as unknown as Record<string, unknown>)[veld]
         === (D.getState() as unknown as Record<string, unknown>)[veld],
       false);

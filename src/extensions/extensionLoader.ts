@@ -11,15 +11,24 @@ import type {
   ReadyExtension,
   ReadyStoredExtension,
 } from './types';
-import { createExtensionApi } from './extensionApi';
+import { createExtensionApi, type ExtensionHostBinding } from './extensionApi';
 import { getExtensionSdk, installExtensionSdk } from './sdk';
 import { sanitizeManifestPermissions } from './permissions';
 import { checkApiCompatibility, EXTENSION_API_VERSION } from './apiVersion';
-import { useAppStore } from '@/state/appStore';
+import { appStoreContext, useAppStore } from '@/state/appStore';
 import { appLog } from '@/services/debug/appLog';
 import { parseStoredExtension } from './validation';
 
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0';
+
+/** Productie-compositie: documentdata en appchrome delen in de gemounte app dezelfde singleton. */
+const appExtensionHost: ExtensionHostBinding = {
+  app: appStoreContext,
+  showNotification(extensionId, message, type) {
+    const level = type === 'error' ? 'error' : type === 'warning' ? 'warn' : 'info';
+    appLog.emit(level, `ext:${extensionId}`, message);
+  },
+};
 
 /** Vergelijk twee puntgescheiden versies numeriek. <0 als a ouder is dan b. */
 function compareVersions(a: string, b: string): number {
@@ -335,7 +344,13 @@ export async function enableExtension(
     // chokepoint: elke activatie (zip/js/catalogus/devBridge/DB-load) loopt hierlangs, dus dit
     // dekt óók manifesten die al in IndexedDB staan met een permissie die deze versie niet kent.
     const permissions = sanitizeManifestPermissions(stored.manifest.permissions, id);
-    api = createExtensionApi(id, permissions, stored.assets);
+    api = createExtensionApi(
+      id,
+      permissions,
+      stored.assets,
+      appStoreContext,
+      appExtensionHost,
+    );
 
     await plugin.onLoad(api);
 

@@ -24,6 +24,8 @@
 //
 // Draait via run.sh. Exit 0 = alles groen.
 import './domStub';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Project } from '@/types/project';
 import type { WorkCalendar } from '@/types/calendar';
 import type { Task, TaskTime } from '@/types/task';
@@ -33,6 +35,12 @@ import type {
   ExtProject, ExtCalendar, ExtTask, ExtTaskTime, ExtSequence, ExtResource, ExtAssignment,
   ExtRibbonTab, ExtFontProvider,
 } from '@/extensions/extTypes';
+import type { ExtensionApi, ExtensionPermission } from '@/extensions/types';
+import {
+  createExtensionApi,
+  type ExtensionHostBinding,
+} from '@/extensions/extensionApi';
+import type { AppStoreContext } from '@/state/appStore';
 import { EXTENSION_API_VERSION, checkApiCompatibility } from '@/extensions/apiVersion';
 import {
   toExtProject, fromExtProject,
@@ -470,6 +478,47 @@ for (const [naam, ext, bron, sleutels] of [
 
   // En tegen de ECHTE hostversie: de huidige waarde moet zichzelf accepteren.
   eq('36 de host accepteert zijn eigen versie', checkApiCompatibility(EXTENSION_API_VERSION).ok, true);
+}
+
+// ── 7. De API-factory maakt document- en hostbinding constructief expliciet ─
+{
+  type IsExact<A, B> =
+    (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2)
+      ? (<T>() => T extends B ? 1 : 2) extends (<T>() => T extends A ? 1 : 2)
+        ? true
+        : false
+      : false;
+  type ExpectedCreateExtensionApiParameters = [
+    extensionId: string,
+    permissions: ExtensionPermission[],
+    assets: Record<string, Uint8Array> | undefined,
+    document: AppStoreContext,
+    host: ExtensionHostBinding,
+  ];
+  const exacteParameters: IsExact<
+    Parameters<typeof createExtensionApi>,
+    ExpectedCreateExtensionApiParameters
+  > = true;
+  const exactResultaat: IsExact<ReturnType<typeof createExtensionApi>, ExtensionApi> = true;
+  eq('37 createExtensionApi heeft exact vijf contextvaste parameters', exacteParameters, true);
+  eq('37a createExtensionApi retourneert exact ExtensionApi', exactResultaat, true);
+  eq('37b createExtensionApi heeft runtime-arity vijf', createExtensionApi.length, 5);
+
+  const source = readFileSync(join(process.cwd(), 'src/extensions/extensionApi.ts'), 'utf8');
+  const verbodenImports = [
+    ['useAppStore', /import[^;]*\buseAppStore\b[^;]*from/],
+    ['appStoreContext', /import[^;]*\bappStoreContext\b[^;]*from/],
+    ['appLog', /import[^;]*\bappLog\b[^;]*from/],
+    ['globale withTransaction', /import[^;]*\bwithTransaction\b[^;]*from/],
+  ].filter(([, patroon]) => (patroon as RegExp).test(source)).map(([naam]) => naam);
+  eq('38 extensionApi importeert geen singleton-, log- of globale transactiebinding',
+    verbodenImports, []);
+
+  const loaderSource = readFileSync(join(process.cwd(), 'src/extensions/extensionLoader.ts'), 'utf8');
+  eq('39 productiehost bindt warning exact aan warn',
+    /type === 'warning' \? 'warn' : 'info'/.test(loaderSource), true);
+  eq('39a productiehost behoudt source ext:extensionId en ongewijzigde message',
+    /appLog\.emit\(level, `ext:\$\{extensionId\}`, message\)/.test(loaderSource), true);
 }
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────
