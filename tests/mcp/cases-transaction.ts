@@ -104,6 +104,7 @@ test('cpmResult.error na de eind-runCPM ⇒ volledige rollback incl. cpmResult',
 
   const beforeSnap = JSON.stringify(createSnapshot(store.getState()));
   const beforeLen = store.getState().undoStack.length;
+  const notificationsBefore = JSON.stringify(store.getState().ui.notifications);
   const beforeCpmError = store.getState().cpmResult?.error ?? null;
   assert(beforeCpmError == null, 'voorwaarde: cpmResult mag vóór de transactie geen error dragen');
 
@@ -125,6 +126,8 @@ test('cpmResult.error na de eind-runCPM ⇒ volledige rollback incl. cpmResult',
   );
   assertEq(store.getState().undoStack.length, beforeLen, 'undoStack mag niet gewijzigd zijn na rollback');
   assertEq(store.getState().cpmResult?.error ?? null, null, 'cpmResult hoort terug op de geldige pre-transactie-waarde te staan (geen error-banner)');
+  assertEq(JSON.stringify(store.getState().ui.notifications), notificationsBefore,
+    'de tijdelijke solverfoutmelding hoort samen met de mislukte transactie terug te rollen');
 });
 
 // 6) Geneste aanroep is verboden: de geneste `runInMcpTransaction` gooit, en die throw laat de

@@ -790,6 +790,12 @@ export function createMcpTransactions(context: AppStoreContext): McpTransactions
     try {
       const snapshot: Snapshot = createSnapshot(store.getState());
       const prevRedo = store.getState().redoStack;
+      // `runCPM` publiceert een gebruikersmelding zodra de tijdelijke solve een cyclus/fout ziet.
+      // Als die solve de omvattende MCP-transactie vervolgens laat falen, hoort ook die melding bij
+      // de teruggedraaide poging. Notifications zijn bewust appglobaal en zitten daarom niet in de
+      // documentsnapshot; bewaar hun pre-callreferentie hier expliciet. De hele run is synchroon,
+      // dus er kan tijdens dit venster geen onafhankelijke gebruikersmelding tussendoor komen.
+      const prevNotifications = store.getState().ui.notifications;
 
       const rollback = (error: string): { ok: false; error: string } => {
         store.setState((state) => {
@@ -798,6 +804,7 @@ export function createMcpTransactions(context: AppStoreContext): McpTransactions
           // historiestacks niet. Redo wordt exact naar de pre-callreferentie teruggezet.
           state.undoStack.pop();
           state.redoStack = prevRedo;
+          state.ui.notifications = prevNotifications;
         });
         runtime.resetUndoCoalescing();
         return { ok: false, error };
