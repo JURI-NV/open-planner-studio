@@ -1,6 +1,7 @@
 import type { UIState, AppSlice, NotifyInput } from './types';
 import type { McpServerStatus } from '@/services/mcp/contracts';
 import { MCP_DEFAULT_PORT, peekTheme } from '@/utils/settingsStore';
+import { DEFAULT_BAR_COLOR_SELECTION } from '@/types/barColor';
 
 export interface UiSlice {
   ui: UIState;
@@ -120,6 +121,7 @@ export function createDefaultUI(): UIState {
     showProgressLine: true,
     showStatusDateLine: true,
     showResourceAccent: false,   // #21: schermbeeld verandert eerst niet — expliciet aanzetten
+    barColorSelection: DEFAULT_BAR_COLOR_SELECTION,
     screenBarColorMode: 'critical', // #21: klassieke kritiek-pad-kleuren; modi zijn een expliciete keuze
     presentationMode: false,
     showMiniMap: false,

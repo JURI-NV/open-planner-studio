@@ -18,11 +18,13 @@ import type {
   BuiltinFieldKey, FieldRef, ColumnConfig, FilterOperator, FilterNode,
   GroupLevel, SortLevel, Layout, SplitViewState, ViewState,
 } from '@/types/view';
+import type { BarColorSelection } from '@/types/barColor';
 export type {
   TimeScale, DateNotation, DurationDisplay, BarSplitMode,
   BuiltinFieldKey, FieldRef, ColumnConfig, FilterOperator, FilterNode,
   GroupLevel, SortLevel, Layout, SplitViewState, ViewState,
 };
+export type { BarColorSelection };
 
 // MCP-bridge (fase 1): status-shape voor de AI-serverindicator in de ui-state. Type-only import →
 // geen runtime-cyclus (contracts.ts is dependency-vrij).
@@ -285,6 +287,8 @@ export interface UIState {
   /** #21: dun streepje in de resourcekleur onder taakbalken (scherm-accent; de balkvulling zelf
    *  blijft kritiek-pad-gekleurd — resourcekleuren gelden voor de export, dit is het schermsignaal). */
   showResourceAccent: boolean;               // persisted
+  /** #21: canonieke app-globale balkkleurkeuze; scherm en rapport delen deze selectie. */
+  barColorSelection: BarColorSelection;       // persisted
   /** #21 (user-wens): scherm-kleurmodi — dezelfde vier standen als de rapport-export, maar dan voor
    *  de Gantt op het scherm. 'critical' (default) = het klassieke beeld; de overige standen kleuren
    *  de balken per taak/resource met het kritieke pad als rode rand (spiegel van de rapportmodi). */

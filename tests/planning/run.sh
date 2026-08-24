@@ -437,6 +437,11 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   BARCOLORCHECK="$DIR/.bar-colors.mjs"
   if bundle_check "$DIR/check-bar-colors.ts" "$BARCOLORCHECK"; then node "$BARCOLORCHECK" || STATUS=1; fi
 
+  # Eén globale balkkleurselectie voor scherm + rapport: vormvalidatie, legacy-migratie en
+  # round-trip door de echte settingsStore/localStorage-route.
+  BARCOLORSETTINGSCHECK="$DIR/.bar-color-settings.mjs"
+  if bundle_check "$DIR/check-bar-color-settings.ts" "$BARCOLORSETTINGSCHECK"; then node "$BARCOLORSETTINGSCHECK" || STATUS=1; fi
+
   # Rapportexport #21/#54: volg-weergave (viewRows→renderReport), statuslijn (statusDate/progress),
   # kleurmodi + legenda — via opnemende Draw2D, zelfde renderer als preview én vector-PDF.
   PRTEXPCHECK="$DIR/.print-report.mjs"
