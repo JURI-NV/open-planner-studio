@@ -9,7 +9,7 @@
     "build": "tsc && vite build",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
     "lint": "eslint src",
-    "test": "npm run test:planning && npm run test:library && npm run test:mcp && npm run test:dev-server",
+    "test": "npm run test:planning && npm run test:library && npm run test:mcp && npm run test:dev-server && npm run test:browser",
     "test:planning": "bash tests/planning/run.sh",
     "test:library": "bash tests/library/run.sh",
     "test:mcp": "bash tests/mcp/run.sh",
