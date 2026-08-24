@@ -1,7 +1,8 @@
 import type { AppState } from './appStore';
 
 // Compatibele importplek voor bestaand beleid en runtime-types. Alle mutable uitvoeringsmetadata
-// leeft in de closure uit `createStoreRuntime`, nooit meer in deze module.
+// leeft in de per-AppStoreContext-closure uit `createStoreRuntime`, nooit in deze module. Core
+// callers krijgen hun runtime geïnjecteerd; alleen adapters aan de productrand binden appStoreContext.
 export {
   MAX_UNDO,
   createStoreRuntime,

@@ -1,12 +1,9 @@
 // De store-context: iedere instantie bezit niet alleen state, maar ook haar uitvoeringsmetadata.
 //
-// AANLEIDING. Een kale tweede Zustandstore leek onafhankelijk, maar de undo-coalescing,
-// batchdiepte en bulktransactie waren module- of singletongebonden. Dat is erger dan geen factory:
-// de scheiding ziet er betrouwbaar uit terwijl een handeling in B undo van A kan onderdrukken.
-//
-// `createAppStoreContext()` maakt de grens expliciet. `createAppStore()` blijft de kale
-// compatibiliteitsfactory en de gemounte productinterface blijft één singleton gebruiken.
-// Deze batterij test documentstate, runtimes, interleaved mutaties en het app-globale klembord.
+// `createAppStoreContext()` is de positieve ownershipgrens: store en uitvoeringsmetadata horen bij
+// dezelfde context. `createAppStore()` blijft de kale compatibiliteitsfactory en de gemounte
+// productinterface blijft één app-singleton gebruiken. Deze batterij bewijst documentstate,
+// runtimes, interleaved mutaties, extensiedata/hostbinding en het contextlokale appklembord.
 //
 // Draait via run.sh. Exit 0 = alles groen.
 import './domStub';

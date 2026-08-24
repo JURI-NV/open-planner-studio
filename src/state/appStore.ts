@@ -60,8 +60,10 @@ export interface AppStoreContext {
  * tussen contexten. `ui` en `taskClipboard` zijn bewust niet documentgebonden: zij overleven een
  * documentwissel binnen hun eigen context, maar worden evenmin met een andere context gedeeld.
  *
- * App-lifecycleregistries buiten de Zustandfactory (plugininstances, eventbus en SDK-windowbinding)
- * blijven bewust app-global; de gemounte productinterface bindt die aan `appStoreContext` hieronder.
+ * Batch-, MCP- en extensie-datafactories krijgen dit volledige object; zo kunnen zij state noch
+ * suppressie-/leasemetadata uit een singleton halen. App-lifecycleregistries buiten de
+ * Zustandfactory (plugininstances, eventbus en SDK-windowbinding) blijven bewust app-global; de
+ * gemounte productinterface en React-selectors binden die aan `appStoreContext` hieronder.
  */
 export function createAppStoreContext(): AppStoreContext {
   const runtime = createStoreRuntime();
