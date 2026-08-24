@@ -149,6 +149,9 @@ export function GanttCanvas() {
   const setZoom = useAppStore(s => s.setZoom);
   const setViewStartDate = useAppStore(s => s.setViewStartDate);
   const uiTheme = useAppStore(s => s.ui.uiTheme);
+  // Primitive invalidatiesleutel voor Canvas-2D: CSS-variabelen veranderen buiten de teken-
+  // callbackidentiteit om, dus elke canvaslaag krijgt dit expliciete thema-contract mee.
+  const canvasThemeRevision = uiTheme;
   // Interface-lettertypefamilie (issue #25 punt 4) → concrete CSS font-stack voor de Canvas-2D-
   // renderers. De DOM krijgt de familie via CSS-variabelen, maar een canvas leest die niet, dus
   // resolven we hem hier één keer en geven we de string mee aan beide renderers. De waarde staat
@@ -174,6 +177,8 @@ export function GanttCanvas() {
   const viewRows = useAppStore(s => s.viewRows);
   const setCollapsedGroupKey = useAppStore(s => s.setCollapsedGroupKey);
   const splitView = useAppStore(s => s.view.splitView);
+  // ViewState gebruikt `undefined` als uitwaarde (niet `null`; zie types/view.ts + setSplitView).
+  const splitEnabled = splitView !== undefined;
   const setSplitView = useAppStore(s => s.setSplitView);
   const showMiniMap = useAppStore(s => s.ui.showMiniMap);
   const taskTableWidth = useAppStore(s => s.ui.leftPanelWidth);
@@ -436,8 +441,7 @@ export function GanttCanvas() {
   );
 
   // Histogram-teken-callback (§6.4): dpr/resize-boilerplate zit nu in useCanvasLayer; hier alleen de
-  // HistogramRenderer opbouwen + tekenen. `extraDeps: [histogramHeight]` bewaart de originele
-  // expliciete herteken-trigger op hoogte-wijziging.
+  // HistogramRenderer opbouwen + tekenen. Hoogte en thema vormen samen één primitive revision.
   const drawHistogram = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
     const renderer = new HistogramRenderer(ctx, {
       series: histogramSeries,
@@ -464,14 +468,14 @@ export function GanttCanvas() {
     histogramRendererRef.current = renderer;
     renderer.render();
     if (import.meta.env.DEV) recordGanttPaint('histogram', width, height);
-  }, [histogramSeries, histogramPicker, histogramResourceId, effectiveView, taskTableWidth, resourceLoadResult, resources.length, tCommon, uiTheme, sharedAxis, canvasFontFamily, fontScale]);
+  }, [histogramSeries, histogramPicker, histogramResourceId, effectiveView, taskTableWidth, resourceLoadResult, resources.length, tCommon, sharedAxis, canvasFontFamily, fontScale]);
 
   useCanvasLayer({
     canvasRef: histogramCanvasRef,
     containerRef: histogramContainerRef,
     draw: drawHistogram,
     enabled: showHistogram,
-    extraDeps: [histogramHeight],
+    renderRevision: `${canvasThemeRevision}:${histogramHeight}`,
   });
 
   // Auto-dismiss van de drill-down-tooltip.
@@ -603,7 +607,12 @@ export function GanttCanvas() {
     if (import.meta.env.DEV) recordGanttPaint('primary', width, height);
   }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showResourceAccent, barColorSelection, activityCodeTypes, customFieldDefs, taskTypeLabels, resources, assignments, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis, canvasFontFamily, durationDrag, fontScale, rowHeight, headerHeight, tTask]);
 
-  useCanvasLayer({ canvasRef, containerRef, draw: drawPrimary });
+  useCanvasLayer({
+    canvasRef,
+    containerRef,
+    draw: drawPrimary,
+    renderRevision: canvasThemeRevision,
+  });
 
   // --- Split view (fase 2.7, §10): secundair tijdvenster met eigen zoom/scrollX; gedeelde
   // rijen + scrollY; geen canvas-taaktabel (taskTableWidth 0) — die tekent alleen links. ---
@@ -686,7 +695,8 @@ export function GanttCanvas() {
     canvasRef: secondaryCanvasRef,
     containerRef: secondaryContainerRef,
     draw: drawSecondary,
-    enabled: !!splitView,
+    enabled: splitEnabled,
+    renderRevision: canvasThemeRevision,
   });
 
   // Reset de secundaire renderer-ref zodra split view uit gaat (het canvas verdwijnt dan; de
@@ -704,7 +714,7 @@ export function GanttCanvas() {
   // naar de EIGEN `secondaryZoom`/`secondaryScrollX` (§10.3), verticaal blijft gedeeld
   // (`view.scrollY` — beide panes tekenen dezelfde rijen).
   useEffect(() => {
-    if (!splitView) return;
+    if (!splitEnabled) return;
     const container = secondaryContainerRef.current;
     if (!container) return;
 
@@ -765,8 +775,7 @@ export function GanttCanvas() {
     container.addEventListener('wheel', handleWheel, { passive: false });
     return () => container.removeEventListener('wheel', handleWheel);
     // Alleen her-attachen bij aan/uit; de handler leest de actuele splitView uit de store.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [!!splitView]);
+  }, [splitEnabled]);
 
   // Sleepbare ratio-balk tussen de panes (§10.3).
   useEffect(() => {

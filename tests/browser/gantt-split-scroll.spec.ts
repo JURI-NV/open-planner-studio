@@ -15,6 +15,16 @@ test('splitview isoleert horizontale scroll en deelt verticale wheel-scroll', as
     s.setScroll(140, 0);
   });
   await expect(page.getByTestId('gantt-secondary-canvas')).toBeVisible();
+  // Karakteriseer de primitive enablegrens: uit ontkoppelt het paneel, opnieuw aan bindt de
+  // wheelhandler weer; de handler zelf moet daarna de actuele splitstate uit de store lezen.
+  await page.evaluate(() => window.__OPS__!.store.getState().setSplitView(undefined));
+  await expect(page.getByTestId('gantt-secondary-canvas')).toHaveCount(0);
+  await page.evaluate(() => window.__OPS__!.store.getState().setSplitView({
+    ratio: 0.6,
+    secondaryZoom: 30,
+    secondaryScrollX: 0,
+  }));
+  await expect(page.getByTestId('gantt-secondary-canvas')).toBeVisible();
   await barPoint(page, taskIds[0], 'body', 'primary');
   await barPoint(page, taskIds[0], 'body', 'secondary');
   const paintsBefore = await page.evaluate(() => ({
