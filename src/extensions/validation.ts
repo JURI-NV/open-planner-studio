@@ -6,6 +6,7 @@ import type {
   ExtensionManifest,
   ExtensionPermission,
   ParseResult,
+  ReadyStoredExtension,
 } from './types';
 
 export type ManifestParseMode = 'fresh' | 'stored-legacy';
@@ -20,6 +21,9 @@ export const EXTENSION_LIMITS = {
   tags: 32,
   tag: 64,
   iconBytes: 128 * 1024,
+  storedMainCodeBytes: 48 * 1024 * 1024,
+  assetBytes: 24 * 1024 * 1024,
+  assetTotalBytes: 48 * 1024 * 1024,
 } as const;
 
 const EXTENSION_CATEGORIES: readonly ExtensionCategory[] = [
@@ -50,6 +54,12 @@ function fail<T>(error: string): ParseResult<T> {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (!isRecord(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 function parseString(
@@ -95,6 +105,41 @@ function parseMainPath(value: unknown): ParseResult<string> {
     return fail('main moet een veilig relatief pad zonder lege, .- of ..-segmenten zijn');
   }
   return parsed;
+}
+
+function isSafeRelativePath(value: string): boolean {
+  if (value.length === 0 || value.startsWith('/') || value.includes('\\') || value.includes('\0')) {
+    return false;
+  }
+  return !value.split('/').some((segment) => segment === '' || segment === '.' || segment === '..');
+}
+
+function parseStoredAssets(input: unknown): ParseResult<Record<string, Uint8Array>> {
+  if (!isPlainRecord(input)) return fail('assets moet een gewoon object zijn');
+
+  const assets: Record<string, Uint8Array> = Object.create(null);
+  let totalBytes = 0;
+  for (const [name, value] of Object.entries(input)) {
+    if (!isSafeRelativePath(name)) {
+      return fail(`assetnaam ${JSON.stringify(name)} is geen veilig relatief pad`);
+    }
+    if (!(value instanceof Uint8Array)) {
+      return fail(`asset "${name}" moet een Uint8Array zijn`);
+    }
+    if (value.byteLength > EXTENSION_LIMITS.assetBytes) {
+      return fail(
+        `asset "${name}" overschrijdt de limiet van ${EXTENSION_LIMITS.assetBytes} bytes`,
+      );
+    }
+    totalBytes += value.byteLength;
+    if (totalBytes > EXTENSION_LIMITS.assetTotalBytes) {
+      return fail(
+        `assets overschrijden samen de limiet van ${EXTENSION_LIMITS.assetTotalBytes} bytes`,
+      );
+    }
+    assets[name] = new Uint8Array(value);
+  }
+  return { ok: true, value: assets, warnings: [] };
 }
 
 function isExtensionCategory(value: string): value is ExtensionCategory {
@@ -289,6 +334,60 @@ export function parseExtensionManifest(
   if (icon !== undefined) value.icon = icon;
 
   return { ok: true, value, warnings };
+}
+
+/**
+ * Reconstrueer één IndexedDB-record en koppel het aan de sleutel waarmee het werkelijk is gelezen.
+ * Legacydefaults bestaan alleen in de geretourneerde waarde; deze parser schrijft niets terug.
+ */
+export function parseStoredExtension(
+  input: unknown,
+  storageKey: IDBValidKey,
+): ParseResult<ReadyStoredExtension> {
+  if (!isRecord(input)) return fail('opgeslagen extensie moet een object zijn');
+
+  const id = parseExtensionId(input.id);
+  if (!id.ok) return id;
+  if (storageKey !== id.value) {
+    return fail('opslagsleutel en record-id moeten exact gelijk zijn');
+  }
+
+  const manifest = parseExtensionManifest(input.manifest, 'stored-legacy');
+  if (!manifest.ok) return manifest;
+  if (manifest.value.id !== id.value) {
+    return fail('manifest-id en record-id moeten exact gelijk zijn');
+  }
+
+  if (typeof input.mainCode !== 'string') return fail('mainCode moet een string zijn');
+  if (input.mainCode.length === 0) return fail('mainCode mag niet leeg zijn');
+  const mainCodeBytes = new TextEncoder().encode(input.mainCode).byteLength;
+  if (mainCodeBytes > EXTENSION_LIMITS.storedMainCodeBytes) {
+    return fail(
+      `mainCode overschrijdt de limiet van ${EXTENSION_LIMITS.storedMainCodeBytes} UTF-8-bytes`,
+    );
+  }
+  if (typeof input.enabled !== 'boolean') return fail('enabled moet een boolean zijn');
+
+  let assets: Record<string, Uint8Array> | undefined;
+  if (input.assets !== undefined) {
+    const parsedAssets = parseStoredAssets(input.assets);
+    if (!parsedAssets.ok) return parsedAssets;
+    assets = parsedAssets.value;
+  }
+
+  return {
+    ok: true,
+    value: {
+      id: id.value,
+      manifest: manifest.value,
+      mainCode: input.mainCode,
+      enabled: input.enabled,
+      ...(assets !== undefined ? { assets } : {}),
+      legacyWarnings: [...manifest.warnings],
+      storageKey,
+    },
+    warnings: [...manifest.warnings],
+  };
 }
 
 function generatedJavaScriptManifest(fileName: string): unknown {

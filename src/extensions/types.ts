@@ -98,6 +98,17 @@ export interface ReadyExtension extends InstalledExtension {
   kind: 'ready';
 }
 
+/** Gevalideerde, in geheugen genormaliseerde vorm van één IndexedDB-record. */
+export interface ReadyStoredExtension {
+  id: string;
+  manifest: ExtensionManifest;
+  mainCode: string;
+  enabled: boolean;
+  assets?: Record<string, Uint8Array>;
+  legacyWarnings: string[];
+  storageKey: IDBValidKey;
+}
+
 export interface QuarantinedExtension {
   kind: 'quarantined';
   quarantineId: string;

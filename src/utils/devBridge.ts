@@ -7,7 +7,8 @@ import { parseOpenedFile, readFormatInput } from '@/services/formatRegistry';
 import { enableExtension, disableExtension, removeExtension, saveExtensionToDb, installFromZipBlob } from '@/extensions';
 import type { ExpectedExtensionIdentity, InstallOutcome } from '@/extensions';
 import type { ExtensionManifest, InstalledExtension } from '@/extensions/types';
-import { parseExtensionManifest } from '@/extensions/validation';
+import { parseExtensionManifest, parseStoredExtension } from '@/extensions/validation';
+import { getAllExtensionRecordsFromDb } from '@/extensions/extensionLoader';
 import { setConsentAsker, resetConsentAsker, type ConsentAsker } from '@/extensions';
 import { copyScreenshotToClipboard } from '@/services/feedback/feedbackService';
 import { isTauri } from '@/utils/platform';
@@ -110,6 +111,20 @@ async function installExtensionFromCode(
   });
   await enableExtension(validatedManifest.id);
   return useAppStore.getState().installedExtensions[validatedManifest.id];
+}
+
+async function scanStoredExtensions(): Promise<Array<{
+  storageKey: IDBValidKey;
+  ok: boolean;
+  reason?: string;
+}>> {
+  const records = await getAllExtensionRecordsFromDb();
+  return records.map(({ storageKey, value }) => {
+    const parsed = parseStoredExtension(value, storageKey);
+    return parsed.ok
+      ? { storageKey, ok: true }
+      : { storageKey, ok: false, reason: parsed.error };
+  });
 }
 
 interface OpsCommand {
@@ -238,6 +253,8 @@ export interface OpsDevBridge {
   /** Dev-only extensie-haken voor zelftests. */
   extensions: {
     installFromCode: typeof installExtensionFromCode;
+    /** Alleen lezen en valideren; activeert, registreert, verwijdert en herschrijft niets. */
+    scanStored: typeof scanStoredExtensions;
     /** Installeer via het echte ZIP-pad (parse → assets → opslaan → activeren), MET de
      *  vertrouwensvraag overgeslagen — een zelftest heeft geen mens die een dialoog wegklikt.
      *  De dialoog zelf test je via `__OPS__.extensions.consent`. */
@@ -281,6 +298,7 @@ export function installDevBridge(): void {
     openFromPath,
     extensions: {
       installFromCode: installExtensionFromCode,
+      scanStored: scanStoredExtensions,
       installFromZip: (blob: Blob, expected?: ExpectedExtensionIdentity) =>
         installFromZipBlob(blob, expected, { assumeConsent: true }),
       consent: {

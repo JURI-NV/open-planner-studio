@@ -11,6 +11,7 @@ import { sanitizeManifestPermissions } from './permissions';
 import { checkApiCompatibility, EXTENSION_API_VERSION } from './apiVersion';
 import { useAppStore } from '@/state/appStore';
 import { appLog } from '@/services/debug/appLog';
+import { parseStoredExtension } from './validation';
 
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0';
 
@@ -84,23 +85,38 @@ export async function saveExtensionToDb(ext: StoredExtension): Promise<void> {
   });
 }
 
-export async function removeExtensionFromDb(id: string): Promise<void> {
+export async function removeExtensionFromDb(key: IDBValidKey): Promise<void> {
   const db = await openExtensionDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('extensions', 'readwrite');
-    tx.objectStore('extensions').delete(id);
+    tx.objectStore('extensions').delete(key);
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB-delete is mislukt'));
+    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB-delete is afgebroken'));
   });
 }
 
-export async function getAllExtensionsFromDb(): Promise<StoredExtension[]> {
+export interface RawStoredExtension {
+  storageKey: IDBValidKey;
+  value: unknown;
+}
+
+export async function getAllExtensionRecordsFromDb(): Promise<RawStoredExtension[]> {
   const db = await openExtensionDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('extensions', 'readonly');
-    const req = tx.objectStore('extensions').getAll();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    const records: RawStoredExtension[] = [];
+    const req = tx.objectStore('extensions').openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) return;
+      records.push({ storageKey: cursor.primaryKey, value: cursor.value });
+      cursor.continue();
+    };
+    req.onerror = () => reject(req.error ?? new Error('IndexedDB-cursor is mislukt'));
+    tx.oncomplete = () => resolve(records);
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB-read is mislukt'));
+    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB-read is afgebroken'));
   });
 }
 
@@ -258,9 +274,15 @@ export async function disableExtension(id: string): Promise<void> {
 export async function loadAllExtensions(): Promise<void> {
   try {
     installExtensionSdk();
-    const allExtensions = await getAllExtensionsFromDb();
+    const allExtensions = await getAllExtensionRecordsFromDb();
 
-    for (const ext of allExtensions) {
+    for (const raw of allExtensions) {
+      const parsed = parseStoredExtension(raw.value, raw.storageKey);
+      if (!parsed.ok) {
+        console.error('[Extensies] Ongeldig opslagrecord overgeslagen:', parsed.error);
+        continue;
+      }
+      const ext = parsed.value;
       // Idempotent: een al-geregistreerde extensie niet overschrijven (kan al actief zijn)
       if (useAppStore.getState().installedExtensions[ext.id]) continue;
 

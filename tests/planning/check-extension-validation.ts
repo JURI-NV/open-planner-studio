@@ -8,6 +8,7 @@ import {
   manifestFromJavaScript,
   parseCatalog,
   parseExtensionManifest,
+  parseStoredExtension,
 } from '@/extensions/validation';
 import type {
   CatalogEntry,
@@ -97,6 +98,27 @@ const expectCatalogOk = (
   const result = parseCatalog(input);
   eq(`${label}: catalogusparse slaagt`, result.ok, true);
   return result.ok ? result : null;
+};
+
+const storedRecord = (
+  id = 'opslag-extensie',
+  patch: Record<string, unknown> = {},
+): Record<string, unknown> => ({
+  id,
+  manifest: { ...volledig(), id },
+  mainCode: 'module.exports = { onLoad() {} };',
+  enabled: false,
+  ...patch,
+});
+
+const expectStoredFail = (
+  label: string,
+  input: unknown,
+  storageKey: IDBValidKey = 'opslag-extensie',
+) => {
+  const result = parseStoredExtension(input, storageKey);
+  eq(`${label}: opgeslagen extensie faalt`, result.ok, false);
+  if (!result.ok) eq(`${label}: opslagfout is concreet`, result.error.length > 0, true);
 };
 
 // ── 1. Topniveau en verplichte identiteit ───────────────────────────────────
@@ -408,6 +430,80 @@ for (const [label, entries] of [
   const onbruikbareFallback = manifestFromJavaScript('module.exports = {};', '💥.js');
   eq('ook een gegenereerd manifest gaat door de fresh parser', onbruikbareFallback.ok, false);
 }
+
+// ── 13. Opgeslagen records worden per echte sleutel opnieuw opgebouwd ──────────────
+{
+  const legacyManifest = volledig();
+  delete legacyManifest.minAppVersion;
+  delete legacyManifest.permissions;
+  const bronAssets: Record<string, Uint8Array> = Object.create(null);
+  bronAssets['fonts/voorbeeld.ttf'] = new Uint8Array([1, 2, 3]);
+  const bron = storedRecord('legacy-opslag', {
+    manifest: { ...legacyManifest, id: 'legacy-opslag' },
+    assets: bronAssets,
+    onbekend: 'verdwijnt',
+  });
+  const parsed = parseStoredExtension(bron, 'legacy-opslag');
+  eq('geldig legacy-opslagrecord parseert', parsed.ok, true);
+  if (parsed.ok) {
+    eq('echte opslagsleutel blijft behouden', parsed.value.storageKey, 'legacy-opslag');
+    eq('legacywaarschuwingen blijven zichtbaar', parsed.value.legacyWarnings.length, 2);
+    eq('opslagparser reconstrueert alleen bekende velden',
+      Object.keys(parsed.value).sort(),
+      ['assets', 'enabled', 'id', 'legacyWarnings', 'mainCode', 'manifest', 'storageKey']);
+    eq('assetbytes worden gekopieerd',
+      Array.from(parsed.value.assets?.['fonts/voorbeeld.ttf'] ?? []), [1, 2, 3]);
+    eq('assetmap staat los van de bron', Object.is(parsed.value.assets, bronAssets), false);
+    bronAssets['fonts/voorbeeld.ttf'][0] = 9;
+    eq('bronmutatie wijzigt opgeslagen asset niet',
+      Array.from(parsed.value.assets?.['fonts/voorbeeld.ttf'] ?? []), [1, 2, 3]);
+  }
+}
+
+expectStoredFail('opslagrecord moet een object zijn', null);
+expectStoredFail('mainCode moet een string zijn', storedRecord('opslag-extensie', { mainCode: 7 }));
+expectStoredFail('mainCode mag niet leeg zijn', storedRecord('opslag-extensie', { mainCode: '' }));
+expectStoredFail('enabled moet boolean zijn', storedRecord('opslag-extensie', { enabled: 'true' }));
+expectStoredFail('record-id moet string zijn', storedRecord('opslag-extensie', { id: 1 }), 1);
+expectStoredFail('opslagsleutel moet exact record-id zijn', storedRecord(), 'andere-sleutel');
+expectStoredFail('manifest-id moet exact record-id zijn', storedRecord('opslag-extensie', {
+  manifest: { ...volledig(), id: 'andere-manifest-id' },
+}));
+expectStoredFail('primitief manifest blijft ongeldig', storedRecord('opslag-extensie', { manifest: 42 }));
+
+{
+  const limiet = 48 * 1024 * 1024;
+  const checkCodegrens = (label: string, code: string, wantOk: boolean) => {
+    const parsed = parseStoredExtension(storedRecord('opslag-extensie', { mainCode: code }), 'opslag-extensie');
+    eq(label, parsed.ok, wantOk);
+  };
+  checkCodegrens('mainCode accepteert 48 MiB min 1 UTF-8-byte', 'a'.repeat(limiet - 1), true);
+  checkCodegrens('mainCode accepteert exact 48 MiB UTF-8-bytes', '🙂' + 'a'.repeat(limiet - 4), true);
+  checkCodegrens('mainCode weigert 48 MiB plus 1 UTF-8-byte', '🙂' + 'a'.repeat(limiet - 3), false);
+}
+
+for (const name of ['', '/absoluut.bin', '../traversal.bin', 'map/../bestand.bin',
+  './bestand.bin', 'map//bestand.bin', 'map\\bestand.bin', 'nul\0bestand.bin']) {
+  const assets: Record<string, Uint8Array> = Object.create(null);
+  assets[name] = new Uint8Array([1]);
+  expectStoredFail(`onveilige assetnaam ${JSON.stringify(name)}`, storedRecord('opslag-extensie', { assets }));
+}
+expectStoredFail('assetwaarde moet echte Uint8Array zijn', storedRecord('opslag-extensie', {
+  assets: { 'font.ttf': [1, 2, 3] },
+}));
+expectStoredFail('assets moet een echt record zijn', storedRecord('opslag-extensie', {
+  assets: new Date(0),
+}));
+expectStoredFail('één opgeslagen asset blijft maximaal 24 MiB', storedRecord('opslag-extensie', {
+  assets: { 'te-groot.bin': new Uint8Array((24 * 1024 * 1024) + 1) },
+}));
+expectStoredFail('opgeslagen assets blijven samen maximaal 48 MiB', storedRecord('opslag-extensie', {
+  assets: {
+    'een.bin': new Uint8Array(16 * 1024 * 1024),
+    'twee.bin': new Uint8Array(16 * 1024 * 1024),
+    'drie.bin': new Uint8Array((16 * 1024 * 1024) + 1),
+  },
+}));
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {
