@@ -184,10 +184,10 @@
     "toggleResourceAccent": "리소스 강조",
     "screenColors": "막대 색상",
     "screenColors_critical": "임계 경로",
-    "screenColors_task": "작업별 — 사용자 지정 색",
     "screenColors_auto": "작업별 — 자동",
-    "screenColors_resource": "리소스별",
-    "screenColorsHint": "마지막 세 가지 모드에서 빨간 테두리가 임계 경로를 표시합니다."
+    "screenColors_category": "범주별",
+    "screenColorsMissingField": "이 필드는 이 프로젝트에 없습니다. 작업 유형을 임시로 사용합니다.",
+    "screenColorsHint": "임계 경로 모드 외에는 빨간 테두리가 임계 경로를 표시합니다."
   },
   "ifc": {
     "title": "IFC 편집기",

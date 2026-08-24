@@ -49,10 +49,10 @@
     "float": "Zapas",
     "completion": "Postęp",
     "relationStyle": "Wiodąca / niewiodąca",
-    "resourcesMore_one": "… i {{count}} zasób więcej",
-    "resourcesMore_few": "… i {{count}} zasoby więcej",
-    "resourcesMore_many": "… i {{count}} zasobów więcej",
-    "resourcesMore_other": "… i {{count}} zasobów więcej"
+    "categoriesMore_one": "… i {{count}} kategoria więcej",
+    "categoriesMore_few": "… i {{count}} kategorie więcej",
+    "categoriesMore_many": "… i {{count}} kategorii więcej",
+    "categoriesMore_other": "… i {{count}} kategorii więcej"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -113,9 +113,10 @@
   },
   "barColorModeLabel": "Kolory słupków:",
   "barColorMode_critical": "Ścieżka krytyczna",
-  "barColorMode_task": "Na zadanie — własny kolor",
   "barColorMode_auto": "Na zadanie — automatycznie",
-  "barColorMode_resource": "Na zasób",
+  "barColorMode_category": "Według kategorii",
+  "barColorFieldLabel": "Pole kategorii",
+  "barColorMissingField": "To pole nie istnieje w tym projekcie. Tymczasowo używany jest typ zadania.",
   "statusLineLabel": "Linia statusu:",
   "statusLine_none": "Brak",
   "statusLine_statusDate": "Linia daty statusu",

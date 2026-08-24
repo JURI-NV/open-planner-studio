@@ -184,10 +184,10 @@
     "toggleResourceAccent": "Accent ressource",
     "screenColors": "Couleurs des barres",
     "screenColors_critical": "Chemin critique",
-    "screenColors_task": "Par tâche — couleur propre",
     "screenColors_auto": "Par tâche — automatique",
-    "screenColors_resource": "Par ressource",
-    "screenColorsHint": "Dans les trois derniers modes, un contour rouge marque le chemin critique."
+    "screenColors_category": "Par catégorie",
+    "screenColorsMissingField": "Ce champ n’existe pas dans ce projet. Le type de tâche est utilisé temporairement.",
+    "screenColorsHint": "Hors du mode Chemin critique, un contour rouge marque le chemin critique."
   },
   "ifc": {
     "title": "Éditeur IFC",

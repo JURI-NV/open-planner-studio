@@ -184,10 +184,10 @@
     "toggleResourceAccent": "リソースアクセント",
     "screenColors": "バーの色",
     "screenColors_critical": "クリティカルパス",
-    "screenColors_task": "タスクごと — 独自の色",
     "screenColors_auto": "タスクごと — 自動",
-    "screenColors_resource": "リソースごと",
-    "screenColorsHint": "後の3つのモードでは、赤い枠線がクリティカルパスを示します。"
+    "screenColors_category": "カテゴリ別",
+    "screenColorsMissingField": "このフィールドはこのプロジェクトにありません。一時的にタスクタイプを使用します。",
+    "screenColorsHint": "クリティカルパス以外のモードでは、赤い枠線がクリティカルパスを示します。"
   },
   "ifc": {
     "title": "IFC エディタ",

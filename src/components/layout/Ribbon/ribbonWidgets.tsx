@@ -609,10 +609,7 @@ export function ScreenColorsPopoverButton() {
           className={`ribbon-btn small w-full justify-start${selection.mode === mode ? ' active' : ''}`}
           onClick={() => selectMode(mode)}
         >
-          <span className="ribbon-btn-label">{tMenu(`ribbon.screenColors_${mode}`, {
-            defaultValue: mode === 'critical' ? 'Kritiek pad'
-              : mode === 'auto' ? 'Per taak — automatisch' : 'Op categorie',
-          })}</span>
+          <span className="ribbon-btn-label">{tMenu(`ribbon.screenColors_${mode}`)}</span>
         </button>
       ))}
       {selection.mode === 'category' && fields.length > 0 && (
@@ -624,9 +621,7 @@ export function ScreenColorsPopoverButton() {
       )}
       {control.missingField && (
         <span className="ribbon-info" role="status">
-          {tMenu('ribbon.screenColorsMissingField', {
-            defaultValue: 'Dit veld bestaat niet in dit project. Taaktype wordt tijdelijk gebruikt.',
-          })}
+          {tMenu('ribbon.screenColorsMissingField')}
         </span>
       )}
       <span className="ribbon-info">{tMenu('ribbon.screenColorsHint')}</span>

@@ -47,9 +47,9 @@
     "float": "Holgura",
     "completion": "Avance",
     "relationStyle": "Determinante / no determinante",
-    "resourcesMore_one": "… y {{count}} recurso más",
-    "resourcesMore_many": "… y {{count}} recursos más",
-    "resourcesMore_other": "… y {{count}} recursos más"
+    "categoriesMore_one": "… y {{count}} categoría más",
+    "categoriesMore_many": "… y {{count}} categorías más",
+    "categoriesMore_other": "… y {{count}} categorías más"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -110,9 +110,10 @@
   },
   "barColorModeLabel": "Colores de barras:",
   "barColorMode_critical": "Ruta crítica",
-  "barColorMode_task": "Por tarea — color propio",
   "barColorMode_auto": "Por tarea — automático",
-  "barColorMode_resource": "Por recurso",
+  "barColorMode_category": "Por categoría",
+  "barColorFieldLabel": "Campo de categoría",
+  "barColorMissingField": "Este campo no existe en este proyecto. Se usa temporalmente el tipo de tarea.",
   "statusLineLabel": "Línea de estado:",
   "statusLine_none": "Ninguna",
   "statusLine_statusDate": "Línea de fecha de estado",

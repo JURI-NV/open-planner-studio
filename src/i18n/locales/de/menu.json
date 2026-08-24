@@ -184,10 +184,10 @@
     "toggleResourceAccent": "Ressourcen-Akzent",
     "screenColors": "Balkenfarben",
     "screenColors_critical": "Kritischer Pfad",
-    "screenColors_task": "Pro Aufgabe — eigene Farbe",
     "screenColors_auto": "Pro Aufgabe — automatisch",
-    "screenColors_resource": "Pro Ressource",
-    "screenColorsHint": "In den letzten drei Modi markiert ein roter Rand den kritischen Pfad."
+    "screenColors_category": "Nach Kategorie",
+    "screenColorsMissingField": "Dieses Feld ist in diesem Projekt nicht vorhanden. Vorübergehend wird der Aufgabentyp verwendet.",
+    "screenColorsHint": "Außerhalb des Modus „Kritischer Pfad“ markiert ein roter Rand den kritischen Pfad."
   },
   "ifc": {
     "title": "IFC-Editor",

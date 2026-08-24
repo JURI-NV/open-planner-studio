@@ -141,8 +141,7 @@
       "remove": "삭제",
       "done": "완료",
       "empty": "아직 메모가 없습니다."
-    },
-    "color": "색상"
+    }
   },
   "relations": {
     "title": "관계",

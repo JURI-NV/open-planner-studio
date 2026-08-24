@@ -47,11 +47,14 @@ In de projectweergave kom je drie soorten rijen tegen:
 
 Elke rij begint met een klein kleurvak: de **resourcekleur**. Nieuwe resources krijgen automatisch
 een vrije kleur uit een vast palet, en je kunt de kleur hier altijd zelf kiezen. De kleur is puur
-presentatie — ze kleurt de balken in de rapportexport (Rapport → Balkkleuren → *Per resource*) en
+presentatie — ze kleurt de balken in de rapportexport (**Rapport → Balkkleuren → Op categorie →
+Resource**) en
 op het scherm, maar telt niet als afwijking tussen bibliotheek en project. Op het scherm heb je twee
-gradaties: **Beeld → Balkkleuren** kleurt de hele balk (bij meerdere partijen gesegmenteerd, met het
-kritieke pad als rode rand), en de aparte toggle **Resource-accent** (Beeld → Baselines & voortgang)
-zet er bij het klassieke kleurbeeld alleen een dun streepje in de resourcekleur onder de balk.
+gradaties: **Beeld → Balkkleuren → Op categorie → Resource** kleurt de hele balk (bij meerdere
+partijen gesegmenteerd naar verhouding van hun inzet, met het kritieke pad als rode rand), en de
+aparte toggle **Resource-accent** (Beeld → Baselines & voortgang) zet een dun streepje in de
+resourcekleur onder de balk. Dat accent staat los van de gekozen balkkleuring en kan dus ook samen
+met Taaktype, Discipline of de automatische taakkleuren aanstaan.
 
 ## Wat volgt de bibliotheek mee — en wat niet
 

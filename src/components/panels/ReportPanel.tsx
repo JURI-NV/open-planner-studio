@@ -384,7 +384,7 @@ export function ReportPanel() {
     rows: followView ? viewRows : undefined,
     barColorsLegendLabels: {
       criticalOutline: t('legend.criticalOutline', { defaultValue: 'Kritiek pad (rand)' }),
-      categoriesMore: (n: number) => t('legend.categoriesMore', { count: n, defaultValue: `… en ${n} meer` }),
+      categoriesMore: (n: number) => t('legend.categoriesMore', { count: n }),
     },
   };
 
@@ -822,7 +822,7 @@ export function ReportPanel() {
                 options={[
                   { value: 'critical', label: t('barColorMode_critical') },
                   { value: 'auto', label: t('barColorMode_auto') },
-                  { value: 'category', label: t('barColorMode_category', { defaultValue: 'Op categorie' }) },
+                  { value: 'category', label: t('barColorMode_category') },
                 ]}
               />
             </div>
@@ -831,7 +831,7 @@ export function ReportPanel() {
                 <span className="w-20 flex-shrink-0" aria-hidden="true" />
                 <Select
                   className="flex-1 min-w-0"
-                  aria-label={t('barColorFieldLabel', { defaultValue: 'Categorieveld' })}
+                  aria-label={t('barColorFieldLabel')}
                   value={encodeFieldRef(barColorControl.effective.field)}
                   onChange={value => {
                     const next = { mode: 'category', field: decodeFieldRef(value) } as const;
@@ -847,9 +847,7 @@ export function ReportPanel() {
             )}
             {barColorControl.missingField && (
               <p className="text-[10px] text-text-muted pl-[88px]" role="status">
-                {t('barColorMissingField', {
-                  defaultValue: 'Dit veld bestaat niet in dit project. Taaktype wordt tijdelijk gebruikt.',
-                })}
+                {t('barColorMissingField')}
               </p>
             )}
 

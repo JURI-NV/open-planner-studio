@@ -184,10 +184,10 @@
     "toggleResourceAccent": "Acento de recurso",
     "screenColors": "Cores das barras",
     "screenColors_critical": "Caminho crítico",
-    "screenColors_task": "Por tarefa — cor própria",
     "screenColors_auto": "Por tarefa — automático",
-    "screenColors_resource": "Por recurso",
-    "screenColorsHint": "Nos três últimos modos, um contorno vermelho marca o caminho crítico."
+    "screenColors_category": "Por categoria",
+    "screenColorsMissingField": "Este campo não existe neste projeto. O tipo de tarefa é usado temporariamente.",
+    "screenColorsHint": "Fora do modo Caminho crítico, um contorno vermelho marca o caminho crítico."
   },
   "ifc": {
     "title": "Editor IFC",

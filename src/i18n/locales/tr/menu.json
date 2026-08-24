@@ -184,10 +184,10 @@
     "toggleResourceAccent": "Kaynak vurgusu",
     "screenColors": "Çubuk renkleri",
     "screenColors_critical": "Kritik yol",
-    "screenColors_task": "Görev başına — özel renk",
     "screenColors_auto": "Görev başına — otomatik",
-    "screenColors_resource": "Kaynak başına",
-    "screenColorsHint": "Son üç modda kırmızı çerçeve kritik yolu işaret eder."
+    "screenColors_category": "Kategoriye göre",
+    "screenColorsMissingField": "Bu alan bu projede yok. Geçici olarak görev türü kullanılıyor.",
+    "screenColorsHint": "Kritik yol modu dışında kırmızı çerçeve kritik yolu işaret eder."
   },
   "ifc": {
     "title": "IFC Düzenleyici",

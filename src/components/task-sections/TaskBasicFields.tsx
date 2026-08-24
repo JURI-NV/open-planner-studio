@@ -59,19 +59,6 @@ export function TaskBasicFields({ task, onChange, onCalendarChange, hideName }: 
         />
       </Field>
 
-      <Field label={t('properties.color')}>
-        {/* #21: eigen taakkleur — leestbaar in de rapportexport via Balkkleuren → "Per taak —
-            eigen kleur" (op het scherm kleurt hij alléén niet-kritieke taken zonder float-tint,
-            zoals altijd al). Value toont de actuele keuze; de neutrale blauw is de terugval. */}
-        <input
-          type="color"
-          aria-label={t('properties.color')}
-          value={task.color ?? '#2563EB'}
-          onChange={e => onChange({ color: e.target.value })}
-          className="block h-7 w-12 cursor-pointer rounded border border-border bg-transparent p-0"
-        />
-      </Field>
-
       <Field label={t('properties.type')}>
         <Select
           aria-label={t('properties.type')}

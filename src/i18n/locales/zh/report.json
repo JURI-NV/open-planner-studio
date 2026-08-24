@@ -43,7 +43,7 @@
     "float": "浮动",
     "completion": "完成度",
     "relationStyle": "驱动 / 非驱动",
-    "resourcesMore_other": "… 还有 {{count}} 个资源"
+    "categoriesMore_other": "… 还有 {{count}} 个类别"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -104,9 +104,10 @@
   },
   "barColorModeLabel": "条形图颜色：",
   "barColorMode_critical": "关键路径",
-  "barColorMode_task": "按任务 — 自定义颜色",
   "barColorMode_auto": "按任务 — 自动",
-  "barColorMode_resource": "按资源",
+  "barColorMode_category": "按类别",
+  "barColorFieldLabel": "类别字段",
+  "barColorMissingField": "此项目中不存在该字段。暂时使用任务类型。",
   "statusLineLabel": "状态线：",
   "statusLine_none": "无",
   "statusLine_statusDate": "状态日期线",

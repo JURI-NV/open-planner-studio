@@ -184,10 +184,10 @@
     "toggleResourceAccent": "Acento de recurso",
     "screenColors": "Colores de barras",
     "screenColors_critical": "Ruta crítica",
-    "screenColors_task": "Por tarea — color propio",
     "screenColors_auto": "Por tarea — automático",
-    "screenColors_resource": "Por recurso",
-    "screenColorsHint": "En los tres últimos modos, un contorno rojo marca la ruta crítica."
+    "screenColors_category": "Por categoría",
+    "screenColorsMissingField": "Este campo no existe en este proyecto. Se usa temporalmente el tipo de tarea.",
+    "screenColorsHint": "Fuera del modo Ruta crítica, un contorno rojo marca la ruta crítica."
   },
   "ifc": {
     "title": "Editor IFC",

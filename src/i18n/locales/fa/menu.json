@@ -184,10 +184,10 @@
     "toggleResourceAccent": "تأکید منبع",
     "screenColors": "رنگ میله‌ها",
     "screenColors_critical": "مسیر بحرانی",
-    "screenColors_task": "به ازای هر کار — رنگ دلخواه",
     "screenColors_auto": "به ازای هر کار — خودکار",
-    "screenColors_resource": "به ازای هر منبع",
-    "screenColorsHint": "در سه حالت آخر، حاشیه قرمز مسیر بحرانی را نشان می‌دهد."
+    "screenColors_category": "بر اساس دسته",
+    "screenColorsMissingField": "این فیلد در این پروژه وجود ندارد. نوع کار موقتاً استفاده می‌شود.",
+    "screenColorsHint": "خارج از حالت مسیر بحرانی، حاشیه قرمز مسیر بحرانی را نشان می‌دهد."
   },
   "ifc": {
     "title": "ویرایشگر IFC",

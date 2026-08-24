@@ -47,9 +47,9 @@
     "float": "Margine",
     "completion": "Avanzamento",
     "relationStyle": "Determinante / non determinante",
-    "resourcesMore_one": "… e {{count}} altra risorsa",
-    "resourcesMore_many": "… e {{count}} altre risorse",
-    "resourcesMore_other": "… e {{count}} altre risorse"
+    "categoriesMore_one": "… e {{count}} altra categoria",
+    "categoriesMore_many": "… e {{count}} altre categorie",
+    "categoriesMore_other": "… e {{count}} altre categorie"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -110,9 +110,10 @@
   },
   "barColorModeLabel": "Colori barre:",
   "barColorMode_critical": "Percorso critico",
-  "barColorMode_task": "Per attività — colore proprio",
   "barColorMode_auto": "Per attività — automatico",
-  "barColorMode_resource": "Per risorsa",
+  "barColorMode_category": "Per categoria",
+  "barColorFieldLabel": "Campo categoria",
+  "barColorMissingField": "Questo campo non esiste nel progetto. Viene usato temporaneamente il tipo di attività.",
   "statusLineLabel": "Linea di stato:",
   "statusLine_none": "Nessuna",
   "statusLine_statusDate": "Linea data di stato",

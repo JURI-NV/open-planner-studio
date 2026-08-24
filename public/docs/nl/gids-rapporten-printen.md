@@ -40,15 +40,17 @@ instellingenblok:
   beschikbaar met auto-fit aan.
 - Aan/uit-schakelaars voor **taaknamen op staafjes**, **voltooiing tonen**, **kritiek pad**,
   **speling tonen**, **afhankelijkheden**, **weekenden** en **legenda**.
-- **Balkkleuren** — hoe de balken hun kleur krijgen. Standaard staat dit op *Kritiek pad*: rood
-  voor kritieke taken, oranje voor bijna-kritieke en blauw voor de rest, zoals u gewend bent. De
-  andere standen: *Per taak — eigen kleur* (gebruikt de kleur die u per taak kunt instellen in het
-  eigenschappenpaneel), *Per taak — automatisch* (elke taak krijgt automatisch een eigen, vaste
-  kleur uit een palet) of *Per resource* (elke balk kleurt naar de uitvoerende partij — denk
-  metselaar geel, loodgieter groen; een taak met meerdere partijen krijgt gesegmenteerde balk in
-  verhouding tot de inzet, en taken zonder partij blijven blauw). In de laatste drie standen
-  markeert een **rode rand** om de balk het kritieke pad, en de legenda onderin past zich aan — bij
-  *Per resource* staat daar welke kleur bij welke partij hoort.
+- **Balkkleuren** — één keuze die het Gantt-scherm en het rapport samen gebruiken. *Kritiek pad*
+  geeft het vertrouwde rood/oranje/blauw; *Per taak — automatisch* geeft iedere taak een vaste
+  paletkleur; met *Op categorie* kiest u een veld uit dezelfde lijst als bij **Groeperen**. Kies
+  bijvoorbeeld **Taaktype** om constructie, installatie en sloop ieder één kleur te geven, of de
+  activiteitcode **Discipline** om per discipline te kleuren. Ook WBS, gebruikersvelden en
+  **Resource** zijn beschikbaar. Bij Resource wordt een taak met meerdere partijen gesegmenteerd
+  naar verhouding van hun inzet. Taken zonder waarde krijgen neutraal grijs. Buiten *Kritiek pad*
+  houdt een **rode rand** de kritieke taken herkenbaar en toont de legenda alleen de waarden die in
+  het rapport voorkomen. Verandert u deze keuze onder **Beeld**, dan staat hij hier meteen gelijk
+  — en andersom. Bestaat een eerder gekozen projectveld niet in het huidige project, dan gebruikt
+  de app tijdelijk Taaktype zonder uw keuze te vergeten.
 - **Statuslijn** — *Geen* (standaard), *Statusdatumlijn* (een verticale stippellijn op de
   statusdatum van het project) of *Voortgangslijn* (dezelfde zigzaglijn als op het scherm: per taak
   een uitstulping naar de voortgangspositie). Zonder statusdatum in het project tekent niets —

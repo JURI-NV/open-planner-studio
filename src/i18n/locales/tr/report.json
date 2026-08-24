@@ -45,8 +45,8 @@
     "float": "Bolluk",
     "completion": "Tamamlanma",
     "relationStyle": "Belirleyici / belirleyici olmayan",
-    "resourcesMore_one": "… ve {{count}} kaynak daha",
-    "resourcesMore_other": "… ve {{count}} kaynak daha"
+    "categoriesMore_one": "… ve {{count}} kategori daha",
+    "categoriesMore_other": "… ve {{count}} kategori daha"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -107,9 +107,10 @@
   },
   "barColorModeLabel": "Çubuk renkleri:",
   "barColorMode_critical": "Kritik yol",
-  "barColorMode_task": "Görev başına — özel renk",
   "barColorMode_auto": "Görev başına — otomatik",
-  "barColorMode_resource": "Kaynak başına",
+  "barColorMode_category": "Kategoriye göre",
+  "barColorFieldLabel": "Kategori alanı",
+  "barColorMissingField": "Bu alan bu projede yok. Geçici olarak görev türü kullanılıyor.",
   "statusLineLabel": "Durum çizgisi:",
   "statusLine_none": "Yok",
   "statusLine_statusDate": "Durum tarihi çizgisi",

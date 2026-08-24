@@ -184,10 +184,10 @@
     "toggleResourceAccent": "Accento risorsa",
     "screenColors": "Colori barre",
     "screenColors_critical": "Percorso critico",
-    "screenColors_task": "Per attività — colore proprio",
     "screenColors_auto": "Per attività — automatico",
-    "screenColors_resource": "Per risorsa",
-    "screenColorsHint": "Nelle ultime tre modalità un contorno rosso segna il percorso critico."
+    "screenColors_category": "Per categoria",
+    "screenColorsMissingField": "Questo campo non esiste nel progetto. Viene usato temporaneamente il tipo di attività.",
+    "screenColorsHint": "Fuori dalla modalità Percorso critico, un contorno rosso indica il percorso critico."
   },
   "ifc": {
     "title": "Editor IFC",

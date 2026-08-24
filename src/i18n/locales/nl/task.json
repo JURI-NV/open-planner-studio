@@ -141,8 +141,7 @@
     "calendarProject": "Projectkalender",
     "priority": "Nivelleer-prioriteit",
     "levelingDelay": "Nivelleer-vertraging",
-    "durationHours": "Duur (uren)",
-    "color": "Kleur"
+    "durationHours": "Duur (uren)"
   },
   "relations": {
     "title": "Relaties",

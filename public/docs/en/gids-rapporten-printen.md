@@ -39,15 +39,17 @@ A full, formatted printout of the Gantt bars — this is the only report type wi
   with auto-fit on.
 - Toggles for **task names on bars**, **show completion**, **critical path**, **show float**,
   **dependencies**, **weekends** and **legend**.
-- **Bar colors** — how the bars get their color. The default is *Critical path*: red for critical
-  tasks, orange for near-critical and blue for the rest, as you are used to. The other modes:
-  *Per task — custom color* (uses the color you can set per task in the properties panel),
-  *Per task — automatic* (every task gets its own fixed color from a palette) or *Per resource*
-  (each bar takes the color of the party performing it — think bricklayer yellow, plumber green; a
-  task with multiple parties gets a segmented bar proportional to their assignment, and tasks
-  without a party stay blue). In the last three modes a **red outline** around the bar marks the
-  critical path, and the legend at the bottom adapts — in *Per resource* mode it lists which color
-  belongs to which party.
+- **Bar colors** — one choice shared by the on-screen Gantt and the report. *Critical path* gives
+  the familiar red/orange/blue; *Per task — automatic* gives every task a stable palette color;
+  *By category* lets you select a field from the same list as **Group**. For example, choose
+  **Task type** to give construction, installation and demolition one color each, or the
+  **Discipline** activity code to color each discipline. WBS, custom fields and **Resource** are
+  available too. With Resource, a task assigned to multiple parties gets a segmented bar weighted
+  by their assignment. Tasks without a value use neutral gray. Outside *Critical path*, a **red
+  outline** keeps critical tasks recognizable and the legend lists only values visible in the
+  report. Change the choice under **View** and it updates here immediately — and vice versa. If a
+  previously selected project field is absent from the current project, the app temporarily uses
+  Task type without forgetting your selection.
 - **Status line** — *None* (default), *Status date line* (a vertical dashed line at the project's
   status date) or *Progress line* (the same zigzag line as on screen: per task a bulge toward the
   progress position). Without a status date in the project nothing is drawn — set one first via

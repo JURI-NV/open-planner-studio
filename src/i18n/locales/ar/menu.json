@@ -184,10 +184,10 @@
     "toggleResourceAccent": "لمسة المورد",
     "screenColors": "ألوان الأعمدة",
     "screenColors_critical": "المسار الحرج",
-    "screenColors_task": "لكل مهمة — لون مخصص",
     "screenColors_auto": "لكل مهمة — تلقائي",
-    "screenColors_resource": "لكل مورد",
-    "screenColorsHint": "في الأوضاع الثلاثة الأخيرة يؤطر خط أحمر المسار الحرج."
+    "screenColors_category": "حسب الفئة",
+    "screenColorsMissingField": "هذا الحقل غير موجود في هذا المشروع. يُستخدم نوع المهمة مؤقتًا.",
+    "screenColorsHint": "خارج وضع المسار الحرج، يشير الإطار الأحمر إلى المسار الحرج."
   },
   "ifc": {
     "title": "محرر IFC",

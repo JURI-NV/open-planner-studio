@@ -47,9 +47,9 @@
     "float": "Marge",
     "completion": "Avancement",
     "relationStyle": "Déterminante / non déterminante",
-    "resourcesMore_one": "… et {{count}} ressource de plus",
-    "resourcesMore_many": "… et {{count}} ressources de plus",
-    "resourcesMore_other": "… et {{count}} ressources de plus"
+    "categoriesMore_one": "… et {{count}} catégorie de plus",
+    "categoriesMore_many": "… et {{count}} catégories de plus",
+    "categoriesMore_other": "… et {{count}} catégories de plus"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -110,9 +110,10 @@
   },
   "barColorModeLabel": "Couleurs des barres :",
   "barColorMode_critical": "Chemin critique",
-  "barColorMode_task": "Par tâche — couleur propre",
   "barColorMode_auto": "Par tâche — automatique",
-  "barColorMode_resource": "Par ressource",
+  "barColorMode_category": "Par catégorie",
+  "barColorFieldLabel": "Champ de catégorie",
+  "barColorMissingField": "Ce champ n’existe pas dans ce projet. Le type de tâche est utilisé temporairement.",
   "statusLineLabel": "Ligne d’état :",
   "statusLine_none": "Aucune",
   "statusLine_statusDate": "Ligne de date d’état",

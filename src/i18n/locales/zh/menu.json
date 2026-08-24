@@ -184,10 +184,10 @@
     "toggleResourceAccent": "资源强调色",
     "screenColors": "条形图颜色",
     "screenColors_critical": "关键路径",
-    "screenColors_task": "按任务 — 自定义颜色",
     "screenColors_auto": "按任务 — 自动",
-    "screenColors_resource": "按资源",
-    "screenColorsHint": "在后三种模式下，红色边框标示关键路径。"
+    "screenColors_category": "按类别",
+    "screenColorsMissingField": "此项目中不存在该字段。暂时使用任务类型。",
+    "screenColorsHint": "在关键路径模式之外，红色边框标示关键路径。"
   },
   "ifc": {
     "title": "IFC 编辑器",

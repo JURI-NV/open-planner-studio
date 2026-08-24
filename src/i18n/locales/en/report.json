@@ -45,8 +45,8 @@
     "float": "Float",
     "completion": "Completion",
     "relationStyle": "Driving / non-driving",
-    "resourcesMore_one": "… and {{count}} more resource",
-    "resourcesMore_other": "… and {{count}} more resources"
+    "categoriesMore_one": "… and {{count}} more category",
+    "categoriesMore_other": "… and {{count}} more categories"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -107,9 +107,10 @@
   },
   "barColorModeLabel": "Bar colors:",
   "barColorMode_critical": "Critical path",
-  "barColorMode_task": "Per task — custom color",
   "barColorMode_auto": "Per task — automatic",
-  "barColorMode_resource": "Per resource",
+  "barColorMode_category": "By category",
+  "barColorFieldLabel": "Category field",
+  "barColorMissingField": "This field does not exist in this project. Task type is used temporarily.",
   "statusLineLabel": "Status line:",
   "statusLine_none": "None",
   "statusLine_statusDate": "Status date line",

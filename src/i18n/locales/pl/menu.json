@@ -184,10 +184,10 @@
     "toggleResourceAccent": "Akcent zasobu",
     "screenColors": "Kolory słupków",
     "screenColors_critical": "Ścieżka krytyczna",
-    "screenColors_task": "Na zadanie — własny kolor",
     "screenColors_auto": "Na zadanie — automatycznie",
-    "screenColors_resource": "Na zasób",
-    "screenColorsHint": "W trzech ostatnich trybach czerwony obrys oznacza ścieżkę krytyczną."
+    "screenColors_category": "Według kategorii",
+    "screenColorsMissingField": "To pole nie istnieje w tym projekcie. Tymczasowo używany jest typ zadania.",
+    "screenColorsHint": "Poza trybem Ścieżka krytyczna czerwony obrys oznacza ścieżkę krytyczną."
   },
   "ifc": {
     "title": "Edytor IFC",

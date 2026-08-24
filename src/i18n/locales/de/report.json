@@ -45,8 +45,8 @@
     "float": "Puffer",
     "completion": "Fertigstellung",
     "relationStyle": "Maßgebend / nicht maßgebend",
-    "resourcesMore_one": "… und {{count}} weitere Ressource",
-    "resourcesMore_other": "… und {{count}} weitere Ressourcen"
+    "categoriesMore_one": "… und {{count}} weitere Kategorie",
+    "categoriesMore_other": "… und {{count}} weitere Kategorien"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -107,9 +107,10 @@
   },
   "barColorModeLabel": "Balkenfarben:",
   "barColorMode_critical": "Kritischer Pfad",
-  "barColorMode_task": "Pro Aufgabe — eigene Farbe",
   "barColorMode_auto": "Pro Aufgabe — automatisch",
-  "barColorMode_resource": "Pro Ressource",
+  "barColorMode_category": "Nach Kategorie",
+  "barColorFieldLabel": "Kategoriefeld",
+  "barColorMissingField": "Dieses Feld ist in diesem Projekt nicht vorhanden. Vorübergehend wird der Aufgabentyp verwendet.",
   "statusLineLabel": "Statuslinie:",
   "statusLine_none": "Keine",
   "statusLine_statusDate": "Statusdatumslinie",

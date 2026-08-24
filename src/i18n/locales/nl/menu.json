@@ -184,10 +184,10 @@
     "toggleResourceAccent": "Resource-accent",
     "screenColors": "Balkkleuren",
     "screenColors_critical": "Kritiek pad",
-    "screenColors_task": "Per taak — eigen kleur",
     "screenColors_auto": "Per taak — automatisch",
-    "screenColors_resource": "Per resource",
-    "screenColorsHint": "In de laatste drie standen markeert een rode rand het kritieke pad."
+    "screenColors_category": "Op categorie",
+    "screenColorsMissingField": "Dit veld bestaat niet in dit project. Taaktype wordt tijdelijk gebruikt.",
+    "screenColorsHint": "Buiten Kritiek pad markeert een rode rand het kritieke pad."
   },
   "ifc": {
     "title": "IFC-editor",

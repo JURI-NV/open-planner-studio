@@ -45,8 +45,8 @@
     "float": "Speling",
     "completion": "Voltooiing",
     "relationStyle": "Bepalend / niet-bepalend",
-    "resourcesMore_one": "… en {{count}} resource meer",
-    "resourcesMore_other": "… en nog {{count}} resources"
+    "categoriesMore_one": "… en {{count}} categorie meer",
+    "categoriesMore_other": "… en nog {{count}} categorieën"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -107,9 +107,10 @@
   },
   "barColorModeLabel": "Balkkleuren:",
   "barColorMode_critical": "Kritiek pad",
-  "barColorMode_task": "Per taak — eigen kleur",
   "barColorMode_auto": "Per taak — automatisch",
-  "barColorMode_resource": "Per resource",
+  "barColorMode_category": "Op categorie",
+  "barColorFieldLabel": "Categorieveld",
+  "barColorMissingField": "Dit veld bestaat niet in dit project. Taaktype wordt tijdelijk gebruikt.",
   "statusLineLabel": "Statuslijn:",
   "statusLine_none": "Geen",
   "statusLine_statusDate": "Statusdatumlijn",
