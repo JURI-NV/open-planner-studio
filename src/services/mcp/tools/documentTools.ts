@@ -27,7 +27,6 @@
 // Batch-uitsluiting: spec regel 100 sluit document-tools uit van `batch` ⇒ `batchable: false` op alle
 // vier (ook op de leestool `list_documents`, die als document-tool meeloopt).
 
-import { useAppStore } from '@/state/appStore';
 import type { AppState } from '@/state/appStore';
 import { bindExpectedDoc, buildEnvelope, guardNonTransactional, mcpDocumentTitle, preBackupGuards, runReadTool, toolError } from './runtime';
 import type { McpContext, McpToolAnnotations, McpToolDef, McpToolErr, McpToolResult } from '../contracts';
@@ -195,10 +194,10 @@ export const documentTools: McpToolDef[] = [
       // Geen drift-check: een leeg document is onafhankelijk van welk tabblad nu actief is (zie kop).
       const blocked = guardBridgeFlags(ctx);
       if (blocked) return blocked;
-      const s = useAppStore.getState();
+      const s = ctx.app.store.getState();
       const documentId = s.newDocument();
       bindExpectedDoc(ctx);
-      const info = useAppStore.getState().getOpenDocuments().find((d) => d.id === documentId);
+      const info = ctx.app.store.getState().getOpenDocuments().find((d) => d.id === documentId);
       return {
         ok: true,
         envelope: buildEnvelope(ctx),
@@ -240,12 +239,12 @@ export const documentTools: McpToolDef[] = [
         return toolError(ctx, 'VALIDATION', "Parameter 'name' moet een tekst zijn wanneer je hem meegeeft.");
       }
       const name = typeof raw.name === 'string' && raw.name.trim() !== '' ? raw.name.trim() : undefined;
-      const documentId = useAppStore.getState().duplicateDocument(name);
+      const documentId = ctx.app.store.getState().duplicateDocument(name);
       // T16-contract (spec regel 130): dit document is deze sessie "geboren" uit een duplicaat en
       // slaat daarom de automatische backup over.
       documentToolDeps.markDuplicateBorn(documentId);
       bindExpectedDoc(ctx);
-      const s = useAppStore.getState();
+      const s = ctx.app.store.getState();
       const info = s.getOpenDocuments().find((d) => d.id === documentId);
       return {
         ok: true,
@@ -295,13 +294,13 @@ export const documentTools: McpToolDef[] = [
         return toolError(ctx, 'VALIDATION', "Parameter 'documentId' (tekst) is verplicht; haal geldige id's op met planner_list_documents.");
       }
       const documentId = raw.documentId;
-      const s = useAppStore.getState();
+      const s = ctx.app.store.getState();
       if (!s.documents.some((d) => d.id === documentId)) {
         return toolError(ctx, 'NOT_FOUND', `Onbekend document-id '${documentId}'; open documenten zijn: ${s.documents.map((d) => d.id).join(', ')}`);
       }
       s.switchDocument(documentId); // no-op wanneer het al actief is
       bindExpectedDoc(ctx);
-      const after = useAppStore.getState();
+      const after = ctx.app.store.getState();
       const info = after.getOpenDocuments().find((d) => d.id === documentId);
       return {
         ok: true,

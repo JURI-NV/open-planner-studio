@@ -22,7 +22,6 @@
 // zo) én `cpmResult` altijd gevuld (de reconstructie). "Modus aan én verouderd" is dus onbereikbaar
 // — vastgelegd in check-recorded-dates.ts (10.C). Daarmee blijft `readOnlyHint:true` verdedigbaar.
 
-import { useAppStore } from '@/state/appStore';
 import type { AppState } from '@/state/appStore';
 import { ensureFreshSchedule } from '../staleGuard';
 import { runReadTool, toolError } from './runtime';
@@ -676,7 +675,7 @@ interface HistogramArgs {
   bucket?: unknown;
 }
 
-function getResourceHistogram(args: HistogramArgs) {
+function getResourceHistogram(ctx: McpContext, args: HistogramArgs) {
   // H10 — VALIDEREN VÓÓR DE (potentieel dure) RECOMPUTE. Drie stille faalgevallen zaten hier:
   //   - `bucket` werd gecoërceerd (`bucket: 'day'` werd stil 'week');
   //   - niet-string `resourceIds` werden weggefilterd; viel alles weg, dan werd `scoped` false en
@@ -697,7 +696,7 @@ function getResourceHistogram(args: HistogramArgs) {
     if (args.resourceIds.some((x) => typeof x !== 'string' || x === '')) {
       throw new ToolError('VALIDATION', '`resourceIds` mag alleen niet-lege resource-id-strings bevatten.');
     }
-    const known = new Set(useAppStore.getState().resources.map((r) => r.id));
+    const known = new Set(ctx.app.store.getState().resources.map((r) => r.id));
     const unknown = (args.resourceIds as string[]).filter((id) => !known.has(id));
     if (unknown.length > 0) {
       throw new ToolError('VALIDATION',
@@ -710,7 +709,7 @@ function getResourceHistogram(args: HistogramArgs) {
   // raakt; het is een versheids-refresh, geen mutatie — en hij kan de undo-stack niet raken, want
   // "datums zoals opgeslagen" is onbereikbaar in combinatie met stale/nooit-gerekend (zie de kop).
   const fresh = ensureFreshSchedule();
-  const s = useAppStore.getState(); // verse state ná een eventuele recompute
+  const s = ctx.app.store.getState(); // verse contextstate ná een eventuele recompute
 
   const bucket: 'dag' | 'week' = args.bucket === 'dag' ? 'dag' : 'week';
   const from = typeof args.van === 'string' ? args.van : undefined;
@@ -1108,7 +1107,7 @@ export const readTools: McpToolDef[] = [
       additionalProperties: false,
     },
     annotations: READ_ANNOTATIONS,
-    handler: (args, ctx) => readTool(ctx, () => getResourceHistogram((args ?? {}) as HistogramArgs)),
+    handler: (args, ctx) => readTool(ctx, () => getResourceHistogram(ctx, (args ?? {}) as HistogramArgs)),
   },
   {
     name: 'planner_get_calendars',
