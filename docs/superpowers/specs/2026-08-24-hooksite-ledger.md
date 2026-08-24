@@ -4,11 +4,13 @@
 
 **Scope:** `src/**/*.{ts,tsx}`
 
-**Status:** open werkregister voor Plan 0, Tasks 7–13
+**Status:** gesloten bewijsregister voor Plan 0, Tasks 7–13
 
-Deze ledger maakt de bestaande React-hookschuld controleerbaar. De reparatierichting is geen bevel
-om blind dependencies toe te voegen: per site staat de functionele invariant voorop. Regels zijn
-de actuele regelnummers in commit `afdc9265`, direct vóór de eerste hookpoort.
+Deze ledger maakt de aangetroffen React-hookschuld en de afronding ervan controleerbaar. De
+reparatierichting was geen bevel om blind dependencies toe te voegen: per site bleef de functionele
+invariant vooropstaan. Regels zijn de historische regelnummers in commit `afdc9265`, direct vóór
+de eerste hookpoort. Alle H01–H41-sites zijn opgelost; het gegroepeerde commit- en testbewijs staat
+onder de nulmeting.
 
 ## Reproduceerbare nulmeting
 
@@ -37,17 +39,17 @@ De uitkomsten zijn:
 
 Het verschil tussen 42 diagnoses en 41 sites is bewust: `GanttCanvas.tsx:743` meldt zowel een
 ontbrekende dependency als een complexe dependency-expressie. De suppressie op
-`UpdateDialog.tsx:89` dekt in deze nulmeting geen actuele diagnose af; zij blijft wel onderdeel van
-de gecontroleerde opschoning in Task 11. `reportUnusedDisableDirectives` staat alleen gedurende deze
-migratie op `off` en gaat in Task 13 terug naar `error`.
+`UpdateDialog.tsx:89` dekte in deze nulmeting geen actuele diagnose af; die verouderde suppressie is
+in Task 11 eveneens verwijderd. `reportUnusedDisableDirectives` staat sinds de sluiting van dit
+register weer op `error`.
 
 ## Sites
 
-In de kolom *reparatie* staat de gekozen implementatierichting. *Regressiecheck* is het bewijs dat
-gereed moet zijn voordat de site als opgelost wordt gemarkeerd. De eindstatus en het concrete
-commit-/testbewijs worden in Task 13 ingevuld.
+In de kolom *reparatie* staat de uitgevoerde implementatierichting. *Regressiecheck* beschrijft het
+gedragsbewijs dat voor de site groen is gemaakt. Iedere rij H01–H41 is opgelost; de bewijsclusters
+eronder koppelen alle IDs expliciet aan hun commit en uitgevoerde tests.
 
-| ID | Actuele site en diagnose | Functionele invariant | Gekozen reparatie | Vereiste regressiecheck |
+| ID | Historische site en diagnose | Functionele invariant | Uitgevoerde reparatie | Afgeronde regressiecheck |
 |---|---|---|---|---|
 | H01 | `Backstage.tsx:58` — `closeBackstage` ontbreekt | Escape sluit altijd de actuele Backstage-sessie | `closeBackstage` stabiliseren met `useCallback` en opnemen | lint; voorgeschreven planning- en Gantt/documentbatterij van Task 8 |
 | H02 | `HelpPanel.tsx:213` — `handleOpenExample` ontbreekt | Navigatie en openen gebruiken de actuele helpselectie | `handleNavigate` en `handleOpenExample` stabiliseren en beide opnemen | lint; bestaande help-/documentnavigatie plus Task-8-browserbatterij |
@@ -119,9 +121,28 @@ TourOverlay.tsx:132
 TourOverlay.tsx:183
 ```
 
+## Afgerond commit- en testbewijs
+
+Alle 41 sites zijn hieronder zonder restgroep opgenomen. De browserchecks voeren de bedoelde
+muisklikken, toetsen, wheel- en pointerevents uit; `window.__OPS__` levert uitsluitend fixtures,
+Canvasgeometrie en state-/paintasserties.
+
+| Opgeloste sites | Commit | Groen regressiebewijs |
+|---|---|---|
+| H01, H02, H08, H09, H11, H12, H13, H18, H22, H23, H37, H38, H40 | `7afd445c` | `npm run lint`; `bash tests/planning/run.sh`; `npm run test:browser -- --grep "Gantt|document"` |
+| H03, H04 | `daa1dfe2` | `npm run test:browser -- tests/browser/gantt-localization.spec.ts`; Duitse weekdag- en duursuffixpaint na echte taalkeuze; twee rustige vensters van 500 ms; `npm run lint`; `npm run typecheck` |
+| H05, H06, H07, H10, H26, H27 | `4623fc9f` | `npm run lint`; `npm run test:library`; `npm run test:browser -- --grep "theme|split|histogram|occupancy"` |
+| H14, H15, H32, H33, H41 | `ed1e2ec6` | `npm run lint`; `npm run test:browser -- --grep "drag|splitter"`; actuele opties tijdens gesture, eenmaal committen en Escape zonder mutatie |
+| H16, H17, H19, H20, H21, H39 | `4ce894ae` | `npm run test:browser -- --grep "hook synchronization"`; zeven echte synchronisatieflows; `npm run lint`; `npm run typecheck` |
+| H24, H25, H28, H29, H30, H31, H34, H35, H36 | `75ae9001` | `npm run test:browser -- --grep "report options|resource panel|tour layout"`; zes echte UI-flows; `npm run lint`; `npm run typecheck` |
+
+De afsluitende broncontrole
+`rg -n "eslint-disable.*react-hooks/(exhaustive-deps|rules-of-hooks)" src` levert geen regels op
+en eindigt daardoor met exitcode 1. Zowel `react-hooks/rules-of-hooks` als
+`react-hooks/exhaustive-deps` en ongebruikte directives zijn nu fouten in `eslint.config.js`.
+
 ## Afsluitcriterium
 
-Task 13 sluit de ledger pas wanneer voor alle H01–H41 het bedoelde gedrag, de commit en een groene
-regressiecheck zijn vastgelegd; alle niet-gerechtvaardigde suppressies verdwenen zijn;
-`rules-of-hooks` én `exhaustive-deps` op `error` staan; en ongebruikte directives opnieuw hard
-worden afgekeurd.
+Het afsluitcriterium is bereikt: voor alle H01–H41 zijn het bedoelde gedrag, de commit en een groene
+regressiecheck vastgelegd; alle hook-suppressies zijn verdwenen; `rules-of-hooks` en
+`exhaustive-deps` staan op `error`; ongebruikte directives worden opnieuw hard afgekeurd.

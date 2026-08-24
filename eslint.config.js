@@ -36,13 +36,7 @@ export default tseslint.config(
   {
     files: ['src/**/*.{ts,tsx}'],
     extends: [tseslint.configs.base],
-    // De 21 bestaande `exhaustive-deps`-disables worden in het onderhoudbaarheidsprogramma site
-    // voor site verwijderd. Tot dat traject klaar is, mag deze tussenpoort ze niet als ongebruikt
-    // afkeuren; Task 13 zet deze controle weer op `error`.
-    linterOptions: { reportUnusedDisableDirectives: 'off' },
-    // Hookaanroepen zijn direct een harde poort: de actuele nulmeting bevat geen rules-of-hooks-
-    // schuld. Dependencydiagnoses blijven tijdelijk waarschuwingen totdat alle 41 hooksites uit de
-    // ledger aantoonbaar zijn afgehandeld.
+    linterOptions: { reportUnusedDisableDirectives: 'error' },
     plugins: { 'react-hooks': reactHooks },
     languageOptions: {
       parserOptions: {
@@ -54,7 +48,7 @@ export default tseslint.config(
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-misused-promises': 'error',
       'no-control-regex': 'error',
-      'react-hooks/exhaustive-deps': 'warn',
+      'react-hooks/exhaustive-deps': 'error',
       'react-hooks/rules-of-hooks': 'error',
     },
   },

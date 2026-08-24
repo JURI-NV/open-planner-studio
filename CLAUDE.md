@@ -13,7 +13,7 @@ npm run tauri:build  # Produce desktop installers
 npm run bump X.Y.Z   # CalVer-versie syncen (package.json + tauri.conf.json + lock; Cargo.toml blijft bewust 0.1.0)
 npm run verify       # DE poort — exact wat CI, de release-gate en de deploy-gate draaien
 npm run typecheck    # tsc --noEmit over src/ én scripts/+tests/ (tsconfig.tests.json)
-npm run lint         # los: ESLint over src/ — géén stijlregels, alleen promise-afhandeling + control-regex
+npm run lint         # los: ESLint over src/ — promises, control-regex en harde React-hookregels
 npm test             # alle vijf de suites: planning, library, mcp, dev-server, browser
 npm run test:planning     # los: CPM/kalender-regressiesuite (== bash tests/planning/run.sh)
 npm run test:library      # los: bibliotheek/IFC/i18n-checks
@@ -31,7 +31,7 @@ npm run publish:wiki      # GitHub-wiki genereren uit repo-bronnen (dry-run; `--
 
 `npm run dev` gaat via `scripts/dev-server.mjs`: dat wijst deze worktree via `scripts/dev-port.mjs` een **vaste** poort toe (verankerd aan de worktree-root, 3007–3106), claimt een guard-slot via `scripts/dev-lock.mjs` zodat een tweede start in dezelfde worktree wordt geweigerd in plaats van stilletjes een andere poort te pakken, stempelt `.claude/launch.json` met die poort (zodat `preview_start` meteen de juiste worktree opent), en spawnt dan pas Vite. `tauri:dev` (`scripts/tauri-dev.mjs`) doet hetzelfde en start `tauri dev` met een matchende `--config` `devUrl` plus `OPS_DEV_PORT`/`OPS_DEV_INSTANCE`/`OPS_DEV_GUARDED` in de env (de geneste `dev`-start slaat de toewijzing dan over). Zo kunnen **meerdere worktrees hun dev- en desktopbuild tegelijk draaien** — elk met een eigen poort (het venster laadt nooit de Vite van een andere worktree) en eigen `recovery.<slug>.*`-auto-save-bestanden (concurrent instanties overschrijven elkaar niet in de gedeelde `appDataDir`). `vite.config.ts` leest `OPS_DEV_PORT` met `strictPort` — dat is de harde backstop: twee worktrees op dezelfde poort geeft EADDRINUSE in plaats van een verkeerde build. `App.tsx` leest de slug via de `__OPS_DEV_INSTANCE__`-define. De regressietests hiervoor staan in `tests/dev-server/`.
 
-Er is geen vitest/jest; `tsc` is de statische hoofdcheck — draai `npm run typecheck` (dekt óók `scripts/` en `tests/`, incl. het casus-schema) in plaats van alleen `npm run build`. TypeScript staat op `strict` met `noUnusedLocals`/`noUnusedParameters`, dus builds leggen vaak dode code bloot. Daarnaast draait er een **bewust minimale** ESLint-config (`eslint.config.js`): géén stijlregels — alleen `no-floating-promises`, `no-misused-promises` en `no-control-regex`, precies de dingen die `tsc` niet ziet en die hier eerder stil zijn misgegaan. `import/no-cycle` staat er bewust NIET in: `verify:cycles` doet dat beter (graaf ná type-erasure, dus geen valse treffers op `import type`). De gedragstests zitten in vijf suites, samen achter `npm test`:
+Er is geen vitest/jest; `tsc` is de statische hoofdcheck — draai `npm run typecheck` (dekt óók `scripts/` en `tests/`, incl. het casus-schema) in plaats van alleen `npm run build`. TypeScript staat op `strict` met `noUnusedLocals`/`noUnusedParameters`, dus builds leggen vaak dode code bloot. Daarnaast draait er een **bewust minimale** ESLint-config (`eslint.config.js`): géén stijlregels — wel `no-floating-promises`, `no-misused-promises`, `no-control-regex`, `react-hooks/rules-of-hooks` en `react-hooks/exhaustive-deps`, plus een fout op ongebruikte suppressies. `import/no-cycle` staat er bewust NIET in: `verify:cycles` doet dat beter (graaf ná type-erasure, dus geen valse treffers op `import type`). De gedragstests zitten in vijf suites, samen achter `npm test`:
 
 | suite | wat | runner |
 |---|---|---|
@@ -39,7 +39,16 @@ Er is geen vitest/jest; `tsc` is de statische hoofdcheck — draai `npm run type
 | `tests/library/` | bibliotheek, pool-IFC, vijandige IFC-invoer, i18n-meervouden | `run.sh` |
 | `tests/mcp/` | de MCP-tools headless tegen de echte store | `run.sh` |
 | `tests/dev-server/` | poortallocatie en flock-races van de dev-server | `node:test` + `integration.sh` |
-| `tests/browser/` | echte Gantt-, documentwissel- en TableEditor-handelingen met state-asserties via de dev-only brug | Playwright Chromium |
+| `tests/browser/` | echte muis-, toets-, wheel- en DOM-handelingen voor Gantt, documenten, TableEditor, dialogen en panelen; state-/paintasserties via de dev-only brug | Playwright Chromium headless shell |
+
+Installeer de browser en Linux-systeemafhankelijkheden eenmalig met
+`npx playwright install --with-deps --only-shell chromium`. `npm run test:browser` reserveert daarna
+een afzonderlijke poort voor deze worktree, start en stopt zelf een bewaakte Vite-server en draait
+met één worker en nul retries. Gebruik bij falen `test-results/` voor screenshots en traces en
+`playwright-report/` voor het HTML-rapport; de CI-, live- en release-gates uploaden die mappen zeven
+dagen als `playwright-*`-artefact. Testhandelingen lopen via echte browser-events. De dev-only
+`window.__OPS__`-brug mag deterministische fixtures zetten en domeinstate of Canvasgeometrie lezen,
+maar mag de geteste gebruikershandeling niet vervangen.
 
 Draai de planningssuite na elke wijziging aan planningscode. **De suite print "alles groen" ook bij exit 1** wanneer het bundelen faalt — vertrouw op de **exitcode**, nooit op de tail. Een `grep` op faalregels is een handig extraatje maar **geen poort**: `grep '^XX'` werkt alleen voor `tests/planning/`. De bibliotheeksuite print zijn faalregels **ingesprongen** (`console.log(\`   XX ${msg}\`)` in `tests/library/check-*.ts`), dus `grep -c '^XX'` geeft daar 0 terwijl de suite rood staat — gemeten 2026-07-28. Gebruik `grep -c 'XX '` als je toch wilt tellen, en laat de exitcode altijd het oordeel vellen. `npm run verify` is de poort die CI, de release-gate en de deploy-gate alle drie draaien — dat is één definitie in `package.json`, dus wat je lokaal draait is letterlijk wat CI draait. Zie `tests/planning/README.md` voor het toevoegen van cases.
 
