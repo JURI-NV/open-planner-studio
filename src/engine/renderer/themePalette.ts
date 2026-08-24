@@ -25,6 +25,13 @@ function cssVarReader(): (name: string, fallback: string) => string {
 }
 
 // ── Merk-hex: de vaste, niet-thema-gebonden kleuren, één keer gedefinieerd. ──
+export const GANTT_TRACE_COLORS = {
+  predecessor: '#F59E0B',        // path tracing: voorganger (goud)
+  predecessorDriving: '#D97706', // path tracing: driving voorganger (donkerder goud)
+  successor: '#A78BFA',          // path tracing: opvolger (paars)
+  successorDriving: '#7C3AED',   // path tracing: driving opvolger (donkerder paars)
+} as const;
+
 const BRAND = {
   critical: '#DC2626',          // kritiek (rood)
   criticalLight: '#991B1B',     // voortgangsvulling kritiek
@@ -40,10 +47,10 @@ const BRAND = {
   constraintEarly: '#3B82F6',   // vroege-zijde constraint (SNET/FNET): blauw
   constraintLate: '#8B5CF6',    // late-zijde/pinnende constraint (SNLT/FNLT/MSO/MFO): violet
   deadlineOk: '#10B981',        // deadline-marker (groen; rood bij overschrijding)
-  tracePred: '#F59E0B',         // path tracing: voorganger (goud)
-  tracePredDriving: '#D97706',  // path tracing: driving voorganger (donkerder goud)
-  traceSucc: '#A78BFA',         // path tracing: opvolger (paars)
-  traceSuccDriving: '#7C3AED',  // path tracing: driving opvolger (donkerder paars)
+  tracePred: GANTT_TRACE_COLORS.predecessor,
+  tracePredDriving: GANTT_TRACE_COLORS.predecessorDriving,
+  traceSucc: GANTT_TRACE_COLORS.successor,
+  traceSuccDriving: GANTT_TRACE_COLORS.successorDriving,
 };
 
 // Optionele tint per float-pad (fase 2.9 §5.4): pad 1 = kritiek (rood, elders), paden ≥2 elk een

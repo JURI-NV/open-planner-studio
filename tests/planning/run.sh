@@ -304,6 +304,12 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   FOCUSCHECK="$DIR/.focus-task.mjs"
   if bundle_check "$DIR/check-focus-task.ts" "$FOCUSCHECK"; then node "$FOCUSCHECK" || STATUS=1; fi
 
+  # Dependencyrij-presentatie (issue #65, polishronde): één vast gridschema met gereserveerde
+  # driving-kolom, rolkleuren uit hetzelfde palet als Gantt path tracing, afkapping van lange WBS-
+  # codes en uitsluitend de rijke taaktooltip (geen tweede kleine native title-tooltip).
+  DEPPRESENTCHECK="$DIR/.dependency-presentation.mjs"
+  if bundle_check "$DIR/check-dependency-presentation.ts" "$DEPPRESENTCHECK"; then node "$DEPPRESENTCHECK" || STATUS=1; fi
+
   # Commandoregister (K-item 34): de elf acties die het lint en het toetsenbord delen, stonden twee
   # keer los gedefinieerd. Toetst het gedrag van elk commando tegen de echte store, het contract dat
   # `run` niet stil niets doet als `isEnabled` false is (issue #26), en dat geen van beide registers
