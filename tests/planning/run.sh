@@ -536,6 +536,11 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   EXTCONSENTCHECK="$DIR/.extconsent.mjs"
   if bundle_check "$DIR/check-ext-consent.ts" "$EXTCONSENTCHECK"; then node "$EXTCONSENTCHECK" || STATUS=1; fi
 
+  # Runtimevalidatie op de extensie-ingangen (onderhoudbaarheidsprogramma 1). Deze batterij begint
+  # bij het manifestcontract; catalogus- en opslagcases worden in hun eigen tasks toegevoegd.
+  EXTVALIDATIONCHECK="$DIR/.extvalidation.mjs"
+  if bundle_check "$DIR/check-extension-validation.ts" "$EXTVALIDATIONCHECK"; then node "$EXTVALIDATIONCHECK" || STATUS=1; fi
+
   # Scherm <-> print (K-item 39). De afdruk beantwoordde drie vragen zelf die de renderer al
   # beantwoordt — weeknummer, weekgrens en welke dagen vrij zijn — en was op alle drie afgedreven.
   # Een project met zaterdag als werkdag of "week begint op zondag" kreeg op papier iets anders dan
