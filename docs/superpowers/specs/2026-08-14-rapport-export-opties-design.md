@@ -1,8 +1,9 @@
 # Rapport-exportopties — balkkleuren, statuslijn, volg-weergave — ontwerpdoc
 
-**Datum:** 2026-08-14
+**Datum:** 2026-08-14, herzien 2026-08-24
 **Issues:** #21 punt 1 (nieuwe ronde: balkkleuren bij het plotten) + #54 (statuslijn, volg-weergave)
-**Status:** ontwerp goedgekeurd; implementatie via `docs/superpowers/plans/2026-08-14-rapport-export-opties.md`
+**Status:** herzien ontwerp goedgekeurd; het bestaande implementatieplan moet vóór verdere bouw
+worden bijgewerkt op basis van deze herziening
 
 ---
 
@@ -11,8 +12,10 @@
 De Gantt-rapportexport is functioneel compleet (vector-PDF, paginering, preview), maar drie wensen
 uit #21/#54 ontbreken:
 
-1. **Balkkleuren bij export** — nu uitsluitend kritiek-pad-kleuren (rood/oranje/blauw). Gewenst:
-   meerdere kleurmodi, o.a. kleur per uitvoerende resource ("metselaar geel, loodgieter groen").
+1. **Balkkleuren op scherm én bij export** — naast kritiek-pad-kleuren moet de gebruiker taken
+   automatisch per taak of per categorie kunnen kleuren. De categorievelden zijn exact de velden
+   die al onder **Group** beschikbaar zijn: WBS, taaktype, activity codes, gebruikersvelden en
+   resource.
 2. **Statuslijn in export** — op het scherm bestaan de statusdatumlijn en voortgangslijn al; de
    printlaag kent alleen een "vandaag"-lijn.
 3. **Volg weergave** — de export tekent de volledige takenboom; filter/groepering/sortering/
@@ -27,14 +30,20 @@ PDF-export (vector) draaien op hetzelfde `Draw2D`-interface, dus één wijziging
 | # | Besluit |
 |---|---------|
 | B1 | Resource krijgt een **kleurveld** (`Resource.color?: string`, hex), automatisch toegekend bij aanmaak, door de gebruiker wijzigbaar in de resource-editor. |
-| B2 | Kleuren gelden **voor de export**; op het scherm komt alléén een klein kleuraccentje (dun streepje op de taakbalk in de resourcekleur, achter een eigen Beeld-toggle). **Herzien na user-test (2026-08-17):** een EXPLICIET gekozen `Task.color` wint óók op het scherm — ook boven kritiek-rood, dat als rode rand om de balk leesbaar blijft (spiegel van de rapportmodi); en het scherm-accent verlicht te donkere resourcekleuren in het donkere thema (`ensureThemeVisible`, hue behouden — de export blijft de exacte kleur). |
+| B2 | Scherm en rapport gebruiken **dezelfde ene globale balkkleurkeuze**. Een wijziging onder View werkt meteen door in Report en andersom. Resource-accent blijft daarnaast een onafhankelijke schermtoggle. |
 | B3 | Statuslijn in het rapportpaneel als **letterlijke 3-opties-dropdown**: Geen / Statusdatumlijn / Voortgangslijn. |
 | B4 | "Volg weergave" = **volledige WYSIWYG**: de export tekent exact de `viewRows` van het scherm (filter, groepering, sortering én inklapstatus). Print-tabel behoudt zijn eigen vaste kolommen. |
-| B5 | In resource-modus: **resourcekleur als vulling + rode rand om kritieke taken**; taak zonder resource valt terug op neutraal blauw. |
-| B6 | "Elke taak een eigen kleur" = **beide varianten**: automatische regenboog (hash op taak-id) ën het bestaande `Task.color`-veld als aparte modi. |
+| B5 | Bij **Op categorie → Resource**: resourcekleur als vulling + rode rand om kritieke taken; een taak zonder resource valt terug op de neutrale kleur voor `(geen)`. |
+| B6 | De zichtbare keuzes zijn **Kritiek pad**, **Per taak — automatisch** en **Op categorie**. De oude modus *Per taak — eigen kleur* en de op deze branch toegevoegde taakkleurkiezer verdwijnen. `Task.color` blijft alleen als inert legacyveld in het documentcontract bestaan en wordt door geen renderer gelezen. |
 | B7 | Kleurtoewijzing: **nieuwe resources automatisch** (eerste vrije paletkleur) + **hash-fallback** voor kleurloze resources (deterministisch, muteert géén data — werkt direct voor elk bestaand project). |
 | B8 | Taak met meerdere resources: **balk in segmenten** naar rato van `units` per resource. |
 | B9 | Architectuur: printlaag accepteert **doorgegeven rijen** (benadering 1); géén eigen view-pijplijn, géén self-flatten wanneer rijen worden meegegeven. |
+| B10 | **Op categorie** toont een tweede selector die rechtstreeks `groupFieldList`/`fieldOptions` hergebruikt; kleur- en groepeer-UI kunnen daardoor niet stil uit elkaar lopen. |
+| B11 | De categorievelden zijn niet per project opgeslagen. De selectie is globaal. Ontbreekt een projectgebonden veld in het geopende project, dan gebruikt dat project tijdelijk **Taaktype**, toont de UI een melding en laat de opgeslagen globale keuze intact. |
+| B12 | Een categoriewaarde krijgt overal dezelfde deterministische paletkleur. Een bestaande `ActivityCodeValue.color` of `Resource.color` wint van de paletfallback. Geen waarde = neutraal grijs. |
+| B13 | Resource is een categorie binnen **Op categorie** en geen losse hoofdmodus meer. Meerdere resources blijven gewogen balksegmenten opleveren. |
+| B14 | Samenvattingsbalken en groepsbanden behouden hun structurele stijl. Bladtaken en mijlpalen volgen de gekozen kleur; in `auto` en `category` houdt een kritieke taak een rode rand. |
+| B15 | De rapportlegenda toont alleen categoriewaarden van zichtbare bladtaken, maximaal acht plus *“… en N meer”*, en verklaart daarnaast de rode kritieke rand. |
 
 ## 3. Datamodel & kleurenbron
 
@@ -50,36 +59,59 @@ PDF-export (vector) draaien op hetzelfde `Draw2D`-interface, dus één wijziging
 - **Hash-fallback**: kleurloze resources krijgen weergavekleur `hash(resourceId) → palet[index]`.
   Deterministisch op elke machine, muteert niets, niets te migreren.
 - **Kleurkiezer** in de bestaande gedeelde resource-editor.
-- **`Task.color`** bestaat al (IFC-round-trip, scherm gebruikt hem voor niet-kritieke taken) maar is
-  nergens instelbaar en de print negeert hem. Modus *per taak — eigen kleur* maakt het veld compleet:
-  kleurkiezer in `TaskPropertiesPanel` + print gebruikt hem.
+- **`Task.color`** blijft voor achterwaartse compatibiliteit in het taakmodel en in oude bestanden
+  staan, maar is geen kleurenbron meer. De branch-eigen taakkleurkiezer wordt verwijderd en zowel
+  de klassieke als de nieuwe renderer negeren het veld.
+- **`ActivityCodeValue.color`** bestaat al als kleur op categoriewaarden. In categoriekleuring wint
+  die expliciete categoriekleur van de automatische paletkleur.
 
 **Nieuw palet** `src/engine/renderer/resourcePalette.ts`: vaste reeks van 12 printvriendelijke
 kleuren, dienend voor resourcekleuren én de automatische per-taak-regenboog. Printvriendelijk =
 onderling onderscheidbaar, óók in grijswaarden (verschillende lichtheid), geen botsing met de
 kritiek-roodtint.
 
-## 4. Kleurmodi in de printlaag
+## 4. Gedeelde balkkleurselectie en kleurengine
 
-Nieuw `PrintOptions`-veld `barColorMode: 'critical' | 'task' | 'auto' | 'resource'`
-(default `'critical'`). Pure module `src/services/print/barColors.ts` vertaalt per taak naar één
-kleur óf segmenten:
+Scherm en rapport consumeren één discriminated union:
 
-| Modus | Regel |
-|---|------|
-| `critical` | Huidige gedrag: rood (kritiek) / oranje (bijna-kritiek) / blauw. |
-| `task` | `Task.color` als gezet; anders critical-logica. |
-| `auto` | `hash(taskId) → palet[index]` — stabiel bij herordenen. |
-| `resource` | Segmenten naar rato van `units` per resource, in `resourceDisplayColor(resource)` (eigen kleur of hash-fallback). Zonder resource → neutraal blauw. |
+```ts
+type BarColorSelection =
+  | { mode: 'critical' }
+  | { mode: 'auto' }
+  | { mode: 'category'; field: FieldRef };
+```
 
-- Kritiek pad in niet-critical-modi: **rode rand** om de balk (±1px `PRINT_COLORS.critical`);
-  vulling is de moduskleur.
-- Balk smaller dan ~12 px in resource-modus → solide eerste-kleur i.p.v. segmenten.
-- Mijlpalen volgen dezelfde modusregel; zonder resource de huidige paarse ruit.
-- Voltooiings-overlay komt óver de segmenten zoals nu óver de solide kleur.
-- **Legenda beweegt mee**: `task`/`auto` → alleen "rode rand = kritiek pad"; `resource` →
-  kleurvakje + resourcenaam per zichtbare resource (volgorde eerste voorkomen) + cap met
-  *"en N meer"*-regel; `critical` → zoals nu.
+De selectie wordt app-globaal gepersisteerd. `category.field` gebruikt exact dezelfde `FieldRef`
+als Group. De selector toont daarom zonder duplicatie:
+
+- WBS en taaktype;
+- ieder activity-code-type in het huidige project;
+- ieder gebruikersveld in het huidige project, ongeacht het veldtype;
+- resource.
+
+Een gedeelde pure resolver zet `(field, task, projectcontext)` om naar een rauwe sleutel, zichtbaar
+label en optionele expliciete kleur. De regels zijn:
+
+| Selectie | Regel |
+|---|---|
+| `critical` | Huidige gedrag: rood (kritiek) / oranje (bijna-kritiek) / blauw. `Task.color` is geen fallback meer. |
+| `auto` | `hash(taskId) → palet[index]`; stabiel bij herordenen. |
+| categorie WBS/taaktype/gebruikersveld | `hash(field-identiteit + rauwe waarde) → palet[index]`. |
+| categorie activity code | Expliciete kleur van de codewaarde, anders dezelfde deterministische hash-fallback. |
+| categorie resource | `Resource.color` of resource-hash; meerdere toewijzingen worden segmenten naar rato van `unitsPerDay`. |
+| ontbrekende categoriewaarde | Neutraal grijs met label `(geen)`. |
+
+- Kritieke taken in `auto` en `category` krijgen een rode rand; hun vulling blijft de gekozen kleur.
+- Een resourcebalk smaller dan circa 12 px valt terug op de eerste resourcekleur in plaats van
+  onleesbare segmenten.
+- Mijlpalen volgen dezelfde kleurbron; samenvattingen en groepsbanden volgen die bewust niet.
+- De voltooiings-overlay komt over de categorie- of resourcevulling heen zoals nu.
+- In een project waarin de opgeslagen projectgebonden `FieldRef` niet voorkomt, rekent en toont de
+  UI tijdelijk met `{ src: 'builtin', key: 'taskType' }`. De opgeslagen selectie wordt niet
+  gewijzigd; terugkeren naar een passend project herstelt de oorspronkelijke keuze.
+- De rapportlegenda gebruikt dezelfde resolver en alleen zichtbare bladtaken. `critical` behoudt de
+  bestaande legenda; `auto` verklaart alleen de rode rand; `category` toont maximaal acht unieke
+  zichtbare waarden, gevolgd door *“… en N meer”* indien nodig, plus de rode-randverklaring.
 
 ## 5. Statuslijn
 
@@ -110,40 +142,56 @@ Nieuw optioneel veld `options.rows?: ViewRow[]` op `renderReport`:
 
 ## 7. UI & instellingen
 
-- ReportPanel (Gantt-instellingenblok): dropdown **Statuslijn** (3), dropdown **Balkkleuren** (4),
-  checkbox **Volg weergave**.
-- Persistentie: drie nieuwe velden in `ReportSettings` (`reportSettings.ts`, één
-  `ops-reportSettings`-sleutel, tolerante per-veld parse incl. fallback bij onbekende waardes).
+- ReportPanel (Gantt-instellingenblok): dropdown **Statuslijn** (3), gedeelde bediening
+  **Balkkleuren**, checkbox **Volg weergave**.
+- De Balkkleuren-bediening heeft drie hoofdkeuzes. Alleen bij **Op categorie** verschijnt een tweede
+  selector met de actuele `groupFieldList`.
+- View en Report lezen en schrijven dezelfde globale `BarColorSelection`; ReportPanel houdt hiervoor
+  geen onafhankelijke lokale/persistente kopie meer bij.
+- Tolerante migratie wanneer de nieuwe instelling nog ontbreekt: `critical → critical`,
+  `auto → auto`, `resource → category/resource`, `task → critical`. Als oude scherm- en
+  rapportinstellingen verschillen, wint een niet-standaard schermkeuze; anders een niet-standaard
+  rapportkeuze; anders `critical`. Na migratie is alleen de nieuwe instelling canoniek.
+- Een ontbrekende categorie in het huidige project toont naast de tijdelijke Taaktype-terugval een
+  korte uitleg; er is geen stille wijziging van de globale voorkeur.
 - i18n: nieuwe sleutels in `report`-namespace; nl+en bron, 14 locales aanvullen (`verify:i18n` poort).
 - Scherm-accent: toggle **"Resource-accent"** op de Beeld-tab (persisted via losse `ops-`-sleutel
   zoals `showProgressLine`). Aan = `GanttRenderer` tekent op elke taakbalk een dun streepje
-  (±3 px onderrand) in de resourcekleur, gesegmenteerd bij meerdere resources. Balkvulling blijft
-  kritiek-pad-gekleurd.
+  (±3 px onderrand) in de resourcekleur, gesegmenteerd bij meerdere resources. Deze toggle blijft
+  onafhankelijk van de gekozen balkvulling, ook bij **Op categorie → Resource**.
 
 ## 8. Tests
 
-- `tests/planning/check-bar-colors.ts` (nieuw): palet-uniekheid + grijswaardenonderscheid,
-  hash-stabiliteit, auto-toewijzing, hash-fallback muteert niets, segmentverdeling naar rato van
-  units (exact vullend incl. afronding), smalbalk-fallback, rode-rand-regel per modus, mijlpalen.
-- `tests/planning/check-print-report.ts` (nieuw): `renderReport` tegen een recording-`Draw2D`-stub:
-  rijen-volg-modus tekent exact de viewRows, statuslijn op juiste x (of niet), kleurmodi produceren
-  juiste fill-kleuren/segmenten, legenda-inhoud per modus.
+- `tests/planning/check-bar-colors.ts`: palet- en hash-stabiliteit; WBS, taaktype, activity codes,
+  alle gebruikersveldtypen en resource; expliciete categoriekleuren; `(geen)`; verwijderde velden;
+  resourceverdeling, smalbalk-fallback, rode rand, mijlpalen en bewijs dat `Task.color` geen effect
+  meer heeft.
+- `tests/planning/check-print-report.ts`: `renderReport` tegen een recording-`Draw2D`-stub:
+  rijen-volg-modus, statuslijn, iedere nieuwe kleurselectie en de zichtbare-categorielegenda.
+- UI-/settingstest: één keuze stuurt View én Report; de tweede selector spiegelt `groupFieldList`;
+  ontbrekend veld geeft tijdelijke Taaktype-terugval zonder overschrijven; alle vier oude modi
+  migreren volgens §7.
 - IFC-batterij uitbreiden: `Resource.color` round-trip; pool-export/import behoudt kleur.
 - `tests/library/`: kleurwijziging triggert géén afwijkingsstatus.
-- `tests/planning/check-renderer.ts` uitbreiden met resource-accent.
-- Poort: `npm run verify` + visuele QA in de dev-build (preview vs. export).
+- Renderertests houden resource-accent onafhankelijk van alle drie balkkleurkeuzes.
+- Poort: typecheck, volledige planning-/tijdzonematrix, `npm run verify` en echte visuele QA in de
+  dev-build: categorie kiezen onder View, dezelfde keuze onder Report terugzien en preview/export
+  met het scherm vergelijken.
 
 ## 9. Buiten scope
 
-Kleurmodi via MCP-tools, tabelkolommen volgen in export, kleurmodi op het scherm (behalve accent),
-CJK/RTL-printzaken, baseline-gerelateerde kleuren.
+Kleurmodi via MCP-tools, tabelkolommen volgen in export, handmatige kleuren per taak of per
+categoriewaarde toevoegen, CJK/RTL-printzaken en baseline-gerelateerde kleuren.
 
 ## 10. Fasering
 
-1. Data: `Resource.color` + IFC + bibliotheek-persistentie + auto-toewijzing + `resourcePalette.ts`
-   + hash-fallback + palet-test.
-2. Kleurlogica: `barColors.ts` + tests.
-3. Printlaag: `PrintOptions`-velden, rijen-normalisatie, kleurmodi + legenda, statuslijn,
-   recording-Draw2D-tests.
-4. UI: ReportPanel-besturing, `ReportSettings`, Beeld-toggle + accent, i18n.
-5. Docs (nl+en + 12 overige) + TODO + visuele QA + `npm run verify`.
+1. Gedeeld contract: `BarColorSelection`, globale instelling en tolerante migratie; oude
+   ReportPanel-kopie verwijderen.
+2. Categorie-resolver: `FieldRef` + projectcontext naar sleutel/label/kleur, inclusief terugval en
+   volledige tests voor de velden uit Group.
+3. Kleurlogica: `barColors.ts` ombouwen naar `critical | auto | category`; `Task.color` volledig uit
+   alle renderpaden halen; resource-segmenten behouden.
+4. Print/scherm: beide renderers en rapportlegenda op dezelfde selectie/resolver aansluiten.
+5. UI: gedeelde drie-keuzebediening met conditionele Group-veldselector, migratiehint, i18n en de
+   reeds gevraagde ribbonkolommen.
+6. Docs, gerichte regressietests, visuele vergelijking en volledige verificatiepoort.
