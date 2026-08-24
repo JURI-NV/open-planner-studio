@@ -36,6 +36,27 @@ gebeurt met echte muis-, toetsenbord- en DOM-events. `window.__OPS__` mag vooraf
 fixtures maken en achteraf domeinstate, painttellingen of renderergeometrie lezen. Het mag de
 gebruikershandeling zelf niet uitvoeren.
 
+### Extensieopslag en quarantaine
+
+`tests/browser/extensions-storage.spec.ts` legt rechtstreeks vier echte records in de
+`ops-extensions`-objectstore: een geldig legacyrecord, een vorm-kapot record, een identiteitsmismatch
+en een modern geldig record. Daarna gebruikt de test `window.__OPS__.extensions.scanStored()` alleen
+als observatienaad om te bewijzen dat scannen niets uitvoert of herschrijft. Na een echte reload
+controleert hij via de store dat alleen geldige records ready zijn en opent hij met echte kliks
+**Bestand → Extensies**. De quarantainekaarten, afwezige toggles en tweeklik-verwijdering worden via
+de DOM bediend; de IndexedDB-sleutels en `onLoad`-effecten worden onafhankelijk nagemeten.
+
+Dezelfde fixture beschadigt vervolgens een ready record ná startup en klikt de echte
+aan/uit-schakelaar. Dat bewijst de hervalidatie vlak vóór uitvoering: de kaart verhuist naar
+quarantaine en de effectteller verandert niet. Twee extra auto-enabled records leggen vast dat een
+`onLoad`-fout een runtimefout blijft en een later geldig record niet blokkeert.
+
+De dev-bridge mag voor geautomatiseerde ZIP-tests uitsluitend de menselijke vertrouwensvraag
+overslaan via `window.__OPS__.extensions.installFromZip(...)`. Dat pad gebruikt verder exact de
+productievolgorde: ZIP-parse, manifest- en identiteitsvalidatie, veilige paden, opslag en activatie.
+Er bestaat geen dev-optie die validatie omzeilt. De consentdialoog zelf test je afzonderlijk met
+`window.__OPS__.extensions.consent.set(fn)` en `.reset()`.
+
 ## Tier 1 — Licht (standaard): Playwright MCP → browser-dev-build
 
 Werkt tegen de **browser-dev-build** op de aan dit worktree toegewezen poort (zie de `▶`-print van
