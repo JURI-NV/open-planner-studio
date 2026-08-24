@@ -555,6 +555,12 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   SFCHECK="$DIR/.storefactory.mjs"
   if bundle_check "$DIR/check-store-factory.ts" "$SFCHECK"; then node "$SFCHECK" || STATUS=1; fi
 
+  # Per-store runtime-isolatie (onderhoudbaarheidsprogramma 2). Dezelfde coalesceKey in twee
+  # contexten, geneste/interleaved batches en de gedeeltelijk-committen throwsemantiek mogen elkaars
+  # undo, redo of suppressiediepte nooit beïnvloeden.
+  SRICHECK="$DIR/.store-runtime-isolation.mjs"
+  if bundle_check "$DIR/check-store-runtime-isolation.ts" "$SRICHECK"; then node "$SRICHECK" || STATUS=1; fi
+
   # Export-guard (bevinding K7). Exports schrijven CPM-datums naar derden; zonder guard ging een
   # verouderde planning het bestand in. De subtiele helft: na een cyclus staat `scheduleStale` al
   # op false terwijl `task.time` oud is, dus een guard op alleen die vlag exporteert stil verkeerd.
