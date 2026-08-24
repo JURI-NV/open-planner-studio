@@ -53,9 +53,10 @@ function parseString(
   value: unknown,
   field: string,
   maxLength: number,
+  allowEmpty = false,
 ): ParseResult<string> {
   if (typeof value !== 'string') return fail(`${field} moet een string zijn`);
-  if (value.length === 0) return fail(`${field} mag niet leeg zijn`);
+  if (!allowEmpty && value.length === 0) return fail(`${field} mag niet leeg zijn`);
   if (value.length > maxLength) {
     return fail(`${field} mag maximaal ${maxLength} tekens bevatten`);
   }
@@ -143,7 +144,7 @@ function parseTags(value: unknown): ParseResult<string[]> {
 
   const tags: string[] = [];
   for (const candidate of value) {
-    const parsed = parseString(candidate, 'tag', EXTENSION_LIMITS.tag);
+    const parsed = parseString(candidate, 'tag', EXTENSION_LIMITS.tag, true);
     if (!parsed.ok) return parsed;
     if (!tags.includes(parsed.value)) tags.push(parsed.value);
   }
@@ -166,9 +167,7 @@ function parseRepository(value: unknown): ParseResult<string> {
 }
 
 function parseIcon(value: unknown): ParseResult<string> {
-  if (typeof value !== 'string' || value.length === 0) {
-    return fail('icon moet een niet-lege string zijn');
-  }
+  if (typeof value !== 'string') return fail('icon moet een string zijn');
   if (new TextEncoder().encode(value).byteLength > EXTENSION_LIMITS.iconBytes) {
     return fail(`icon mag maximaal ${EXTENSION_LIMITS.iconBytes} UTF-8-bytes bevatten`);
   }
@@ -196,7 +195,12 @@ export function parseExtensionManifest(
   if (!version.ok) return version;
   const author = parseString(input.author, 'author', EXTENSION_LIMITS.author);
   if (!author.ok) return author;
-  const description = parseString(input.description, 'description', EXTENSION_LIMITS.description);
+  const description = parseString(
+    input.description,
+    'description',
+    EXTENSION_LIMITS.description,
+    true,
+  );
   if (!description.ok) return description;
   const category = parseCategory(input.category);
   if (!category.ok) return category;

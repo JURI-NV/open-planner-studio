@@ -93,6 +93,14 @@ expectFail('te groot icoon meet UTF-8-bytes', {
   ...volledig(),
   icon: '🙂'.repeat(Math.floor(EXTENSION_LIMITS.iconBytes / 4) + 1),
 });
+for (const [label, patch] of [
+  ['lege beschrijving', { description: '' }],
+  ['lege tag', { tags: [''] }],
+  ['leeg icoon', { icon: '' }],
+] as const) {
+  expectOk(`${label} blijft een geldige begrensde string`,
+    parseExtensionManifest({ ...volledig(), ...patch }, 'fresh'));
+}
 
 // ── 5. Positieve reconstructie en losstaandheid ─────────────────────────────
 {
