@@ -258,7 +258,7 @@ type AppGlobalKey =
   // Multi-document-boekhouding zelf — dit ís de laag die de rest swapt.
   | 'documents' | 'activeDocumentId'
   // Extensies: app-niveau data, geen projectdata (zie CLAUDE.md, *Extensiesysteem*).
-  | 'installedExtensions' | 'extensionRibbonButtons' | 'extensionImporters'
+  | 'installedExtensions' | 'quarantinedExtensions' | 'extensionRibbonButtons' | 'extensionImporters'
   | 'catalogEntries' | 'catalogIssues' | 'catalogLoading' | 'catalogError' | 'catalogLastFetched'
   // Resourcebibliotheek: app-globaal, net als extensies (zie CLAUDE.md, *Resourcebibliotheken*).
   | 'companies' | 'defaultCompanyId' | 'pools' | 'libraryLoaded';

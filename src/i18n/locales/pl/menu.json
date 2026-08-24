@@ -329,6 +329,12 @@
     "installing": "Instalowanie...",
     "installedBadge": "Zainstalowane",
     "installError": "Instalacja nie powiodła się.",
+    "quarantined": "Kwarantanna",
+    "quarantineReason": "Powód: {{reason}}",
+    "quarantineRemove": "Usuń z pamięci",
+    "quarantineEmptyName": "Nieprawidłowe rozszerzenie",
+    "catalogEntriesSkipped": "Pominięte wpisy katalogu: {{count}}",
+    "storageWriteFailed": "Nie można zapisać stanu rozszerzenia.",
     "import": "Importuj",
     "importSubtitle": "Importuj dane projektu za pomocą zainstalowanych rozszerzeń.",
     "importEmpty": "Brak rozszerzeń importu. Dodaj je w sekcji Rozszerzenia."

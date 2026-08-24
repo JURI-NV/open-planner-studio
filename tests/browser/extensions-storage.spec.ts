@@ -1,6 +1,7 @@
-import { expect, test } from './fixtures/ops';
+import { expect, test, waitForOps } from './fixtures/ops';
 
 test('extension storage: scant vier echte IndexedDB-records zonder code uit te voeren', async ({ page, ops: _ops }) => {
+  test.setTimeout(60_000);
   await page.evaluate(async () => {
     Object.defineProperty(window, '__opsExtensionStorageOnLoad', {
       configurable: true,
@@ -110,4 +111,84 @@ test('extension storage: scant vier echte IndexedDB-records zonder code uit te v
   expect(scan.filter(record => !record.ok).every(record => Boolean(record.reason))).toBe(true);
   expect(after.keys).toEqual(beforeKeys);
   expect(after.onLoadEffects).toBe(0);
+
+  const quarantineIds = await page.evaluate(() => {
+    const makeId = window.__OPS__!.extensions.quarantineIdForKey;
+    return [
+      makeId('1'),
+      makeId(1),
+      makeId(new Date(1)),
+      makeId(new Uint8Array([1]).buffer),
+      makeId(['1', 1, new Uint8Array([1])]),
+    ];
+  });
+  expect(new Set(quarantineIds).size).toBe(quarantineIds.length);
+  expect(quarantineIds.every(id => /^q:[0-9a-f]+$/.test(id))).toBe(true);
+
+  await page.addInitScript(() => {
+    Object.defineProperty(window, '__opsExtensionStorageOnLoad', {
+      configurable: true,
+      writable: true,
+      value: 0,
+    });
+  });
+  await page.reload();
+  await waitForOps(page);
+
+  await expect.poll(() => page.evaluate(() => {
+    const store = window.__OPS__!.store.getState();
+    return {
+      ready: Object.keys(store.installedExtensions),
+      quarantined: Object.keys(store.quarantinedExtensions),
+    };
+  })).toEqual({
+    ready: ['01-legacy', '04-modern'],
+    quarantined: expect.arrayContaining([
+      expect.stringMatching(/^q:[0-9a-f]+$/),
+      expect.stringMatching(/^q:[0-9a-f]+$/),
+    ]),
+  });
+  expect(await page.evaluate(() => (
+    window as unknown as { __opsExtensionStorageOnLoad: number }
+  ).__opsExtensionStorageOnLoad)).toBe(1);
+
+  const skipWelcome = page.getByRole('button', { name: /^(Skip|Overslaan)$/ });
+  await expect(skipWelcome).toBeVisible();
+  await skipWelcome.click();
+  await page.getByRole('button', { name: /^(File|Bestand)$/ }).click();
+  await page.getByRole('button', { name: /^(Extensions|Extensies)$/ }).click();
+
+  await expect(page.getByTestId('extension-ready-card')).toHaveCount(2);
+  const quarantineCards = page.getByTestId('extension-quarantine-card');
+  await expect(quarantineCards).toHaveCount(2);
+  await expect(quarantineCards.locator('.ext-toggle')).toHaveCount(0);
+  await expect(quarantineCards.first().getByText(/^(Quarantine|Quarantaine)$/)).toBeVisible();
+  await expect(quarantineCards.first().getByText(/^(Reason|Reden):/)).toBeVisible();
+
+  const remove = quarantineCards.first().getByTestId('extension-quarantine-remove');
+  await remove.click();
+  await expect(quarantineCards).toHaveCount(2);
+  await remove.click();
+  await expect(quarantineCards).toHaveCount(1);
+
+  const remaining = await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('ops-extensions', 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const keys = await new Promise<IDBValidKey[]>((resolve, reject) => {
+      const tx = db.transaction('extensions', 'readonly');
+      const request = tx.objectStore('extensions').getAllKeys();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    return {
+      keys,
+      quarantineCount: Object.keys(window.__OPS__!.store.getState().quarantinedExtensions).length,
+    };
+  });
+  expect(remaining.keys).toEqual(['01-legacy', '03-mismatch', '04-modern']);
+  expect(remaining.quarantineCount).toBe(1);
 });

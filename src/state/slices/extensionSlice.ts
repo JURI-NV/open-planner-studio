@@ -1,5 +1,6 @@
 import type {
-  InstalledExtension,
+  ReadyExtension,
+  QuarantinedExtension,
   ExtensionStatus,
   CatalogEntry,
   CatalogIssue,
@@ -29,7 +30,8 @@ export interface ExtensionImporter extends ImporterDefinition {
 
 export interface ExtensionSlice {
   // State
-  installedExtensions: Record<string, InstalledExtension>;
+  installedExtensions: Record<string, ReadyExtension>;
+  quarantinedExtensions: Record<string, QuarantinedExtension>;
   extensionRibbonButtons: ExtensionRibbonButton[];
   extensionImporters: ExtensionImporter[];
   catalogEntries: CatalogEntry[];
@@ -39,7 +41,9 @@ export interface ExtensionSlice {
   catalogLastFetched: number | null;
 
   // Extensie-CRUD
-  registerExtension: (ext: InstalledExtension) => void;
+  registerReadyExtension: (ext: ReadyExtension) => void;
+  registerQuarantinedExtension: (ext: QuarantinedExtension) => void;
+  removeQuarantinedExtension: (quarantineId: string) => void;
   unregisterExtension: (id: string) => void;
   setExtensionStatus: (id: string, status: ExtensionStatus, error?: string) => void;
 
@@ -62,6 +66,7 @@ export interface ExtensionSlice {
 
 export const createExtensionSlice: AppSlice<ExtensionSlice> = (set) => ({
   installedExtensions: {},
+  quarantinedExtensions: {},
   extensionRibbonButtons: [],
   extensionImporters: [],
   catalogEntries: [],
@@ -70,9 +75,19 @@ export const createExtensionSlice: AppSlice<ExtensionSlice> = (set) => ({
   catalogError: null,
   catalogLastFetched: null,
 
-  registerExtension: (ext) =>
+  registerReadyExtension: (ext) =>
     set((s) => {
       s.installedExtensions[ext.id] = ext;
+    }),
+
+  registerQuarantinedExtension: (ext) =>
+    set((s) => {
+      s.quarantinedExtensions[ext.quarantineId] = ext;
+    }),
+
+  removeQuarantinedExtension: (quarantineId) =>
+    set((s) => {
+      delete s.quarantinedExtensions[quarantineId];
     }),
 
   unregisterExtension: (id) =>

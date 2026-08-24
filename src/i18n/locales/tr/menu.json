@@ -329,6 +329,12 @@
     "installing": "Yükleniyor...",
     "installedBadge": "Yüklü",
     "installError": "Yükleme başarısız oldu.",
+    "quarantined": "Karantina",
+    "quarantineReason": "Neden: {{reason}}",
+    "quarantineRemove": "Depolamadan kaldır",
+    "quarantineEmptyName": "Geçersiz uzantı",
+    "catalogEntriesSkipped": "Atlanan katalog girdileri: {{count}}",
+    "storageWriteFailed": "Uzantı durumu kaydedilemedi.",
     "import": "İçe aktar",
     "importSubtitle": "Yüklü uzantılar aracılığıyla proje verilerini içe aktarın.",
     "importEmpty": "İçe aktarma uzantısı yüklü değil. Uzantılar bölümünden ekleyin."

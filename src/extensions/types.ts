@@ -75,15 +75,6 @@ export interface ExtensionManifest {
   icon?: string;             // inline SVG-string of emoji
 }
 
-// ── Geïnstalleerde extensie (runtime-record in de store) ──
-
-export interface InstalledExtension {
-  id: string;
-  manifest: ExtensionManifest;
-  status: ExtensionStatus;
-  error?: string;
-}
-
 export type ParseResult<T> =
   | { ok: true; value: T; warnings: string[] }
   | { ok: false; error: string };
@@ -94,8 +85,14 @@ export interface CatalogIssue {
   error: string;
 }
 
-export interface ReadyExtension extends InstalledExtension {
+// ── Gevalideerde extensies en onuitvoerbare opslagrecords ──
+
+export interface ReadyExtension {
   kind: 'ready';
+  id: string;
+  manifest: ExtensionManifest;
+  status: ExtensionStatus;
+  error?: string;
 }
 
 /** Gevalideerde, in geheugen genormaliseerde vorm van één IndexedDB-record. */

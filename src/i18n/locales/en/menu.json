@@ -329,6 +329,12 @@
     "installing": "Installing...",
     "installedBadge": "Installed",
     "installError": "Installation failed.",
+    "quarantined": "Quarantine",
+    "quarantineReason": "Reason: {{reason}}",
+    "quarantineRemove": "Remove from storage",
+    "quarantineEmptyName": "Invalid extension",
+    "catalogEntriesSkipped": "Skipped catalog entries: {{count}}",
+    "storageWriteFailed": "The extension status could not be saved.",
     "import": "Import",
     "importSubtitle": "Import project data through installed extensions.",
     "importEmpty": "No import extensions installed. Add one via Extensions."

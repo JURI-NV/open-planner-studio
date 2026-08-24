@@ -329,6 +329,12 @@
     "installing": "جارٍ التثبيت...",
     "installedBadge": "مثبّتة",
     "installError": "فشل التثبيت.",
+    "quarantined": "الحجر",
+    "quarantineReason": "السبب: {{reason}}",
+    "quarantineRemove": "إزالة من التخزين",
+    "quarantineEmptyName": "إضافة غير صالحة",
+    "catalogEntriesSkipped": "إدخالات الكتالوج المتجاوزة: {{count}}",
+    "storageWriteFailed": "تعذر حفظ حالة الإضافة.",
     "import": "استيراد",
     "importSubtitle": "استيراد بيانات المشروع عبر الإضافات المثبّتة.",
     "importEmpty": "لا توجد إضافات استيراد مثبّتة. أضف واحدة عبر الإضافات."

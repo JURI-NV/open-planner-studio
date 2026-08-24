@@ -329,6 +329,12 @@
     "installing": "Installation...",
     "installedBadge": "Installée",
     "installError": "Échec de l'installation.",
+    "quarantined": "Quarantaine",
+    "quarantineReason": "Raison : {{reason}}",
+    "quarantineRemove": "Supprimer du stockage",
+    "quarantineEmptyName": "Extension non valide",
+    "catalogEntriesSkipped": "Entrées de catalogue ignorées : {{count}}",
+    "storageWriteFailed": "L'état de l'extension n'a pas pu être enregistré.",
     "import": "Importer",
     "importSubtitle": "Importez des données de projet via les extensions installées.",
     "importEmpty": "Aucune extension d'import installée. Ajoutez-en une via Extensions."

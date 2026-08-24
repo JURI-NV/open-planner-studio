@@ -4,7 +4,12 @@
  * Uitvoering: new Function(...) met een minimale CommonJS-omgeving; require()
  * geeft alleen de host-SDK ('open-planner-studio') terug.
  */
-import type { ExtensionManifest, ExtensionPlugin, InstalledExtension } from './types';
+import type {
+  ExtensionManifest,
+  ExtensionPlugin,
+  QuarantinedExtension,
+  ReadyExtension,
+} from './types';
 import { createExtensionApi } from './extensionApi';
 import { getExtensionSdk, installExtensionSdk } from './sdk';
 import { sanitizeManifestPermissions } from './permissions';
@@ -99,6 +104,50 @@ export async function removeExtensionFromDb(key: IDBValidKey): Promise<void> {
 export interface RawStoredExtension {
   storageKey: IDBValidKey;
   value: unknown;
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  let hex = '';
+  for (const byte of bytes) hex += byte.toString(16).padStart(2, '0');
+  return hex;
+}
+
+/** Canonieke, typebewuste representatie van iedere geldige IndexedDB-sleutel. */
+export function encodeIdbKey(key: IDBValidKey): string {
+  if (typeof key === 'string') {
+    const bytes = new TextEncoder().encode(key);
+    return `s${bytes.byteLength}:${bytesToHex(bytes)}`;
+  }
+  if (typeof key === 'number') {
+    if (!Number.isFinite(key)) throw new TypeError('IndexedDB-getalsleutel moet eindig zijn');
+    return `n${Object.is(key, -0) ? '0' : String(key)}`;
+  }
+  if (key instanceof Date) {
+    if (!Number.isFinite(key.getTime())) throw new TypeError('IndexedDB-datumsleutel moet geldig zijn');
+    return `d${key.toISOString()}`;
+  }
+  if (key instanceof ArrayBuffer) {
+    const bytes = new Uint8Array(key);
+    return `b${bytes.byteLength}:${bytesToHex(bytes)}`;
+  }
+  if (ArrayBuffer.isView(key)) {
+    const bytes = new Uint8Array(key.buffer, key.byteOffset, key.byteLength);
+    return `b${bytes.byteLength}:${bytesToHex(bytes)}`;
+  }
+  if (Array.isArray(key)) {
+    const parts = key.map(encodeIdbKey);
+    const encoded = parts.map((part) => {
+      const length = new TextEncoder().encode(part).byteLength;
+      return `${length}:${part}`;
+    }).join('');
+    return `a${parts.length}:${encoded}`;
+  }
+  throw new TypeError('Onbekend IndexedDB-sleuteltype');
+}
+
+/** Objectproperty-veilige, stabiele identiteit; verwijderen gebruikt altijd de originele sleutel. */
+export function quarantineIdForStorageKey(key: IDBValidKey): string {
+  return `q:${bytesToHex(new TextEncoder().encode(encodeIdbKey(key)))}`;
 }
 
 export async function getAllExtensionRecordsFromDb(): Promise<RawStoredExtension[]> {
@@ -272,33 +321,58 @@ export async function disableExtension(id: string): Promise<void> {
 
 /** Laad alle geïnstalleerde extensies bij het opstarten (auto-enable wat aan stond). */
 export async function loadAllExtensions(): Promise<void> {
-  try {
-    installExtensionSdk();
-    const allExtensions = await getAllExtensionRecordsFromDb();
+  installExtensionSdk();
 
-    for (const raw of allExtensions) {
+  let allExtensions: RawStoredExtension[];
+  try {
+    allExtensions = await getAllExtensionRecordsFromDb();
+  } catch (err) {
+    console.error('[Extensies] Lezen van extensieopslag mislukt:', err);
+    return;
+  }
+
+  for (const raw of allExtensions) {
+    try {
       const parsed = parseStoredExtension(raw.value, raw.storageKey);
       if (!parsed.ok) {
-        console.error('[Extensies] Ongeldig opslagrecord overgeslagen:', parsed.error);
+        const quarantined: QuarantinedExtension = {
+          kind: 'quarantined',
+          quarantineId: quarantineIdForStorageKey(raw.storageKey),
+          storageKey: raw.storageKey,
+          displayName: '',
+          reason: parsed.error,
+          status: 'quarantined',
+        };
+        useAppStore.getState().registerQuarantinedExtension(quarantined);
         continue;
       }
       const ext = parsed.value;
       // Idempotent: een al-geregistreerde extensie niet overschrijven (kan al actief zijn)
       if (useAppStore.getState().installedExtensions[ext.id]) continue;
 
-      const installed: InstalledExtension = {
+      const installed: ReadyExtension = {
+        kind: 'ready',
         id: ext.id,
         manifest: ext.manifest,
         status: 'disabled',
       };
-      useAppStore.getState().registerExtension(installed);
+      useAppStore.getState().registerReadyExtension(installed);
 
       if (ext.enabled) {
         await enableExtension(ext.id);
       }
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      const quarantined: QuarantinedExtension = {
+        kind: 'quarantined',
+        quarantineId: quarantineIdForStorageKey(raw.storageKey),
+        storageKey: raw.storageKey,
+        displayName: '',
+        reason,
+        status: 'quarantined',
+      };
+      useAppStore.getState().registerQuarantinedExtension(quarantined);
     }
-  } catch (err) {
-    console.error('[Extensies] Laden van extensies mislukt:', err);
   }
 }
 

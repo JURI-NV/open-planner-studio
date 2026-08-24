@@ -3,7 +3,7 @@
  * ZIP-parsing gebeurt met een minimale eigen parser op basis van
  * DecompressionStream — geen JSZip-dependency (zelfde aanpak als Open Calc Studio).
  */
-import type { ExtensionManifest, InstalledExtension, CatalogEntry } from './types';
+import type { ExtensionManifest, ReadyExtension, CatalogEntry } from './types';
 import { manifestFromJavaScript, parseCatalog, parseExtensionManifest } from './validation';
 import {
   saveExtensionToDb,
@@ -267,12 +267,13 @@ export async function installFromJsFile(): Promise<InstallOutcome> {
           enabled: true,
         });
 
-        const installed: InstalledExtension = {
+        const installed: ReadyExtension = {
+          kind: 'ready',
           id: manifest.id,
           manifest,
           status: 'disabled',
         };
-        useAppStore.getState().registerExtension(installed);
+        useAppStore.getState().registerReadyExtension(installed);
         await enableExtension(manifest.id);
 
         input.remove();
@@ -375,12 +376,13 @@ export async function installFromZipBlob(
       ...(hasAssets ? { assets } : {}),
     });
 
-    const installed: InstalledExtension = {
+    const installed: ReadyExtension = {
+      kind: 'ready',
       id: manifest.id,
       manifest,
       status: 'disabled',
     };
-    useAppStore.getState().registerExtension(installed);
+    useAppStore.getState().registerReadyExtension(installed);
     await enableExtension(manifest.id);
 
     return 'installed';
@@ -636,4 +638,14 @@ export async function removeExtension(id: string): Promise<void> {
     if (key?.startsWith(prefix)) keysToRemove.push(key);
   }
   keysToRemove.forEach((k) => localStorage.removeItem(k));
+}
+
+/** Verwijder een onuitvoerbaar opslagrecord via zijn bewaarde IndexedDB-sleutel. */
+export async function removeQuarantinedExtension(quarantineId: string): Promise<void> {
+  const store = useAppStore.getState();
+  const quarantined = store.quarantinedExtensions[quarantineId];
+  if (!quarantined) return;
+
+  await removeExtensionFromDb(quarantined.storageKey);
+  useAppStore.getState().removeQuarantinedExtension(quarantineId);
 }

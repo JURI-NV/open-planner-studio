@@ -6,9 +6,12 @@ import { readIFC } from '@/services/ifc/ifcReader';
 import { parseOpenedFile, readFormatInput } from '@/services/formatRegistry';
 import { enableExtension, disableExtension, removeExtension, saveExtensionToDb, installFromZipBlob } from '@/extensions';
 import type { ExpectedExtensionIdentity, InstallOutcome } from '@/extensions';
-import type { ExtensionManifest, InstalledExtension } from '@/extensions/types';
+import type { ExtensionManifest, ReadyExtension } from '@/extensions/types';
 import { parseExtensionManifest, parseStoredExtension } from '@/extensions/validation';
-import { getAllExtensionRecordsFromDb } from '@/extensions/extensionLoader';
+import {
+  getAllExtensionRecordsFromDb,
+  quarantineIdForStorageKey,
+} from '@/extensions/extensionLoader';
 import { setConsentAsker, resetConsentAsker, type ConsentAsker } from '@/extensions';
 import { copyScreenshotToClipboard } from '@/services/feedback/feedbackService';
 import { isTauri } from '@/utils/platform';
@@ -94,7 +97,7 @@ async function openFromPath(path: string) {
 async function installExtensionFromCode(
   manifest: ExtensionManifest,
   mainCode: string,
-): Promise<InstalledExtension | undefined> {
+): Promise<ReadyExtension | undefined> {
   const parsed = parseExtensionManifest(manifest, 'fresh');
   if (!parsed.ok) throw new Error(parsed.error);
   const validatedManifest = parsed.value;
@@ -104,7 +107,8 @@ async function installExtensionFromCode(
     mainCode,
     enabled: true,
   });
-  useAppStore.getState().registerExtension({
+  useAppStore.getState().registerReadyExtension({
+    kind: 'ready',
     id: validatedManifest.id,
     manifest: validatedManifest,
     status: 'disabled',
@@ -255,6 +259,8 @@ export interface OpsDevBridge {
     installFromCode: typeof installExtensionFromCode;
     /** Alleen lezen en valideren; activeert, registreert, verwijdert en herschrijft niets. */
     scanStored: typeof scanStoredExtensions;
+    /** Pure observatienaad voor stabiele, typebewuste quarantaine-identiteiten. */
+    quarantineIdForKey: typeof quarantineIdForStorageKey;
     /** Installeer via het echte ZIP-pad (parse → assets → opslaan → activeren), MET de
      *  vertrouwensvraag overgeslagen — een zelftest heeft geen mens die een dialoog wegklikt.
      *  De dialoog zelf test je via `__OPS__.extensions.consent`. */
@@ -299,6 +305,7 @@ export function installDevBridge(): void {
     extensions: {
       installFromCode: installExtensionFromCode,
       scanStored: scanStoredExtensions,
+      quarantineIdForKey: quarantineIdForStorageKey,
       installFromZip: (blob: Blob, expected?: ExpectedExtensionIdentity) =>
         installFromZipBlob(blob, expected, { assumeConsent: true }),
       consent: {

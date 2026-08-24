@@ -329,6 +329,12 @@
     "installing": "Bezig...",
     "installedBadge": "Geïnstalleerd",
     "installError": "Installatie mislukt.",
+    "quarantined": "Quarantaine",
+    "quarantineReason": "Reden: {{reason}}",
+    "quarantineRemove": "Uit opslag verwijderen",
+    "quarantineEmptyName": "Ongeldige extensie",
+    "catalogEntriesSkipped": "Overgeslagen catalogusitems: {{count}}",
+    "storageWriteFailed": "De extensiestatus kon niet worden opgeslagen.",
     "import": "Importeren",
     "importSubtitle": "Importeer projectdata via geïnstalleerde extensies.",
     "importEmpty": "Geen import-extensies geïnstalleerd. Voeg er een toe via Extensies."

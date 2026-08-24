@@ -329,6 +329,12 @@
     "installing": "설치 중...",
     "installedBadge": "설치됨",
     "installError": "설치에 실패했습니다.",
+    "quarantined": "격리",
+    "quarantineReason": "이유: {{reason}}",
+    "quarantineRemove": "저장소에서 제거",
+    "quarantineEmptyName": "잘못된 확장 프로그램",
+    "catalogEntriesSkipped": "건너뛴 카탈로그 항목: {{count}}",
+    "storageWriteFailed": "확장 프로그램 상태를 저장하지 못했습니다.",
     "import": "가져오기",
     "importSubtitle": "설치된 확장 프로그램으로 프로젝트 데이터를 가져옵니다.",
     "importEmpty": "가져오기 확장 프로그램이 없습니다. 확장 프로그램에서 추가하세요."

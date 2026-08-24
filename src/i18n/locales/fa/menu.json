@@ -329,6 +329,12 @@
     "installing": "در حال نصب...",
     "installedBadge": "نصب‌شده",
     "installError": "نصب ناموفق بود.",
+    "quarantined": "قرنطینه",
+    "quarantineReason": "دلیل: {{reason}}",
+    "quarantineRemove": "حذف از فضای ذخیره‌سازی",
+    "quarantineEmptyName": "افزونه نامعتبر",
+    "catalogEntriesSkipped": "ورودی‌های ردشده کاتالوگ: {{count}}",
+    "storageWriteFailed": "وضعیت افزونه ذخیره نشد.",
     "import": "درون‌ریزی",
     "importSubtitle": "درون‌ریزی داده‌های پروژه از طریق افزونه‌های نصب‌شده.",
     "importEmpty": "افزونه درون‌ریزی نصب نشده است. از بخش افزونه‌ها اضافه کنید."

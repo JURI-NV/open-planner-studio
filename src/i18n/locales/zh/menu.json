@@ -329,6 +329,12 @@
     "installing": "正在安装...",
     "installedBadge": "已安装",
     "installError": "安装失败。",
+    "quarantined": "隔离区",
+    "quarantineReason": "原因：{{reason}}",
+    "quarantineRemove": "从存储中删除",
+    "quarantineEmptyName": "无效扩展",
+    "catalogEntriesSkipped": "已跳过的目录条目：{{count}}",
+    "storageWriteFailed": "无法保存扩展状态。",
     "import": "导入",
     "importSubtitle": "通过已安装的扩展导入项目数据。",
     "importEmpty": "未安装导入扩展。请通过“扩展”添加。"

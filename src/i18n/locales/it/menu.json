@@ -329,6 +329,12 @@
     "installing": "Installazione...",
     "installedBadge": "Installata",
     "installError": "Installazione non riuscita.",
+    "quarantined": "Quarantena",
+    "quarantineReason": "Motivo: {{reason}}",
+    "quarantineRemove": "Rimuovi dall'archivio",
+    "quarantineEmptyName": "Estensione non valida",
+    "catalogEntriesSkipped": "Voci di catalogo ignorate: {{count}}",
+    "storageWriteFailed": "Impossibile salvare lo stato dell'estensione.",
     "import": "Importa",
     "importSubtitle": "Importa dati di progetto tramite le estensioni installate.",
     "importEmpty": "Nessuna estensione di importazione installata. Aggiungine una tramite Estensioni."
