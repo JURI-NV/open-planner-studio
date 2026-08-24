@@ -5,6 +5,7 @@
 // expliciet toegestane gaten vullen. Draait via run.sh. Exit 0 = alles groen.
 import {
   EXTENSION_LIMITS,
+  manifestFromJavaScript,
   parseCatalog,
   parseExtensionManifest,
 } from '@/extensions/validation';
@@ -356,6 +357,56 @@ for (const [label, entries] of [
       context.store.getState().catalogLastFetched, 1234);
     eq('fetchfout wordt wel zichtbaar', context.store.getState().catalogError, 'netwerkfout');
   }
+}
+
+// ── 12. Losse JavaScript-manifesten falen gesloten ──────────────────────────
+{
+  const generated = manifestFromJavaScript('module.exports = { onLoad() {} };', 'Mijn Tool.js');
+  eq('JS zonder marker krijgt een gevalideerd gegenereerd manifest', generated.ok, true);
+  if (generated.ok) {
+    eq('gegenereerde JS-identiteit behoudt bestaand beleid', generated.value.id, 'mijn-tool');
+    eq('gegenereerde JS-naam behoudt bestaand beleid', generated.value.name, 'Mijn Tool');
+    eq('gegenereerd manifest declareert alleen events', generated.value.permissions, ['events']);
+  }
+
+  const markerInCode = manifestFromJavaScript(
+    'const tekst = "@manifest { dit is geen commentaar }"; module.exports = { onLoad() {} };',
+    'fallback.js',
+  );
+  eq('marker buiten een commentblok telt als afwezig',
+    markerInCode.ok ? markerInCode.value.id : markerInCode, 'fallback');
+
+  const rawManifest = {
+    ...volledig(),
+    id: 'js-brace-aware',
+    permissions: ['events'],
+    onbekend: { sluitaccoladeInString: '}', genest: { waarde: 1 } },
+  };
+  const braceAware = manifestFromJavaScript(
+    `/** @manifest ${JSON.stringify(rawManifest)} */\nmodule.exports = { onLoad() {} };`,
+    'genegeerd.js',
+  );
+  eq('brace-aware extractor accepteert geneste JSON en } in een string', braceAware.ok, true);
+  if (braceAware.ok) {
+    eq('JS-manifest gebruikt de expliciete identiteit', braceAware.value.id, 'js-brace-aware');
+    eq('onbekende geneste JS-velden verdwijnen', 'onbekend' in braceAware.value, false);
+  }
+
+  for (const [label, code] of [
+    ['ongeldige JSON valt niet terug', '/** @manifest { "id": } */'],
+    ['onafgesloten JSON valt niet terug', '/** @manifest { "id": "kapot" */'],
+    ['geldig JSON-object met ongeldig id valt niet terug',
+      `/** @manifest ${JSON.stringify({ ...volledig(), id: 'Niet-Geldig' })} */`],
+    ['tekst na het JSON-object maakt het blok ongeldig',
+      `/** @manifest ${JSON.stringify({ ...volledig(), id: 'geldig-id' })} extra */`],
+  ] as const) {
+    const parsed = manifestFromJavaScript(code, 'veilige-fallback.js');
+    eq(`${label}: parse faalt`, parsed.ok, false);
+    if (!parsed.ok) eq(`${label}: fout is concreet`, parsed.error.length > 0, true);
+  }
+
+  const onbruikbareFallback = manifestFromJavaScript('module.exports = {};', '💥.js');
+  eq('ook een gegenereerd manifest gaat door de fresh parser', onbruikbareFallback.ok, false);
 }
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────

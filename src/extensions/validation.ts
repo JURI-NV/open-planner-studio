@@ -291,6 +291,97 @@ export function parseExtensionManifest(
   return { ok: true, value, warnings };
 }
 
+function generatedJavaScriptManifest(fileName: string): unknown {
+  const id = fileName.replace(/\.js$/, '').replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
+  return {
+    id,
+    name: fileName.replace(/\.js$/, ''),
+    version: '1.0.0',
+    // Zonder expliciet manifest is de contractversie onbekend; de bestaande compatibiliteitspoort
+    // behandelt een ontbrekende apiVersion als legacy in plaats van een garantie te verzinnen.
+    minAppVersion: '0.0.0',
+    author: 'Onbekend',
+    description: `Extensie geladen uit ${fileName}`,
+    category: 'Other',
+    main: 'main.js',
+    permissions: ['events'],
+  };
+}
+
+function manifestJsonFromComment(code: string): ParseResult<unknown> | null {
+  const blockComment = /\/\*[\s\S]*?\*\//g;
+  let found: ParseResult<unknown> | null = null;
+
+  for (const match of code.matchAll(blockComment)) {
+    const comment = match[0].slice(2, -2);
+    const marker = /@manifest\b/.exec(comment);
+    if (!marker) continue;
+    if (found !== null) return fail('meer dan één @manifest-commentblok gevonden');
+
+    const tail = comment.slice(marker.index + marker[0].length).trimStart();
+    if (!tail.startsWith('{')) {
+      found = fail('@manifest moet direct door een JSON-object worden gevolgd');
+      continue;
+    }
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let end = -1;
+    for (let index = 0; index < tail.length; index++) {
+      const character = tail[index];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (character === '\\') escaped = true;
+        else if (character === '"') inString = false;
+        continue;
+      }
+      if (character === '"') {
+        inString = true;
+        continue;
+      }
+      if (character === '{') depth++;
+      else if (character === '}') {
+        depth--;
+        if (depth === 0) {
+          end = index;
+          break;
+        }
+      }
+    }
+
+    if (end < 0 || depth !== 0 || inString) {
+      found = fail('@manifest bevat geen afgesloten JSON-object');
+      continue;
+    }
+    if (tail.slice(end + 1).trim().length > 0) {
+      found = fail('@manifest bevat tekst na het JSON-object');
+      continue;
+    }
+
+    try {
+      found = { ok: true, value: JSON.parse(tail.slice(0, end + 1)) as unknown, warnings: [] };
+    } catch (error) {
+      found = fail(`@manifest bevat ongeldige JSON: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  return found;
+}
+
+/** Lees een optioneel `@manifest`-commentblok en valideer altijd de uiteindelijke fresh vorm. */
+export function manifestFromJavaScript(
+  code: string,
+  fileName: string,
+): ParseResult<ExtensionManifest> {
+  const extracted = manifestJsonFromComment(code);
+  if (extracted !== null) {
+    if (!extracted.ok) return extracted;
+    return parseExtensionManifest(extracted.value, 'fresh');
+  }
+  return parseExtensionManifest(generatedJavaScriptManifest(fileName), 'fresh');
+}
+
 function parseCatalogEntry(input: unknown): ParseResult<CatalogEntry> {
   if (!isRecord(input)) return fail('catalogusentry moet een object zijn');
 

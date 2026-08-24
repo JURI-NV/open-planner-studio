@@ -5,8 +5,9 @@ import { buildWriteIFCInput } from '@/state/ifcSaveInput';
 import { readIFC } from '@/services/ifc/ifcReader';
 import { parseOpenedFile, readFormatInput } from '@/services/formatRegistry';
 import { enableExtension, disableExtension, removeExtension, saveExtensionToDb, installFromZipBlob } from '@/extensions';
-import type { InstallOutcome } from '@/extensions';
+import type { ExpectedExtensionIdentity, InstallOutcome } from '@/extensions';
 import type { ExtensionManifest, InstalledExtension } from '@/extensions/types';
+import { parseExtensionManifest } from '@/extensions/validation';
 import { setConsentAsker, resetConsentAsker, type ConsentAsker } from '@/extensions';
 import { copyScreenshotToClipboard } from '@/services/feedback/feedbackService';
 import { isTauri } from '@/utils/platform';
@@ -93,10 +94,22 @@ async function installExtensionFromCode(
   manifest: ExtensionManifest,
   mainCode: string,
 ): Promise<InstalledExtension | undefined> {
-  await saveExtensionToDb({ id: manifest.id, manifest, mainCode, enabled: true });
-  useAppStore.getState().registerExtension({ id: manifest.id, manifest, status: 'disabled' });
-  await enableExtension(manifest.id);
-  return useAppStore.getState().installedExtensions[manifest.id];
+  const parsed = parseExtensionManifest(manifest, 'fresh');
+  if (!parsed.ok) throw new Error(parsed.error);
+  const validatedManifest = parsed.value;
+  await saveExtensionToDb({
+    id: validatedManifest.id,
+    manifest: validatedManifest,
+    mainCode,
+    enabled: true,
+  });
+  useAppStore.getState().registerExtension({
+    id: validatedManifest.id,
+    manifest: validatedManifest,
+    status: 'disabled',
+  });
+  await enableExtension(validatedManifest.id);
+  return useAppStore.getState().installedExtensions[validatedManifest.id];
 }
 
 interface OpsCommand {
@@ -228,7 +241,7 @@ export interface OpsDevBridge {
     /** Installeer via het echte ZIP-pad (parse → assets → opslaan → activeren), MET de
      *  vertrouwensvraag overgeslagen — een zelftest heeft geen mens die een dialoog wegklikt.
      *  De dialoog zelf test je via `__OPS__.extensions.consent`. */
-    installFromZip: (blob: Blob, overrideId?: string) => Promise<InstallOutcome>;
+    installFromZip: (blob: Blob, expected?: ExpectedExtensionIdentity) => Promise<InstallOutcome>;
     /** Haken op de toestemmingsvraag (K-item 38), zodat een zelftest zowel het toestaan- als het
      *  weigeren-pad kan aansturen zonder de echte dialoog. */
     consent: {
@@ -268,8 +281,8 @@ export function installDevBridge(): void {
     openFromPath,
     extensions: {
       installFromCode: installExtensionFromCode,
-      installFromZip: (blob: Blob, overrideId?: string) =>
-        installFromZipBlob(blob, overrideId, { assumeConsent: true }),
+      installFromZip: (blob: Blob, expected?: ExpectedExtensionIdentity) =>
+        installFromZipBlob(blob, expected, { assumeConsent: true }),
       consent: {
         set: (fn) => setConsentAsker(fn as unknown as ConsentAsker),
         reset: resetConsentAsker,
