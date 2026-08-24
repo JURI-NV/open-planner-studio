@@ -35,6 +35,7 @@ import { buildImportLabels } from '@/i18n/importLabels';
 import { snapshotLayout } from '@/components/viewControls/layoutSnapshot';
 import {
   RibbonButton, RibbonSmallButton, RibbonGroup, RibbonButtonStack, RibbonDropdown,
+  RibbonInlineSelect,
   encodeFieldRef, decodeFieldRef,
 } from './ribbonPrimitives';
 import { useRibbonDensity } from './ribbonDensity';
@@ -613,10 +614,11 @@ export function ScreenColorsPopoverButton() {
         </button>
       ))}
       {selection.mode === 'category' && fields.length > 0 && (
-        <RibbonDropdown
+        <RibbonInlineSelect
           value={effectiveFieldValue}
           options={fields.map(option => ({ value: encodeFieldRef(option.field), label: option.label }))}
           onChange={value => updateSelection({ mode: 'category', field: decodeFieldRef(value) })}
+          ariaLabel={tMenu('ribbon.screenColors_category')}
         />
       )}
       {control.missingField && (

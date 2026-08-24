@@ -3,7 +3,11 @@ import {
   effectiveBarColorControl,
 } from '@/components/viewControls/barColorFieldOptions';
 import { groupFieldList, type FieldCatalogCtx } from '@/components/viewControls/fieldCatalog';
-import { encodeFieldRef } from '@/components/layout/Ribbon/ribbonPrimitives';
+import {
+  encodeFieldRef,
+  RibbonInlineSelect,
+} from '@/components/layout/Ribbon/ribbonPrimitives';
+import type { ChangeEvent } from 'react';
 
 let failures = 0;
 const ok = (condition: boolean, label: string) => {
@@ -52,6 +56,32 @@ ok(
   'missingField bewaart de oorspronkelijke veldreferentie',
 );
 ok(original.field.typeId === 'verwijderd', 'de globale selectie wordt niet gemuteerd');
+
+// Regressie: een categorieveld stond eerst in een tweede, geportalde Popover. De buitenste
+// Balkkleuren-popover zag de mousedown in dat portaal als buitenklik en ontkoppelde de opties vóór
+// hun click-handler. Een echte inline select heeft geen tweede kliklaag en moet de gekozen waarde
+// direct via zijn eigen change-event doorgeven.
+const taskTypeValue = encodeFieldRef({ src: 'builtin', key: 'taskType' });
+const resourceValue = encodeFieldRef({ src: 'resource' });
+let selectedValue = '';
+const inlineSelect = RibbonInlineSelect({
+  value: taskTypeValue,
+  options: [
+    { value: taskTypeValue, label: 'Taaktype' },
+    { value: resourceValue, label: 'Resource' },
+  ],
+  onChange: value => { selectedValue = value; },
+  ariaLabel: 'Kleurcategorie',
+});
+ok(inlineSelect.type === 'select', 'categorieveld is een directe select zonder tweede popover');
+ok(
+  inlineSelect.props['aria-label'] === 'Kleurcategorie',
+  'inline categorieveld heeft een toegankelijke naam',
+);
+inlineSelect.props.onChange?.({
+  currentTarget: { value: resourceValue },
+} as ChangeEvent<HTMLSelectElement>);
+ok(selectedValue === resourceValue, 'categorieveld geeft een nieuwe keuze direct door');
 
 if (failures > 0) {
   console.log(`bar-color-field-options: ${failures} faalregels`);
