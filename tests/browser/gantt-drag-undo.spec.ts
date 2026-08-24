@@ -1,6 +1,36 @@
 // Karakterisering vóór de structurele Gantt-/store-refactors: de echte canvas-sleep en Ctrl+Z
 // moeten samen exact één undoable handeling blijven vormen.
+import type { Page } from '@playwright/test';
 import { barPoint, expect, seedProject, state, test } from './fixtures/ops';
+
+async function addTaskDuringGesture(page: Page, name: string): Promise<string> {
+  const id = await page.evaluate((taskName) => {
+    const store = window.__OPS__!.store.getState();
+    const createdId = store.addTask({ name: taskName, manuallyScheduled: true });
+    const current = window.__OPS__!.store.getState().tasks.find(task => task.id === createdId)!;
+    window.__OPS__!.store.getState().updateTask(createdId, {
+      time: {
+        ...current.time,
+        scheduleStart: '2026-09-07',
+        scheduleFinish: '2026-09-18',
+        earlyStart: '2026-09-07',
+        earlyFinish: '2026-09-18',
+        scheduleDuration: 10,
+      },
+    });
+    window.__OPS__!.store.getState().runCPM();
+    return createdId;
+  }, name);
+  await expect.poll(() => state(page).then(snapshot => snapshot.tasks.some(task => task.id === id))).toBe(true);
+  return id;
+}
+
+async function canvasRowPoint(page: Page, taskId: string, yOffset = 0): Promise<{ x: number; y: number }> {
+  const row = await barPoint(page, taskId);
+  const bounds = await page.getByTestId('gantt-primary-canvas').boundingBox();
+  expect(bounds).not.toBeNull();
+  return { x: bounds!.x + 40, y: row.y + yOffset };
+}
 
 test('Gantt bodydrag wijzigt de datum en Ctrl+Z herstelt exact één handeling', async ({ page, ops: _ops }) => {
   const [taskId] = await seedProject(page, [{
@@ -35,4 +65,56 @@ test('Gantt bodydrag wijzigt de datum en Ctrl+Z herstelt exact één handeling',
   expect(restoredTask.scheduleFinish).toBe(beforeTask.scheduleFinish);
   expect(restored.undoDepth).toBe(before.undoDepth);
   expect(restored.redoDepth).toBe(before.redoDepth + 1);
+});
+
+// Rode fase vóór de refactor: de listener hield de oude rows/tasksById vast, zag Rij C niet en
+// liet Rij A daarom onbewogen staan. De test gebruikt voor de handeling uitsluitend echte muisevents.
+test('canvas rowdrag gebruikt actuele rijen en commit na een mid-gesture update precies eenmaal', async ({ page, ops: _ops }) => {
+  const [firstId, secondId] = await seedProject(page, [
+    { name: 'Rij A', start: '2026-09-07', finish: '2026-09-18', durationDays: 10 },
+    { name: 'Rij B', start: '2026-09-07', finish: '2026-09-18', durationDays: 10 },
+  ]);
+  const canvas = page.getByTestId('gantt-primary-canvas');
+  const source = await canvasRowPoint(page, firstId);
+  const existingTarget = await canvasRowPoint(page, secondId, 10);
+
+  await page.mouse.move(source.x, source.y);
+  await page.mouse.down();
+  await page.mouse.move(existingTarget.x, existingTarget.y);
+  await expect(canvas).toHaveCSS('cursor', 'grabbing');
+
+  // Fixture-update midden in de echte pointergesture: de nieuwe rij verandert rows/tasksById.
+  const thirdId = await addTaskDuringGesture(page, 'Rij C, tijdens sleep toegevoegd');
+  const midGesture = await state(page);
+  const newTarget = await canvasRowPoint(page, thirdId, 10);
+
+  await page.mouse.move(newTarget.x, newTarget.y);
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => resolve())));
+  await page.mouse.up();
+
+  await expect.poll(() => state(page).then(snapshot => snapshot.tasks.at(-1)?.id)).toBe(firstId);
+  const dropped = await state(page);
+  expect(dropped.tasks.map(task => task.id)).toEqual([secondId, thirdId, firstId]);
+  expect(dropped.undoDepth).toBe(midGesture.undoDepth + 1);
+});
+
+test('canvas rowdrag Escape annuleert zonder mutatie', async ({ page, ops: _ops }) => {
+  const [firstId, secondId] = await seedProject(page, [
+    { name: 'Blijft vooraan', start: '2026-09-07', finish: '2026-09-18', durationDays: 10 },
+    { name: 'Blijft achteraan', start: '2026-09-07', finish: '2026-09-18', durationDays: 10 },
+  ]);
+  const before = await state(page);
+  const source = await canvasRowPoint(page, firstId);
+  const target = await canvasRowPoint(page, secondId, 10);
+
+  await page.mouse.move(source.x, source.y);
+  await page.mouse.down();
+  await page.mouse.move(target.x, target.y);
+  await expect(page.getByTestId('gantt-primary-canvas')).toHaveCSS('cursor', 'grabbing');
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+
+  const after = await state(page);
+  expect(after.tasks.map(task => task.id)).toEqual(before.tasks.map(task => task.id));
+  expect(after.undoDepth).toBe(before.undoDepth);
 });
