@@ -11,7 +11,10 @@ import { isZeroDurationMilestone } from '@/engine/scheduler/duration';
 import { firstRowIndexByTask, type ViewRow } from '@/engine/view/visibleRows';
 // #21: resource-accent — dezelfde pure toewijzings-module als de printlaag (één definitie van
 // "welke resources kleuren welke taak"), geen tweede implementatie in de renderer.
-import { assignmentsFor, computeBarColors, type BarColorMode, type BarPalette } from '@/services/print/barColors';
+import { assignmentsFor, computeBarColors, type BarPalette } from '@/services/print/barColors';
+import type { BarColorContext } from '@/services/print/barColorCategories';
+import type { BarColorSelection } from '@/types/barColor';
+import type { ActivityCodeType, CustomFieldDef } from '@/types/structure';
 import { ensureThemeVisible } from '@/engine/renderer/resourcePalette';
 import { TimelineTier, TierConfig, TIER_CONFIG, pickTiers, nextTickBoundary, snapToTickStart } from './timelineTiers';
 import { readGanttPalette, type GanttPalette } from './themePalette';
@@ -58,9 +61,13 @@ export interface GanttRenderOptions {
    *  zichtbaarheid (#21 — gemeten: slate-achtige tinten vielen weg op de donkere werkruimte).
    *  De EXPORT past dit NIET toe: papier is licht, daar staat de exacte kleur. */
   darkTheme?: boolean;
-  /** #21 (user-wens): scherm-kleurmodi — zelfde vier standen als de rapport-export. Ontbreekt of
-   *  'critical' = het klassieke kritiek-pad-beeld (incl. de expliciete-taakkleur-regel). */
-  barColorMode?: import('@/services/print/barColors').BarColorMode;
+  /** Eén app-globale kleurkeuze voor zowel scherm als rapport. Ontbreekt = kritiek-padbeeld. */
+  barColorSelection?: BarColorSelection;
+  /** Projectcontext voor exact dezelfde categorievelden als onder Group. */
+  activityCodeTypes?: ActivityCodeType[];
+  customFieldDefs?: CustomFieldDef[];
+  taskTypeLabels?: Record<string, string>;
+  barColorNoneLabel?: string;
   /** Voor het accent: resources + toewijzingen (de renderer leeft buiten de store). */
   resources?: import('@/types/resource').Resource[];
   assignments?: import('@/types/resource').ResourceAssignment[];
@@ -202,6 +209,7 @@ export class GanttRenderer {
    *  Stuurt de grid-/arceringkeuze in `drawGridBackground` (§4.2: geen niet-werkdagen ⇒ geen
    *  arcering, geen dubbele rasterlijnen op de samengevallen naad-x). */
   private compressed: boolean;
+  private barColorContext: BarColorContext;
 
   /** Alpha voor gedimde rijen (filter-ouderketen, §4.2). */
   private static readonly DIM_ALPHA = 0.45;
@@ -228,6 +236,14 @@ export class GanttRenderer {
     this.violatedSet = new Set(opts.violatedConstraintTaskIds ?? []);
     this.missedDeadlineSet = new Set(opts.missedDeadlineTaskIds ?? []);
     this.highContrast = !!opts.highContrast;
+    this.barColorContext = {
+      activityCodeTypes: opts.activityCodeTypes ?? [],
+      customFieldDefs: opts.customFieldDefs ?? [],
+      resources: opts.resources ?? [],
+      assignments: opts.assignments ?? [],
+      taskTypeLabels: opts.taskTypeLabels,
+      noneLabel: opts.barColorNoneLabel ?? '(geen)',
+    };
     // Issue #21 punt 5 (fase 2): `opts.axis` (indien meegegeven door GanttCanvas — de gedeelde
     // instantie met HistogramRenderer, §10.1) wint; anders bouwt de renderer zelf een as uit de
     // eigen opts (secundaire split-view-pane, headless tests zonder axis-prop). Toggle
@@ -260,17 +276,11 @@ export class GanttRenderer {
   }
 
   /** Basis-balkkleur (fase 2.9 §5.4): kritiek-rood ≻ near-critical-amber ≻ float-path-tint ≻
-   *  eigen kleur/normaal-blauw. `overrideColor` (trace-tint) wint altijd. Near-critical en de
+   *  normaal-blauw. `overrideColor` (trace-tint) wint altijd. Near-critical en de
    *  float-path-tint zijn analyse-overlays die alleen bestaan wanneer hun optie aanstaat ⇒ default
    *  byte-identiek (`isNearCritical`/`floatPath` afwezig). */
   private barColor(task: Task, overrideColor?: string): string {
     if (overrideColor) return overrideColor;
-    // #21: een EXPLICIET gekozen taakkleur wint — ook boven kritiek-rood (user-bevinding: een
-    // gekozen kleur die op kritieke taken onzichtbaar blijft voelt kapot). Het kritieke pad blijft
-    // leesbaar via de rode rand in `drawTaskBar` (spiegel van de rapport-modi 'task'/'resource').
-    // Donker thema: te donkere gekozen kleuren verlichten, anders vallen ze op de werkruimte weg
-    // (zelfde ensureThemeVisible als het resource-accent; de export blijft de exacte kleur).
-    if (task.color) return ensureThemeVisible(task.color, this.opts.darkTheme === true);
     if (task.time.isCritical) return this.colors.critical;
     if (task.time.isNearCritical) return this.colors.nearCritical;
     const fp = task.time.floatPath;
@@ -1019,22 +1029,20 @@ export class GanttRenderer {
     if (x2 + floatWidth < this.opts.taskTableWidth || x1 > this.opts.canvasWidth) return;
 
     const width = Math.max(x2 - x1, 4);
-    // Scherm-kleurmodi (#21): zelfde adviesmodule als de rapport-export, met het SCHERMpalet als
-    // kleurbron en themazichtbaarheid voor de modus-kleuren (palet/palet-hash zijn op papier
-    // ontworpen; op donker moeten ze verlicht, zoals het accent). 'critical' (default) houdt de
-    // klassieke barColor-route, inclusief de expliciete-taakkleur-regel.
-    const screenMode: BarColorMode = this.opts.barColorMode ?? 'critical';
+    // De gedeelde selectie gebruikt dezelfde pure engine als print. In critical blijft de
+    // bestaande schermanalyse (float-pad-tinten) intact; Task.color wordt nergens meer gelezen.
+    const selection = this.opts.barColorSelection ?? { mode: 'critical' as const };
     const dark = this.opts.darkTheme === true;
-    const modeAdvies = screenMode === 'critical'
+    const modeAdvies = selection.mode === 'critical'
       ? null
       : computeBarColors(
           task,
-          this.opts.resources ?? [],
-          this.opts.assignments ?? [],
-          screenMode,
+          selection,
+          this.barColorContext,
           {
             critical: this.colors.critical, normal: this.colors.normal,
             nearCritical: this.colors.nearCritical, milestone: this.colors.milestone,
+            uncategorized: this.colors.ghost,
           } satisfies BarPalette,
           width,
         );
@@ -1044,7 +1052,7 @@ export class GanttRenderer {
     // Resource-segmenten als x-intervallen over [x1,x2] — buiten de uur-split-lus voorbereid, zodat
     // elk werkblok-segment zijn deel van de kleursegmenten tekent (gaten blijven gaten).
     const modeSegments: { cx1: number; cx2: number; color: string }[] = [];
-    if (modeAdvies && modeAdvies.kind === 'segments') {
+    if (!overrideColor && modeAdvies && modeAdvies.kind === 'segments') {
       let cx = x1;
       modeAdvies.segments.forEach((seg, si) => {
         const isLast = si === modeAdvies.segments.length - 1;
@@ -1054,10 +1062,10 @@ export class GanttRenderer {
       });
     }
 
-    const color = modeColor ?? this.barColor(task, overrideColor);
+    const color = overrideColor ?? modeColor ?? this.barColor(task);
     // Voortgangsvulling: in de modi ligt er geen bijpassende "licht"-variant van een willekeurige
     // moduskleur — dan de vaste semi-transparante donkere laag (zelfde keuze als de printlaag).
-    const progressColor = screenMode !== 'critical'
+    const progressColor = selection.mode !== 'critical'
       ? 'rgba(0, 0, 0, 0.25)'
       : task.time.isCritical ? this.colors.criticalLight : this.colors.normalLight;
 
@@ -1144,8 +1152,7 @@ export class GanttRenderer {
     // #21: rode rand om kritieke taken — in de scherm-kleurmodi uit het modusadvies (spiegel van
     // de rapportmodi), in 'critical' bij een expliciete taakkleur (de kleur is dan de vulling;
     // zonder rand zou het kritieke pad onleesbaar worden). Volle [x1,x2]-extent, ook bij splits.
-    const outlineColor = modeAdvies?.outline
-      ?? (screenMode === 'critical' && task.color && task.time.isCritical ? this.colors.critical : null);
+    const outlineColor = overrideColor ? null : modeAdvies?.outline;
     if (outlineColor) {
       ctx.strokeStyle = outlineColor;
       ctx.lineWidth = 1.5;
@@ -1355,9 +1362,27 @@ export class GanttRenderer {
       ctx.closePath();
     };
 
-    ctx.fillStyle = overrideColor ?? this.colors.milestone;
+    const selection = this.opts.barColorSelection ?? { mode: 'critical' as const };
+    const advice = selection.mode === 'critical'
+      ? null
+      : computeBarColors(task, selection, this.barColorContext, {
+          critical: this.colors.critical,
+          normal: this.colors.normal,
+          nearCritical: this.colors.nearCritical,
+          milestone: this.colors.milestone,
+          uncategorized: this.colors.ghost,
+        });
+    const milestoneFill = advice?.kind === 'segments' ? advice.segments[0].color : advice?.fill;
+    ctx.fillStyle = overrideColor ?? ensureThemeVisible(milestoneFill ?? this.colors.milestone, this.opts.darkTheme === true);
     diamond(size);
     ctx.fill();
+
+    if (!overrideColor && advice?.outline) {
+      ctx.strokeStyle = advice.outline;
+      ctx.lineWidth = 1.5;
+      diamond(size);
+      ctx.stroke();
+    }
 
     // Verplichte (contractuele) mijlpaal: dubbel-ruit-effect — witte kern in de ruit.
     if (task.mandatory) {

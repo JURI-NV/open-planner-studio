@@ -22,6 +22,7 @@ import { RelationTypePopover } from './RelationTypePopover';
 import { HoverTooltip } from './HoverTooltip';
 import { TaskTooltipContent } from './TaskTooltipContent';
 import { getLocalizedMonths } from '@/i18n/dateFormat';
+import { useTaskTypeLabels } from '@/i18n/taskTypes';
 import { dateToX as axisDateToX, MS_PER_DAY } from '@/engine/renderer/timeAxis';
 import { useGanttZoom } from '@/hooks/useGanttZoom';
 import { useZoomShortcuts } from '@/hooks/useZoomShortcuts';
@@ -93,6 +94,7 @@ export function GanttCanvas() {
   const { t: tTask, i18n } = useTranslation('task');
   const { t: tCommon } = useTranslation('common');
   const { t: tMenu } = useTranslation('menu');
+  const { labels: taskTypeLabels } = useTaskTypeLabels();
 
   const tasks = useAppStore(s => s.tasks);
   const sequences = useAppStore(s => s.sequences);
@@ -186,8 +188,9 @@ export function GanttCanvas() {
   // #21: resource-accent + de bijbehorende resources/toewijzingen (zelfde bron als de histogram/
   // tabelweergave — de renderer krijgt alles doorgegeven en leeft buiten de store).
   const showResourceAccent = useAppStore(s => s.ui.showResourceAccent);
-  // #21 (user-wens): scherm-kleurmodi — zelfde vier standen als de rapport-export.
-  const screenBarColorMode = useAppStore(s => s.ui.screenBarColorMode);
+  const barColorSelection = useAppStore(s => s.ui.barColorSelection);
+  const activityCodeTypes = useAppStore(s => s.activityCodeTypes);
+  const customFieldDefs = useAppStore(s => s.customFieldDefs);
   const resources = useAppStore(s => s.resources);
   const assignments = useAppStore(s => s.assignments);
   const showStatusDateLine = useAppStore(s => s.ui.showStatusDateLine);
@@ -531,7 +534,11 @@ export function GanttCanvas() {
       showStatusDateLine,
       showProgressLine,
       showResourceAccent,
-      barColorMode: screenBarColorMode,
+      barColorSelection,
+      activityCodeTypes,
+      customFieldDefs,
+      taskTypeLabels,
+      barColorNoneLabel: tTask('structure.none'),
       resources,
       assignments,
       showBaselineOverlay,
@@ -573,7 +580,7 @@ export function GanttCanvas() {
     const renderer = new GanttRenderer(ctx, opts);
     rendererRef.current = renderer;
     renderer.render();
-  }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showResourceAccent, screenBarColorMode, resources, assignments, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis, canvasFontFamily, durationDrag, fontScale, rowHeight, headerHeight, tTask]);
+  }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showResourceAccent, barColorSelection, activityCodeTypes, customFieldDefs, taskTypeLabels, resources, assignments, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis, canvasFontFamily, durationDrag, fontScale, rowHeight, headerHeight, tTask]);
 
   useCanvasLayer({ canvasRef, containerRef, draw: drawPrimary });
 
@@ -600,7 +607,11 @@ export function GanttCanvas() {
       showStatusDateLine,
       showProgressLine,
       showResourceAccent,
-      barColorMode: screenBarColorMode,
+      barColorSelection,
+      activityCodeTypes,
+      customFieldDefs,
+      taskTypeLabels,
+      barColorNoneLabel: tTask('structure.none'),
       resources,
       assignments,
       showBaselineOverlay,
@@ -647,7 +658,7 @@ export function GanttCanvas() {
     }));
     secondaryRendererRef.current = renderer;
     renderer.render();
-  }, [splitView, viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, statusDate, showStatusDateLine, showProgressLine, showResourceAccent, screenBarColorMode, resources, assignments, showBaselineOverlay, baselineOverlay, effectiveCalById, barSplitMode, compressNonWorkdays, canvasFontFamily, fontScale, rowHeight, headerHeight, tTask]);
+  }, [splitView, viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, statusDate, showStatusDateLine, showProgressLine, showResourceAccent, barColorSelection, activityCodeTypes, customFieldDefs, taskTypeLabels, resources, assignments, showBaselineOverlay, baselineOverlay, effectiveCalById, barSplitMode, compressNonWorkdays, canvasFontFamily, fontScale, rowHeight, headerHeight, tTask]);
 
   useCanvasLayer({
     canvasRef: secondaryCanvasRef,

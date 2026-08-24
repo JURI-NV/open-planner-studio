@@ -102,7 +102,7 @@ const view = { ...st.view, viewStartDate: '2026-06-01', zoom: 30, scrollX: 0, sc
 
 function hourTask(id: string, earlyStart: string, earlyFinish: string, splitGaps?: TaskSplitGap[], completion = 0): Task {
   return {
-    ...base, id, color: '#123456',
+    ...base, id,
     time: { ...base.time, earlyStart, earlyFinish, scheduleStart: earlyStart, scheduleFinish: earlyFinish, completion },
     splitGaps,
   } as Task;
@@ -197,10 +197,9 @@ console.log('-- split-bar-render: voortgangsvulling globaal, niet per segment --
       { kind: 'task', task: hourTask('row2', '2026-06-01T08:00', '2026-06-22T16:00', oneGap, completion), depth: 0, dimmed: false },
     ]);
     const row2Rects = passB.rects.filter(r => inRow(r, 0));
-    // Achtergrond (task.color = '#123456') vs. voortgang (colors.normalLight, hier ongezet ⇒
-    // fallback-thema-kleur — hoe dan ook NIET '#123456'): onderscheid volstaat zonder een expliciet
-    // palet te injecteren.
-    const progressFills = row2Rects.filter(r => r.fillStyle.toLowerCase() !== '#123456');
+    // Voortgang gebruikt in critical/default exact de centrale normalLight-kleur. Herken die
+    // rechtstreeks; Task.color is legacydata en hoort geen renderer-testhulpmiddel meer te zijn.
+    const progressFills = row2Rects.filter(r => r.fillStyle.toUpperCase() === '#1D4ED8');
     ok('er is minstens 1 voortgangsvulling', progressFills.length > 0);
     const seg2Start = seg2.x;
     const leaksIntoSeg2 = progressFills.some(r => r.x >= seg2Start - 0.01);
@@ -219,7 +218,7 @@ console.log('-- split-bar-render: dag-modus splitGaps (addWorkingDaysSigned-pad,
 {
   const dayGap: TaskSplitGap[] = [{ afterMinutes: 1440, gapMinutes: 960 }]; // 3 dagen, gat van 2 dagen
   const dayTask: Task = {
-    ...base, id: 'dayrow', color: '#654321',
+    ...base, id: 'dayrow',
     time: { ...base.time, earlyStart: '2026-06-01', earlyFinish: '2026-06-20', scheduleStart: '2026-06-01', scheduleFinish: '2026-06-20', completion: 0 },
     splitGaps: dayGap,
   } as Task;

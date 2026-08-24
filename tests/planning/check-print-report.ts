@@ -15,7 +15,6 @@
  */
 import { renderReport, PrintOptions } from '@/services/print/printPreview';
 import type { Draw2D, TextAlign, TextBaseline } from '@/services/pdf/draw2d';
-import { paletteColorForId } from '@/engine/renderer/resourcePalette';
 import type { ViewRow } from '@/engine/view/visibleRows';
 import type { Task, TaskTime } from '@/types/task';
 import type { Resource, ResourceAssignment } from '@/types/resource';
@@ -79,6 +78,7 @@ const mkTime = (over: Partial<TaskTime> = {}): TaskTime => ({
 } as TaskTime);
 const mkTask = (id: string, name: string, over: Partial<Task> = {}): Task => ({
   id, name, parentId: undefined, childIds: [], isMilestone: false, wbsCode: id,
+  taskType: 'CONSTRUCTION', activityCodes: {}, customFields: {},
   time: mkTime(),
   ...over,
 } as unknown as Task);
@@ -88,7 +88,7 @@ const mkTask = (id: string, name: string, over: Partial<Task> = {}): Task => ({
 // niets te bewijzen. 0.6 stulpt rechts van de 07-01-spine uit.
 const T_NORM = mkTask('t-norm', 'Zichtbare taak', { time: mkTime({ completion: 0.6 }) });
 const T_CRIT = mkTask('t-crit', 'Kritieke taak', { time: mkTime({ isCritical: true, earlyStart: '2026-01-12', earlyFinish: '2026-01-16', scheduleStart: '2026-01-12', scheduleFinish: '2026-01-16' }) });
-const T_HIDDEN = mkTask('t-gefilterd', 'Gefilterde taak', { time: mkTime({ earlyStart: '2026-01-19', earlyFinish: '2026-01-23', scheduleStart: '2026-01-19', scheduleFinish: '2026-01-23' }) });
+const T_HIDDEN = mkTask('t-gefilterd', 'Gefilterde taak', { taskType: 'INSTALLATION', time: mkTime({ earlyStart: '2026-01-19', earlyFinish: '2026-01-23', scheduleStart: '2026-01-19', scheduleFinish: '2026-01-23' }) });
 const FIX_TASKS = [T_NORM, T_CRIT, T_HIDDEN];
 
 const R1: Resource = { id: 'r1', name: 'Metselaar', type: 'LABOR', description: '', maxUnits: 1, color: '#111111' };
@@ -112,6 +112,18 @@ const baseOptions = (over: Partial<PrintOptions> = {}): PrintOptions => ({
   showCritical: true, showFloat: true, showDeps: true, showWeekends: true, showLegend: true,
   showTaskNames: true, showCompletion: true, autoFit: true, customZoom: 22,
   paperSize: 'A3', orientation: 'landscape', companyName: 'Test',
+  barColorSelection: { mode: 'critical' },
+  activityCodeTypes: [{
+    id: 'discipline', name: 'Discipline',
+    values: [{ id: 'elektra', code: 'E', description: 'Elektra', color: '#11AA55' }],
+  }],
+  customFieldDefs: [],
+  taskTypeLabels: { CONSTRUCTION: 'Constructie', INSTALLATION: 'Installatie' },
+  barColorNoneLabel: '(geen)',
+  barColorsLegendLabels: {
+    criticalOutline: 'Kritiek pad (rand)',
+    categoriesMore: (n: number) => `… en ${n} meer`,
+  },
   ...over,
 });
 
@@ -174,31 +186,34 @@ const baseOptions = (over: Partial<PrintOptions> = {}): PrintOptions => ({
 // hieronder herkennen ze aan die hoogte-band plus een minimale breedte.
 {
   // critical (default): kritiek rood + gewone taak blauw — de twee roundRect-fills bestaan.
-  const { roundRects } = record(FIX_TASKS, [], cal, baseOptions({ barColorMode: 'critical' }));
+  const { roundRects } = record(FIX_TASKS, [], cal, baseOptions({ barColorSelection: { mode: 'critical' } }));
   const fills = roundRects.filter(r => r.mode === 'fill');
   ok(fills.some(r => r.color === CRITICAL), 'critical-modus: rode balk (kritiek)');
   ok(fills.some(r => r.color === NORMAL), 'critical-modus: blauwe balk (normaal)');
 }
 {
   // auto: elke balk in de hash-kleur van zijn taak-id.
-  const { roundRects } = record(FIX_TASKS, [], cal, baseOptions({ barColorMode: 'auto' }));
+  const { roundRects } = record(FIX_TASKS, [], cal, baseOptions({ barColorSelection: { mode: 'auto' } }));
   const fills = roundRects.filter(r => r.mode === 'fill' && r.h > 10 && r.h < 20 && r.w > 3);
-  ok(fills.some(r => r.color === paletteColorForId('t-norm')), 'auto-modus: balk in hash-kleur t-norm');
-  ok(fills.some(r => r.color === paletteColorForId('t-crit')), 'auto-modus: balk in hash-kleur t-crit');
+  ok(fills.some(r => r.color === '#1E293B'), 'auto-modus: balk in vaste hash-kleur t-norm');
+  ok(fills.some(r => r.color === '#FBBF24'), 'auto-modus: balk in vaste hash-kleur t-crit');
   // De kritieke taak krijgt een stroke in critical-rood: roundRect gevolgd door stroke() met strokeStyle=rood.
   ok(roundRects.some(r => r.strokeColor === CRITICAL), 'auto-modus: kritieke rand aanwezig');
 }
 {
-  // task: Task.color wint.
-  const colored = mkTask('t-norm', 'Zichtbare taak', { color: '#123456', time: mkTime({ completion: 0.4 }) });
-  const { roundRects } = record([colored, T_CRIT], [], cal, baseOptions({ barColorMode: 'task' }));
+  // Task Type: twee CONSTRUCTION-taken delen een kleur; INSTALLATION krijgt een andere.
+  const { roundRects } = record(FIX_TASKS, [], cal, baseOptions({
+    barColorSelection: { mode: 'category', field: { src: 'builtin', key: 'taskType' } },
+  }));
   const fills = roundRects.filter(r => r.mode === 'fill' && r.h > 10 && r.h < 20 && r.w > 3);
-  ok(fills.some(r => r.color === '#123456'), 'task-modus: Task.color wint');
+  ok(fills.filter(r => r.color === '#1E293B').length >= 2, 'Task Type: beide CONSTRUCTION-taken delen #1E293B');
+  ok(fills.some(r => r.color === '#0D9488'), 'Task Type: INSTALLATION gebruikt #0D9488');
 }
 {
-  // resource: t-norm heeft 2 resources 1:3 ⇒ twee segment-fillRects met 25%/75% van de balk.
+  // Resource-categorie: t-norm heeft 2 resources 1:3 ⇒ twee segmenten met 25%/75%.
   const { roundRects } = record(FIX_TASKS, [], cal, baseOptions({
-    barColorMode: 'resource', resources: [R1, R2], assignments: FIX_ASG,
+    barColorSelection: { mode: 'category', field: { src: 'resource' } },
+    resources: [R1, R2], assignments: FIX_ASG,
   }));
   const fills = roundRects.filter(r => r.mode === 'fill' && r.h > 10 && r.h < 20 && r.w > 3);
   const seg1 = fills.find(r => r.color === '#111111');
@@ -210,22 +225,50 @@ const baseOptions = (over: Partial<PrintOptions> = {}): PrintOptions => ({
     ok(Math.abs(ratio1 - 0.25) < 0.02, `resource-modus: segmentverhouding ≈ 25/75 (got ${(ratio1 * 100).toFixed(1)}%)`);
     ok(Math.abs(seg2.x - (seg1.x + seg1.w)) < 1.5, 'resource-modus: segmenten liggen aaneengesloten');
   }
-  // Kritieke taak zonder resource: blauw + rode rand.
-  ok(fills.some(r => r.color === NORMAL), 'resource-modus: kritieke taak zonder resource → blauw');
+  // Kritieke taak zonder resource: neutraal grijs + rode rand.
+  ok(fills.some(r => r.color === '#94A3B8'), 'Resource-categorie: taak zonder resource → neutraal grijs');
   ok(roundRects.some(r => r.strokeColor === CRITICAL), 'resource-modus: rode outline aanwezig');
+}
+{
+  // Activity code: expliciete waarde-kleur wint van het palet.
+  const coded = mkTask('coded', 'Elektra', { activityCodes: { discipline: 'elektra' } });
+  const { roundRects } = record([coded], [], cal, baseOptions({
+    barColorSelection: { mode: 'category', field: { src: 'activityCode', typeId: 'discipline' } },
+  }));
+  ok(roundRects.some(r => r.mode === 'fill' && r.color === '#11AA55' && r.h > 10),
+    'Activity code: expliciete #11AA55 wordt getekend');
 }
 
 // ── 4. Legenda ─────────────────────────────────────────────────────────────────────────────────
 {
-  const crit = record(FIX_TASKS, [], cal, baseOptions({ barColorMode: 'critical' }));
+  const crit = record(FIX_TASKS, [], cal, baseOptions({ barColorSelection: { mode: 'critical' } }));
   ok(!crit.texts.some(t => t.text === 'Metselaar' || t.text === 'Loodgieter'), 'critical-legenda: géén resourcenamen');
   const res = record(FIX_TASKS, [], cal, baseOptions({
-    barColorMode: 'resource', resources: [R1, R2], assignments: FIX_ASG,
+    barColorSelection: { mode: 'category', field: { src: 'resource' } },
+    resources: [R1, R2], assignments: FIX_ASG,
   }));
   // In resource-modus met alle taken zichtbaar (boom-modus) komen r1/r2 via t-norm voor.
   ok(res.texts.some(t => t.text === 'Metselaar') && res.texts.some(t => t.text === 'Loodgieter'), 'resource-legenda: resourcenamen aanwezig');
   // …en de swatches in de juiste kleuren (roundRect 16×10 in de voettekst-zone).
   ok(res.roundRects.some(r => r.color === '#111111' && r.h < 14), 'resource-legenda: swatch in resourcekleur');
+}
+{
+  const nine = Array.from({ length: 9 }, (_, i) => mkTask(`legend-${i + 1}`, `L${i + 1}`, {
+    customFields: { legend: `V${i + 1}` },
+    time: mkTime({
+      earlyStart: `2026-01-${String(5 + i).padStart(2, '0')}`,
+      earlyFinish: `2026-01-${String(6 + i).padStart(2, '0')}`,
+      scheduleStart: `2026-01-${String(5 + i).padStart(2, '0')}`,
+      scheduleFinish: `2026-01-${String(6 + i).padStart(2, '0')}`,
+    }),
+  }));
+  const legend = record(nine, [], cal, baseOptions({
+    barColorSelection: { mode: 'category', field: { src: 'customField', defId: 'legend' } },
+    customFieldDefs: [{ id: 'legend', name: 'Legenda', type: 'text' }],
+  }));
+  for (let i = 1; i <= 8; i++) ok(legend.texts.some(t => t.text === `V${i}`), `categorielegenda bevat zichtbare waarde V${i}`);
+  ok(!legend.texts.some(t => t.text === 'V9'), 'categorielegenda kapt af na acht waarden');
+  ok(legend.texts.some(t => t.text === '… en 1 meer'), 'categorielegenda meldt één extra waarde');
 }
 
 if (failures > 0) { console.log(`print-report: ${failures} faalregels`); process.exit(1); }

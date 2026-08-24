@@ -219,6 +219,7 @@ export const PRINT_PALETTE = {
   normal: BRAND.normal,       // '#2563EB'
   normalDark: '#1d4ed8',
   milestone: BRAND.milestone, // '#7C3AED'
+  uncategorized: BRAND.ghost, // '#94A3B8' — ontbrekende categoriewaarde
   float: '#10B981',
   dependency: '#9CA3AF',
   today: '#F59E0B',

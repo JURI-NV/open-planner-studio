@@ -69,7 +69,7 @@ export function assignmentsFor(
   return rows;
 }
 
-function displayColor(value: BarCategoryValue, palette: BarPalette): string {
+export function barCategoryDisplayColor(value: BarCategoryValue, palette: BarPalette): string {
   if (value.isNone) return palette.uncategorized ?? DEFAULT_UNCATEGORIZED;
   return value.color ?? paletteColorForId(value.key);
 }
@@ -96,7 +96,7 @@ function computeSelectionColors(
     return { kind: 'solid', fill: criticalFill(task, palette) };
   }
   const values = resolveBarCategoryValues(task, effective.field, context);
-  const firstColor = displayColor(values[0], palette);
+  const firstColor = barCategoryDisplayColor(values[0], palette);
 
   // Een mijlpaal is één ruit; één waarde en een smalle balk hebben evenmin leesbare segmenten.
   if (task.isMilestone || values.length === 1 || (barPx !== undefined && barPx < SEGMENT_MIN_PX)) {
@@ -107,7 +107,7 @@ function computeSelectionColors(
   return {
     kind: 'segments',
     segments: values.map(value => ({
-      color: displayColor(value, palette),
+      color: barCategoryDisplayColor(value, palette),
       weight: Math.max(0, value.weight) / total,
     })),
     outline,

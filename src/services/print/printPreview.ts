@@ -14,9 +14,22 @@ import { computeSplitSegments } from '@/engine/renderer/splitBarGeometry';
 import { snapToChoice } from '@/utils/numberChoice';
 // Balkkleurmodi (#21 punt 1-nieuw): pure adviesmodule — de printlaag vertaalt alleen naar
 // fill/segmenten/outline-aanroepen en houdt zelf geen kleurlogica.
-import { computeBarColors, type BarColorMode, type BarPalette } from '@/services/print/barColors';
+import {
+  barCategoryDisplayColor,
+  computeBarColors,
+  type BarColorMode,
+  type BarFill,
+  type BarPalette,
+} from '@/services/print/barColors';
+import {
+  effectiveBarColorSelection,
+  visibleBarColorCategories,
+  type BarColorContext,
+} from '@/services/print/barColorCategories';
 import { resourceDisplayColor } from '@/engine/renderer/resourcePalette';
 import type { Resource, ResourceAssignment } from '@/types/resource';
+import type { ActivityCodeType, CustomFieldDef } from '@/types/structure';
+import type { BarColorSelection } from '@/types/barColor';
 import type { ViewRow } from '@/engine/view/visibleRows';
 
 // BASISmaten bij rapport-lettergrootte 100%. Niets tekent hier nog rechtstreeks mee: alle
@@ -244,12 +257,14 @@ export interface PrintOptions {
    * bron is de aanroeper die de store leest ({@link ReportPanel}).
    */
   drivingSequenceIds?: string[];
-  /**
-   * Balkkleurmodi (#21 punt 1-nieuw): 'critical' (default = huidige rood/oranje/blauw), 'task'
-   * (per taak gekozen kleur), 'auto' (deterministische paletkleur per taak-id) of 'resource'
-   * (segmenten per uitvoerende resource, naar rato van units). Ontbreekt ⇒ 'critical' =
-   * byte-identiek oud gedrag. Kritieke taken krijgen in de niet-critical-modi een rode rand.
-   */
+  /** Eén app-globale kleurkeuze voor zowel scherm als rapport. */
+  barColorSelection?: BarColorSelection;
+  /** Projectcontext voor exact dezelfde categorievelden als onder Group. */
+  activityCodeTypes?: ActivityCodeType[];
+  customFieldDefs?: CustomFieldDef[];
+  taskTypeLabels?: Record<string, string>;
+  barColorNoneLabel?: string;
+  /** @deprecated Tijdelijke brug totdat ReportPanel in Task 4 op `barColorSelection` staat. */
   barColorMode?: BarColorMode;
   /** Statuslijn in de export (#54): 'none' (default) | 'statusDate' (stippellijn) | 'progress' (zigzag). */
   statusLine?: 'none' | 'statusDate' | 'progress';
@@ -268,7 +283,9 @@ export interface PrintOptions {
   /** Legendalabels voor de kleurmodi (reeds vertaald door de aanroeper — print heeft geen `t()`). */
   barColorsLegendLabels?: {
     criticalOutline: string;
-    resourcesMore: (n: number) => string;
+    categoriesMore?: (n: number) => string;
+    /** @deprecated Oude naam; tijdelijke fallback voor de nog niet gemigreerde ReportPanel. */
+    resourcesMore?: (n: number) => string;
   };
 }
 
@@ -766,11 +783,22 @@ export function renderReport(
   // houdt zelf geen state. Eén palet-object voor alle balken van deze render.
   const resources = options.resources ?? [];
   const assignments = options.assignments ?? [];
-  const colorMode: BarColorMode = options.barColorMode ?? 'critical';
   const pal: BarPalette = {
     critical: PRINT_COLORS.critical, normal: PRINT_COLORS.normal,
     nearCritical: PRINT_COLORS.nearCritical, milestone: PRINT_COLORS.milestone,
+    uncategorized: PRINT_COLORS.uncategorized,
   };
+  const colorContext: BarColorContext = {
+    activityCodeTypes: options.activityCodeTypes ?? [],
+    customFieldDefs: options.customFieldDefs ?? [],
+    resources,
+    assignments,
+    taskTypeLabels: options.taskTypeLabels,
+    noneLabel: options.barColorNoneLabel ?? '(geen)',
+  };
+  const colorAdvice = (task: Task, width?: number): BarFill => options.barColorSelection
+    ? computeBarColors(task, options.barColorSelection, colorContext, pal, width)
+    : computeBarColors(task, resources, assignments, options.barColorMode ?? 'critical', pal, width);
 
   for (let i = 0; i < printRows.length; i++) {
     const row = printRows[i];
@@ -800,7 +828,7 @@ export function renderReport(
       const cy = y + barHeight / 2;
       const size = barHeight * 0.45;
 
-      const advies = computeBarColors(task, resources, assignments, colorMode, pal);
+      const advies = colorAdvice(task);
       d2d.fillStyle = advies.kind === 'solid' ? advies.fill : advies.segments[0].color;
       if (advies.outline) {
         // Rode rand om een kritieke mijlpaal in de niet-critical-modi: de ruit omtrekken.
@@ -863,7 +891,7 @@ export function renderReport(
 
       // Kleurmodi (#21) en onderbroken balken (Z15) zijn onafhankelijke dimensies: dezelfde
       // kleurverhouding komt terug in elk werkblok van één taak.
-      const advies = computeBarColors(task, resources, assignments, colorMode, pal, width);
+      const advies = colorAdvice(task, width);
       const baseColor = advies.kind === 'segments' ? advies.segments[0].color : advies.fill;
       const segments = task.splitGaps && task.splitGaps.length > 0
         ? computeSplitSegments(task.splitGaps, start, end, false, calEngine)
@@ -1779,8 +1807,25 @@ function drawFooter(
       // verklaring zodat die essentiële regel het langst overleeft… nee: de rand-regel is de
       // minst essentiële (het kritiek pad blijft zonder legenda ook zichtbaar als rode rand), dus
       // die staat laATSTE — zelfde bewuste positie als de relatiestijl-regel hieronder.
-      const colorMode = options.barColorMode ?? 'critical';
-      if (colorMode === 'critical') {
+      const legendPalette: BarPalette = {
+        critical: PRINT_COLORS.critical,
+        normal: PRINT_COLORS.normal,
+        nearCritical: PRINT_COLORS.nearCritical,
+        milestone: PRINT_COLORS.milestone,
+        uncategorized: PRINT_COLORS.uncategorized,
+      };
+      const legendContext: BarColorContext = {
+        activityCodeTypes: options.activityCodeTypes ?? [],
+        customFieldDefs: options.customFieldDefs ?? [],
+        resources: options.resources ?? [],
+        assignments: options.assignments ?? [],
+        taskTypeLabels: options.taskTypeLabels,
+        noneLabel: options.barColorNoneLabel ?? '(geen)',
+      };
+      const selection = options.barColorSelection;
+      const legacyMode = options.barColorMode ?? 'critical';
+      const isCriticalMode = selection ? selection.mode === 'critical' : legacyMode === 'critical';
+      if (isCriticalMode) {
         if (options.showCritical) {
           items.push({ label: lg?.criticalPath ?? 'Kritiek pad', draw: (x) => {
             d2d.fillStyle = PRINT_COLORS.critical;
@@ -1794,7 +1839,31 @@ function drawFooter(
           d2d.fill();
         } });
       }
-      if (colorMode === 'resource' && options.resources && options.assignments) {
+      if (selection?.mode === 'category') {
+        const effective = effectiveBarColorSelection(selection, legendContext).effective;
+        if (effective.mode === 'category') {
+          const visibleTasks = printRows
+            .filter(row => row.kind === 'task' && row.task)
+            .map(row => row.task!);
+          const categories = visibleBarColorCategories(visibleTasks, effective.field, legendContext);
+          const LEGEND_CATEGORY_CAP = 8;
+          for (const category of categories.slice(0, LEGEND_CATEGORY_CAP)) {
+            items.push({ label: category.label, draw: (x) => {
+              d2d.fillStyle = barCategoryDisplayColor(category, legendPalette);
+              d2d.roundRect(x, midY - swatchH / 2, swatchW, swatchH, m.s(2));
+              d2d.fill();
+            } });
+          }
+          const moreLabel = options.barColorsLegendLabels?.categoriesMore
+            ?? options.barColorsLegendLabels?.resourcesMore;
+          if (categories.length > LEGEND_CATEGORY_CAP && moreLabel) {
+            items.push({
+              label: moreLabel(categories.length - LEGEND_CATEGORY_CAP),
+              draw: () => { /* tekst-only item — geen swatch */ },
+            });
+          }
+        }
+      } else if (!selection && legacyMode === 'resource' && options.resources && options.assignments) {
         // Resources die daadwerkelijk op zichtbare BLADBALKEN voorkomen (first-come volgorde),
         // cap op 8 + "… en N meer" — de legenda mag de voettekst niet overnemen.
         const visibleLeafIds = new Set<string>();
@@ -1817,12 +1886,13 @@ function drawFooter(
             d2d.fill();
           } });
         }
-        if (seen.length > LEGEND_RESOURCE_CAP && options.barColorsLegendLabels) {
-          const more = options.barColorsLegendLabels.resourcesMore(seen.length - LEGEND_RESOURCE_CAP);
+        const moreLabel = options.barColorsLegendLabels?.resourcesMore;
+        if (seen.length > LEGEND_RESOURCE_CAP && moreLabel) {
+          const more = moreLabel(seen.length - LEGEND_RESOURCE_CAP);
           items.push({ label: more, draw: () => { /* tekst-only item — geen swatch */ } });
         }
       }
-      if (colorMode !== 'critical') {
+      if (!isCriticalMode) {
         // "Rode rand = kritiek pad"-verklaring voor task/auto/resource.
         items.push({ label: options.barColorsLegendLabels?.criticalOutline ?? 'Kritiek pad', draw: (x) => {
           d2d.strokeStyle = PRINT_COLORS.critical;

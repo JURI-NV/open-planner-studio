@@ -16,6 +16,7 @@ import { GanttRenderer } from '@/engine/renderer/GanttRenderer';
 import type { Task } from '@/types/task';
 import type { ViewRow } from '@/engine/view/visibleRows';
 import type { Resource, ResourceAssignment } from '@/types/resource';
+import type { BarColorSelection } from '@/types/barColor';
 
 // Node-shim (zelfde als check-renderer-dateless): readGanttPalette roept
 // getComputedStyle(document.documentElement); zonder stub gooit dat in Node.
@@ -75,7 +76,7 @@ const ASG: ResourceAssignment[] = [
 const rows: ViewRow[] = [{ kind: 'task', task, depth: 0, dimmed: false }];
 const W = 1200, H = 200, TTW = 300, ROWH = 28, HDRH = 60;
 
-function render(showResourceAccent: boolean, over: { darkTheme?: boolean; task?: Task; barColorMode?: 'critical' | 'task' | 'auto' | 'resource' } = {}) {
+function render(showResourceAccent: boolean, over: { darkTheme?: boolean; task?: Task; selection?: BarColorSelection } = {}) {
   const st = S();
   const { ctx, fillRects, shapes } = makeCtx();
   const row = over.task ? { kind: 'task' as const, task: over.task, depth: 0, dimmed: false } : rows[0];
@@ -89,7 +90,11 @@ function render(showResourceAccent: boolean, over: { darkTheme?: boolean; task?:
     canvasWidth: W, canvasHeight: H, taskTableWidth: TTW, rowHeight: ROWH, headerHeight: HDRH,
     showResourceAccent,
     darkTheme: over.darkTheme,
-    barColorMode: over.barColorMode,
+    barColorSelection: over.selection,
+    activityCodeTypes: [],
+    customFieldDefs: [],
+    taskTypeLabels: { CONSTRUCTION: 'Constructie' },
+    barColorNoneLabel: '(geen)',
     resources: [R1, R2],
     assignments: ASG,
   });
@@ -137,26 +142,20 @@ const accents = (rects: Rect[]) => rects.filter(r => r.h === 3 && r.y > HDRH);
   ok(a[0].color !== '#111111', 'donker thema: donkere resourcekleur daadwerkelijk verlicht');
 }
 
-// ── Expliciete taakkleur wint op het scherm (#21 user-bevinding) ────────────────────────────────
-// Een kritieke taak met expliciete kleur: vulling = die kleur (niet kritiek-rood), plus een rode
-// rand zodat het kritieke pad leesbaar blijft. Zonder expliciete kleur: gewoon kritiek-rood.
+// ── Legacy Task.color is inert in de gedeelde kleurkeuze ───────────────────────────────────────
 {
   const colored = { ...task, id: task.id + '-kleur', color: '#00FF00' } as Task;
-  const { shapes } = render(false, { task: colored });
+  const { shapes } = render(false, { task: colored, selection: { mode: 'critical' } });
   const bars = shapes.filter(sh => sh.h > 10 && sh.h < 20 && sh.w > 3 && sh.x > TTW - 5);
-  ok(bars.some(b => b.fill === '#00FF00'), `taakkleur: kritieke taak met kleur vult met die kleur (got fills: ${[...new Set(bars.map(b => b.fill))].join(', ')})`);
-  ok(bars.some(b => b.stroke === '#DC2626'), 'taakkleur: rode rand om de gekleurde kritieke taak');
-  const plain = render(false);
-  const plainBars = plain.shapes.filter(sh => sh.h > 10 && sh.h < 20 && sh.w > 3 && sh.x > TTW - 5);
-  ok(plainBars.every(b => b.fill !== '#00FF00'), 'zonder taakkleur: geen kleurlek');
+  ok(bars.every(b => b.fill !== '#00FF00'), 'legacy Task.color verandert de critical-vulling niet');
 }
 
-// ── Scherm-kleurmodi (#21 user-wens): zelfde vier standen als de rapport-export ─────────────────
+// ── Gedeelde schermkleurkeuze: critical, auto en Group-categorie ────────────────────────────────
 // Balken herkenbaar als roundRect-shapes met bar-hoogte (≈15px) in de chartzone.
 const barShapes = (shapes: RoundShape[]) => shapes.filter(sh => sh.h > 10 && sh.h < 20 && sh.w > 3 && sh.x > TTW - 5);
 {
-  // resource: 1:3-toewijzing ⇒ twee segmentvullingen, aaneengesloten, in de resourcekleuren.
-  const { shapes } = render(false, { barColorMode: 'resource' });
+  // Resource-categorie: 1:3-toewijzing ⇒ twee segmentvullingen in de resourcekleuren.
+  const { shapes } = render(false, { selection: { mode: 'category', field: { src: 'resource' } } });
   const bars = barShapes(shapes);
   const seg1 = bars.find(b => b.fill === '#111111');
   const seg2 = bars.find(b => b.fill === '#222222');
@@ -167,25 +166,23 @@ const barShapes = (shapes: RoundShape[]) => shapes.filter(sh => sh.h > 10 && sh.
     ok(Math.abs(seg2.x - (seg1.x + seg1.w)) < 1.5, 'scherm resource-modus: segmenten aaneengesloten');
   }
   // Kritieke taak zonder expliciete moduskleur → rode rand.
-  ok(bars.some(b => b.stroke === '#DC2626'), 'scherm resource-modus: rode rand om kritieke taak');
+  ok(bars.some(b => b.stroke === '#DC2626'), 'scherm Resource-categorie: rode rand om kritieke taak');
 }
 {
   // auto: vulling = palet-hash op taak-id (licht thema ⇒ exacte kleur).
-  const { shapes } = render(false, { barColorMode: 'auto' });
+  const { shapes } = render(false, { selection: { mode: 'auto' } });
   const bars = barShapes(shapes);
   ok(bars.some(b => b.fill === paletteColorForId(task.id)), `scherm auto-modus: balk in hash-kleur (fills: ${[...new Set(bars.map(b => b.fill))].join(', ')})`);
 }
 {
-  // task: expliciete Task.color wint; kritiek → rode rand.
-  const colored = { ...task, id: task.id + '-mode', color: '#00FF00' } as Task;
-  const { shapes } = render(false, { task: colored, barColorMode: 'task' });
+  // Task Type is een gewone Group-categorie; CONSTRUCTION heeft een vaste paletkleur.
+  const { shapes } = render(false, { selection: { mode: 'category', field: { src: 'builtin', key: 'taskType' } } });
   const bars = barShapes(shapes);
-  ok(bars.some(b => b.fill === '#00FF00'), 'scherm task-modus: Task.color is de vulling');
-  ok(bars.some(b => b.stroke === '#DC2626'), 'scherm task-modus: rode rand om kritieke taak');
+  ok(bars.some(b => b.fill === '#1E293B'), 'scherm Task-Type-categorie: CONSTRUCTION gebruikt vaste paletkleur');
 }
 {
-  // donker thema + resource-modus: segmentkleuren verlicht boven de zichtbaarheidsdrempel.
-  const { shapes } = render(false, { barColorMode: 'resource', darkTheme: true });
+  // donker thema + Resource-categorie: segmentkleuren verlicht boven de zichtbaarheidsdrempel.
+  const { shapes } = render(false, { selection: { mode: 'category', field: { src: 'resource' } }, darkTheme: true });
   const bars = barShapes(shapes);
   const lum = (hex: string): number => {
     const r = parseInt(hex.slice(1, 3), 16) / 255;
@@ -196,10 +193,21 @@ const barShapes = (shapes: RoundShape[]) => shapes.filter(sh => sh.h > 10 && sh.
   ok(bars.filter(b => b.stroke === '').every(b => lum(b.fill) >= 0.33), `scherm resource-modus donker: elke vulling zichtbaar (fills: ${[...new Set(bars.filter(b => b.stroke === '').map(b => b.fill))].join(', ')})`);
 }
 {
-  // Zonder modus (default critical): géén paletkleuren in de balken — klassieke beeld.
+  // Zonder selectie: critical is de veilige default.
   const { shapes } = render(false);
   const bars = barShapes(shapes);
   ok(!bars.some(b => b.fill === paletteColorForId(task.id) && b.stroke === ''), 'default: geen moduskleuren');
+}
+
+// Resource accent is een onafhankelijke overlay: exact dezelfde twee strepen bij elke selectie.
+for (const selection of [
+  { mode: 'critical' } as const,
+  { mode: 'auto' } as const,
+  { mode: 'category', field: { src: 'resource' } } as const,
+]) {
+  const a = accents(render(true, { selection }).fillRects);
+  ok(a.length === 2 && a[0].color === '#111111' && a[1].color === '#222222',
+    `resource-accent blijft gelijk bij ${selection.mode}`);
 }
 
 if (failures > 0) { console.log(`resource-accent: ${failures} faalregels`); process.exit(1); }
