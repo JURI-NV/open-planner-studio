@@ -17,7 +17,9 @@
 // meer. `initMcpRuntime()` hieronder legt daarnaast de T16-naad (`markDuplicateBorn`) en registreert
 // de tool-modules. Zie de tool-contracten in `contracts.ts` (`McpContext`).
 
-import { useAppStore } from '@/state/appStore';
+import { appStoreContext, useAppStore, type AppStoreContext } from '@/state/appStore';
+import { mcpTransactions } from '@/state/mcpTransaction';
+import { createMcpTransactions, type McpTransactions } from '@/state/runtime/createMcpTransactions';
 import { loadMcpPort, loadMcpToken, saveMcpToken, saveAiMode } from '@/utils/settingsStore';
 import { handleMcpMessage } from './dispatcher';
 import { record as recordActivity, capField } from './activityLog';
@@ -136,15 +138,21 @@ export function applyAiModeLive(value: boolean): Promise<void> {
 // --- Per-request context -------------------------------------------------------------------------
 
 /**
- * Bouw de `McpContext` voor één request. `paused`/`readOnly` worden LIVE uit de ui-state gelezen
- * (de user kan ze tussen requests door omzetten). De overige velden zijn placeholders tot de
- * runtime-/guardlaag (T17) ze invult: `expectedDocId` (drift-anker) = null, `tempIdMap` = lege Map
- * (de batch-executor bezit 'm). `ensureBackup` is de ECHTE AI-backup-service (T16) — zijn eigen
+ * Bouw de `McpContext` voor één request. Store en transacties worden samen gebonden: de app-singleton
+ * hergebruikt zijn compatibiliteitsfactory, een geïnjecteerde context krijgt standaard een verse
+ * factory rond diezelfde runtime. `paused`/`readOnly` worden LIVE uit die ui-state gelezen (de user
+ * kan ze tussen requests door omzetten). `expectedDocId` begint op null en `tempIdMap` is leeg.
+ * `ensureBackup` is voorlopig de bestaande appservice (Task 6 bindt ook die service aan `app`) — zijn
  * `isTauri()`-gate + web-terugval zitten in `backup.ts`.
  */
-export function buildMcpContext(): McpContext {
-  const ui = useAppStore.getState().ui;
+export function buildMcpContext(
+  app: AppStoreContext = appStoreContext,
+  transactions?: McpTransactions,
+): McpContext {
+  const ui = app.store.getState().ui;
   return {
+    app,
+    transactions: transactions ?? (app === appStoreContext ? mcpTransactions : createMcpTransactions(app)),
     expectedDocId: null,
     tempIdMap: new Map<string, string>(),
     paused: ui.aiPaused,

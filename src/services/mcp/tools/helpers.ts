@@ -11,7 +11,7 @@ import { buildEnvelope } from './runtime';
 
 /** Envelop voor niet-transactionele antwoorden: store-envelop + de context-vlaggen. */
 export function okEnvelope(ctx: McpContext) {
-  const env = buildEnvelope();
+  const env = buildEnvelope(ctx);
   env.paused = ctx.paused;
   env.readOnly = ctx.readOnly;
   return env;

@@ -12,7 +12,7 @@
 //
 // Elke test hieronder pint precies één van die faalvormen vast, via de losse tools ÉN via
 // `planner_batch` (twee ingangen naar dezelfde `*Core`-kern).
-import { useAppStore, test, assert, assertEq, run } from './harness';
+import { appStoreContext, makeMcpContext, useAppStore, test, assert, assertEq, run, type McpContextOverrides } from './harness';
 import { taskTools } from '@/services/mcp/tools/taskTools';
 import { batchTools } from '@/services/mcp/tools/batchTool';
 import { registerToolModules } from '@/services/mcp/toolRegistry';
@@ -30,15 +30,11 @@ store.getState().undo();
 registerToolModules([taskTools, batchTools]);
 const batchDef = batchTools[0];
 
-function makeCtx(over: Partial<McpContext> = {}): McpContext {
-  return {
+function makeCtx(over: McpContextOverrides = {}): McpContext {
+  return makeMcpContext(appStoreContext, {
     expectedDocId: store.getState().activeDocumentId,
-    tempIdMap: new Map<string, string>(),
-    paused: false,
-    readOnly: false,
-    ensureBackup: async () => null,
     ...over,
-  };
+  });
 }
 
 function tool(name: string) {

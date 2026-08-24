@@ -201,7 +201,7 @@ export const documentTools: McpToolDef[] = [
       const info = useAppStore.getState().getOpenDocuments().find((d) => d.id === documentId);
       return {
         ok: true,
-        envelope: buildEnvelope(),
+        envelope: buildEnvelope(ctx),
         data: { documentId, title: mcpDocumentTitle(info) },
       };
     },
@@ -249,7 +249,7 @@ export const documentTools: McpToolDef[] = [
       const info = s.getOpenDocuments().find((d) => d.id === documentId);
       return {
         ok: true,
-        envelope: buildEnvelope(),
+        envelope: buildEnvelope(ctx),
         data: {
           documentId,
           title: mcpDocumentTitle(info),
@@ -305,7 +305,7 @@ export const documentTools: McpToolDef[] = [
       const info = after.getOpenDocuments().find((d) => d.id === documentId);
       return {
         ok: true,
-        envelope: buildEnvelope(),
+        envelope: buildEnvelope(ctx),
         data: {
           documentId,
           title: mcpDocumentTitle(info),

@@ -16,7 +16,7 @@ const backing = new Map<string, string>();
   removeItem: (k: string) => { backing.delete(k); },
 };
 
-import { useAppStore, test, assert, assertEq, run } from './harness';
+import { appStoreContext, makeMcpContext, useAppStore, test, assert, assertEq, run, type McpContextOverrides } from './harness';
 import { getTool, getTools } from '@/services/mcp/toolRegistry';
 import { handleMcpMessage } from '@/services/mcp/dispatcher';
 import { documentToolDeps } from '@/services/mcp/tools/documentTools';
@@ -29,15 +29,10 @@ import type { BatchStepTool } from '@/services/mcp/tools/batchTool';
 
 const S = () => useAppStore.getState();
 
-function makeCtx(over: Partial<McpContext> = {}): McpContext {
-  return {
-    expectedDocId: null,
-    tempIdMap: new Map<string, string>(),
-    paused: false,
-    readOnly: false,
-    ensureBackup: async () => null,
+function makeCtx(over: McpContextOverrides = {}): McpContext {
+  return makeMcpContext(appStoreContext, {
     ...over,
-  };
+  });
 }
 
 // =================================================================================================

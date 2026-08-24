@@ -16,6 +16,10 @@ const backing = new Map<string, string>();
 
 import { useAppStore, test, assert, assertEq, run } from './harness';
 import type { McpToolDef, McpToolResult, McpEnvelope } from '@/services/mcp/contracts';
+import { createAppStoreContext } from '@/state/appStore';
+import { capturePayload } from '@/state/documentContract';
+import { createSnapshot } from '@/state/snapshot';
+import { runMutateTool, runReadTool } from '@/services/mcp/tools/runtime';
 import { registerToolModules } from '@/services/mcp/toolRegistry';
 import { handleMcpMessage } from '@/services/mcp/dispatcher';
 import {
@@ -173,6 +177,96 @@ test('buildMcpContext leest paused/readOnly LIVE uit de ui-state en levert de pl
 
   // Opruimen zodat andere case-bestanden een schone default-store zien.
   useAppStore.getState().setAiReadOnly(false);
+});
+
+test('buildMcpContext(B) bindt read, mutatie, rollback en envelop uitsluitend aan B', async () => {
+  const A = createAppStoreContext();
+  const B = createAppStoreContext();
+  A.store.getState().setProject({ name: 'context-A' });
+  B.store.getState().setProject({ name: 'context-B' });
+  // De plannen schrijven voor rollbackmatrices de restore-steady-state voor: undo/redo en
+  // restoreSnapshot promoveren dezelfde cache anders bewust als kalenderbibliotheek-entry.
+  A.store.getState().ensureProjectCalendarInLibrary();
+  B.store.getState().ensureProjectCalendarInLibrary();
+  const aVoor = JSON.stringify(capturePayload(A.store.getState()));
+  const singletonVoor = JSON.stringify(capturePayload(useAppStore.getState()));
+  const ctx = buildMcpContext(B);
+  ctx.ensureBackup = async () => null;
+
+  const read = runReadTool(ctx, (state) => ({ title: state.project.name, taskCount: state.tasks.length }));
+  assert(read.ok && (read.data as { title: string }).title === 'context-B',
+    'de leestool hoort B te lezen');
+  assert(read.ok && read.envelope.documentTitle === 'context-B',
+    'de envelop hoort de actieve documenttitel van B te dragen');
+
+  const mutate = await runMutateTool(ctx, 'mutate', () => ({
+    data: { id: ctx.transactions.draft.addTask({ name: 'alleen-B' }) },
+  }));
+  assert(mutate.ok, 'de contextgebonden mutatie hoort te slagen');
+  assert(B.store.getState().tasks.some((task) => task.name === 'alleen-B'),
+    'de mutatie hoort uitsluitend in B te staan');
+
+  const bVoorRollback = JSON.stringify(createSnapshot(B.store.getState()));
+  const bUndoVoorRollback = B.store.getState().undoStack.length;
+  const rollback = await runMutateTool(ctx, 'mutate', () => {
+    ctx.transactions.draft.addTask({ name: 'verdwijnt-B' });
+    throw new Error('context-B-rollback');
+  });
+  assert(!rollback.ok && rollback.error === 'context-B-rollback',
+    'de fout hoort als getypeerde toolrollback terug te komen');
+  assertEq(JSON.stringify(createSnapshot(B.store.getState())), bVoorRollback,
+    'de mislukte B-mutatie hoort B volledig terug te rollen');
+  assertEq(B.store.getState().undoStack.length, bUndoVoorRollback,
+    'de mislukte B-mutatie mag geen undo achterlaten');
+  assertEq(JSON.stringify(capturePayload(A.store.getState())), aVoor,
+    'read, mutatie en rollback op B mogen A niet wijzigen');
+  assertEq(JSON.stringify(capturePayload(useAppStore.getState())), singletonVoor,
+    'read, mutatie en rollback op B mogen de app-singleton niet wijzigen');
+});
+
+test('twee buildMcpContext(B)-resultaten delen de runtimelease en laten B na rollback herbruikbaar', () => {
+  const B = createAppStoreContext();
+  B.store.getState().addTask({ name: 'warmup' });
+  B.store.getState().undo();
+  const eerste = buildMcpContext(B);
+  const tweede = buildMcpContext(B);
+  const voor = JSON.stringify(createSnapshot(B.store.getState()));
+  const undoVoor = B.store.getState().undoStack.length;
+  const redoVoor = JSON.stringify(B.store.getState().redoStack);
+
+  const outer = eerste.transactions.run(() => {
+    eerste.transactions.draft.addTask({ name: 'outer-verdwijnt' });
+    tweede.transactions.run(() => tweede.transactions.draft.addTask({ name: 'inner-mag-niet' }));
+  });
+
+  assert(!outer.ok && /herintreedbaar/i.test(outer.error),
+    'de tweede contextfactory mag B\'s actieve lease niet omzeilen');
+  assertEq(JSON.stringify(createSnapshot(B.store.getState())), voor,
+    'de nested weigering hoort de outer B-transactie volledig terug te rollen');
+  assertEq(B.store.getState().undoStack.length, undoVoor,
+    'de nested weigering mag geen B-undo achterlaten');
+  assertEq(JSON.stringify(B.store.getState().redoStack), redoVoor,
+    'de nested weigering hoort B-redo exact te herstellen');
+
+  const herstel = tweede.transactions.run(() => tweede.transactions.draft.addTask({ name: 'B-herbruikbaar' }));
+  assert(herstel.ok && B.store.getState().tasks.some((task) => task.name === 'B-herbruikbaar'),
+    'B hoort na het sluiten van de outer lease opnieuw bruikbaar te zijn');
+});
+
+test('dialoogguard leest uitsluitend de ui-state uit de requestcontext', () => {
+  const A = createAppStoreContext();
+  const B = createAppStoreContext();
+  A.store.getState().setUI({ showNewProjectDialog: true });
+  const ctxB = buildMcpContext(B);
+
+  const openInA = runReadTool(ctxB, () => 'B-mag-lezen');
+  assert(openInA.ok, 'een dialoog in A mag een readrequest op B niet blokkeren');
+
+  A.store.getState().setUI({ showNewProjectDialog: false });
+  B.store.getState().setUI({ showNewProjectDialog: true });
+  const openInB = runReadTool(ctxB, () => 'wordt-niet-uitgevoerd');
+  assert(!openInB.ok && openInB.code === 'DIALOG_OPEN' && /showNewProjectDialog/.test(openInB.error),
+    'een dialoog in B hoort B te blokkeren en de contextlokale vlag te benoemen');
 });
 
 // --- (5) listener-levenscyclus (dubbel-start-guard + stop→start-cyclus) --------------------------

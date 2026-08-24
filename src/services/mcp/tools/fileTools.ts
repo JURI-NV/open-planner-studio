@@ -265,7 +265,7 @@ export const fileTools: McpToolDef[] = [
       }
       return {
         ok: true,
-        envelope: buildEnvelope(),
+        envelope: buildEnvelope(ctx),
         data: {
           path,
           // Aantal TEKENS van het IFC-document (geen bytes: UTF-8 is multi-byte voor niet-ASCII
@@ -407,7 +407,7 @@ export const fileTools: McpToolDef[] = [
       }
       return {
         ok: true,
-        envelope: buildEnvelope(),
+        envelope: buildEnvelope(ctx),
         data: {
           documentId: after.activeDocumentId,
           path,

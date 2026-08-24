@@ -9,7 +9,7 @@
 // Draait headless tegen de ECHTE store, net als cases-mutate-cal-res.ts / cases-read.ts: de
 // muterende tools worden RECHTSTREEKS op hun module-array aangeroepen (buiten de dispatcher om, dus
 // onafhankelijk van generieke schemavalidatie daar); de leestools via de registry.
-import { useAppStore, test, assert, assertEq, run } from './harness';
+import { appStoreContext, makeMcpContext, useAppStore, test, assert, assertEq, run, type McpContextOverrides } from './harness';
 import { calendarResourceTools } from '@/services/mcp/tools/calendarResourceTools';
 import { getTool } from '@/services/mcp/toolRegistry';
 import { ensureFreshSchedule } from '@/services/mcp/staleGuard';
@@ -25,15 +25,10 @@ const S = () => useAppStore.getState();
 S().addTask({ name: 'warmup' });
 S().undo();
 
-function makeCtx(over: Partial<McpContext> = {}): McpContext {
-  return {
-    expectedDocId: null,
-    tempIdMap: new Map<string, string>(),
-    paused: false,
-    readOnly: false,
-    ensureBackup: async () => null,
+function makeCtx(over: McpContextOverrides = {}): McpContext {
+  return makeMcpContext(appStoreContext, {
     ...over,
-  };
+  });
 }
 
 function mtool(name: string) {

@@ -5,7 +5,7 @@
 //
 // Aan het eind: de payload-meting (geen poort) — JSON-groottes van overview/list_tasks(p1)/
 // histogram(week) op het 2500-taken-benchmarkproject, gerapporteerd via console.
-import { useAppStore, test, assert, assertEq, run } from './harness';
+import { appStoreContext, makeMcpContext, useAppStore, test, assert, assertEq, run, type McpContextOverrides } from './harness';
 import { getTool } from '@/services/mcp/toolRegistry';
 import type { McpContext, McpToolResult, McpToolOk } from '@/services/mcp/contracts';
 import { generateBenchmarkProject } from '@/services/benchmark/generateProject';
@@ -15,15 +15,10 @@ import type { WorkCalendar } from '@/types/calendar';
 const S = () => useAppStore.getState();
 
 /** Verse leest-ctx (drift/pauze niet relevant voor leestools). */
-function makeCtx(over: Partial<McpContext> = {}): McpContext {
-  return {
-    expectedDocId: null,
-    tempIdMap: new Map<string, string>(),
-    paused: false,
-    readOnly: false,
-    ensureBackup: async () => null,
+function makeCtx(over: McpContextOverrides = {}): McpContext {
+  return makeMcpContext(appStoreContext, {
     ...over,
-  };
+  });
 }
 
 /** Roep een geregistreerde tool op naam aan en verwacht ok:true; geeft de `data` terug (getypeerd los). */
