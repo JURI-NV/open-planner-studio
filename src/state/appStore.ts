@@ -49,11 +49,20 @@ export type AppStore = UseBoundStore<
 >;
 
 export interface AppStoreContext {
+  /** Documentstate, undo/redo en niet-documentaire appstate van precies deze context. */
   store: AppStore;
+  /** Undo-coalescing, batchdiepte, MCP-lease en timephased-verlies van precies deze context. */
   runtime: StoreRuntime;
 }
 
-/** Bouw een store en de niet-documentaire uitvoeringsmetadata die uitsluitend bij die store hoort. */
+/**
+ * Bouw één onafhankelijke storecontext. Documentstate, undo/redo en uitvoeringsmetadata lekken niet
+ * tussen contexten. `ui` en `taskClipboard` zijn bewust niet documentgebonden: zij overleven een
+ * documentwissel binnen hun eigen context, maar worden evenmin met een andere context gedeeld.
+ *
+ * App-lifecycleregistries buiten de Zustandfactory (plugininstances, eventbus en SDK-windowbinding)
+ * blijven bewust app-global; de gemounte productinterface bindt die aan `appStoreContext` hieronder.
+ */
 export function createAppStoreContext(): AppStoreContext {
   const runtime = createStoreRuntime();
   const store = create<AppState>()(

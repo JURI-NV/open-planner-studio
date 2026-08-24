@@ -548,10 +548,9 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   PRINTPARCHECK="$DIR/.printparity.mjs"
   if bundle_check "$DIR/check-print-screen-parity.ts" "$PRINTPARCHECK"; then node "$PRINTPARCHECK" || STATUS=1; fi
 
-  # Store-factory (K-item 41). De store was één module-expressie; een tweede instantie was daarmee
-  # onmogelijk. De batterij toetst wat er nu ECHT onafhankelijk is (projectdata, undo/redo) en pint
-  # vast wat nog GEDEELD is (withTransaction en de batch-diepte hangen aan de singleton) — die
-  # pinningen horen rood te worden zodra iemand ze oplost.
+  # Store-factory (K-item 41). Elke context bezit nu eigen projectdata, undo/redo en runtime-
+  # metadata; de batterij toetst die scheiding en legt tegelijk vast welke niet-documentaire staat
+  # (zoals het taakklembord) bewust een documentwissel binnen dezelfde context overleeft.
   SFCHECK="$DIR/.storefactory.mjs"
   if bundle_check "$DIR/check-store-factory.ts" "$SFCHECK"; then node "$SFCHECK" || STATUS=1; fi
 
@@ -560,6 +559,12 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   # undo, redo of suppressiediepte nooit beïnvloeden.
   SRICHECK="$DIR/.store-runtime-isolation.mjs"
   if bundle_check "$DIR/check-store-runtime-isolation.ts" "$SRICHECK"; then node "$SRICHECK" || STATUS=1; fi
+
+  # Mechanische ownershippoort voor storegebonden runtimecode. Draait de echte repositorycheck en
+  # bewijst met tijdelijke bronfixtures dat value-singletons en adapterlogica worden geweigerd,
+  # terwijl commentaar en type-only imports geen vals alarm geven.
+  SRBCHECK="$DIR/.store-runtime-boundaries.mjs"
+  if bundle_check "$DIR/check-store-runtime-boundaries.ts" "$SRBCHECK"; then node "$SRBCHECK" || STATUS=1; fi
 
   # Export-guard (bevinding K7). Exports schrijven CPM-datums naar derden; zonder guard ging een
   # verouderde planning het bestand in. De subtiele helft: na een cyclus staat `scheduleStale` al
