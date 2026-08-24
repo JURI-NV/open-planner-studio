@@ -55,6 +55,44 @@ const TYPE_KEY = {
 
 const NEW_CAL = '__new';
 
+type ResourceView = 'company' | 'project' | 'occupancy';
+type PendingResourceDraft = { variant: 'project' | 'pool'; draft: ResourceDraft };
+type SetUI = ReturnType<typeof useAppStore.getState>['setUI'];
+
+/** Reset alleen bij mount of een echte koppelingsovergang; handmatige viewkeuzes blijven staan. */
+function useResourceViewReset(companyId: string | undefined, linked: boolean, setUI: SetUI): void {
+  useEffect(() => {
+    if (useAppStore.getState().ui.resourcesView !== 'project') {
+      setUI({ resourcesView: 'project' });
+    }
+  }, [companyId, linked, setUI]);
+}
+
+/** Consumeer één lintverzoek en open precies één lokale concept-rij in de zichtbare tabel. */
+function usePendingResourceDraft({
+  pendingNewResource,
+  openDraft,
+  requestFocus,
+  setUI,
+}: {
+  pendingNewResource: boolean;
+  openDraft: (view: ResourceView) => void;
+  requestFocus: (rowId: string, field: GridField) => void;
+  setUI: SetUI;
+}): void {
+  useEffect(() => {
+    if (!pendingNewResource) return;
+    let view = useAppStore.getState().ui.resourcesView;
+    if (view === 'occupancy') {
+      view = 'project';
+      setUI({ resourcesView: 'project' });
+    }
+    openDraft(view);
+    requestFocus(DRAFT_ROW_ID, 'name');
+    setUI({ pendingNewResource: false });
+  }, [pendingNewResource, openDraft, requestFocus, setUI]);
+}
+
 const cellInput = 'input !text-[11px] !px-1.5 !py-1 w-full';
 // Geërfd/read-only-velden (issue #19, punt D1 — user-feedback): platte tekst, GEEN uitgegrijsd
 // invoerveld. Zelfde padding/tekstgrootte als `cellInput` (kolommen blijven uitgelijnd met de
@@ -149,15 +187,18 @@ export function ResourcePanel() {
   // niet-lege naam (op blur/Enter) écht wordt aangemaakt (`addResource`/`addPoolResource`); leeg
   // wegklikken laat helemaal geen spoor na. Vervangt de eerdere `newRowId`-autofocus-aanpak (punt 3) —
   // de pending-rij bestaat sowieso maar heel even en mag altijd focus krijgen.
-  const [pendingNew, setPendingNew] = useState<{ variant: 'project' | 'pool'; draft: ResourceDraft } | null>(null);
+  const [pendingNew, setPendingNew] = useState<PendingResourceDraft | null>(null);
   /** Welke draft-variant hoort bij een gegeven weergave — één definitie, gebruikt door de knop, de
    *  weergave-wissel-reset hieronder en de lintknop-route (#48-1). Spiegelt `inPoolView`. De
    *  Bezettingsweergave (B1b) is een leesvenster zonder tabel — daar hoort geen draft; aanroepers
    *  schakelen eerst naar de Projectweergave (zie de lintknop-route hieronder). */
-  const variantForView = (view: 'company' | 'project' | 'occupancy'): 'project' | 'pool' =>
-    (linked && view === 'company' && !!pool) ? 'pool' : 'project';
-  const openDraft = (view: 'company' | 'project' | 'occupancy') =>
+  const hasLinkedPool = linked && !!pool;
+  const variantForView = useCallback((view: ResourceView): 'project' | 'pool' => (
+    hasLinkedPool && view === 'company' ? 'pool' : 'project'
+  ), [hasLinkedPool]);
+  const openDraft = useCallback((view: ResourceView) => {
     setPendingNew({ variant: variantForView(view), draft: freshDraft() });
+  }, [variantForView]);
 
   // #48 (vervolgmelding van de melder): "Is it the intended behavior for the concept row to have
   // only the Name field editable?" — nee. De concept-rij bestaat om ÉÉN reden: voorkomen dat een
@@ -223,8 +264,7 @@ export function ResourcePanel() {
     if (pendingNew) return false; // er staat er al een onderaan
     openDraft(useAppStore.getState().ui.resourcesView);
     return true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingNew, linked, pool]);
+  }, [pendingNew, openDraft]);
 
   const grid = useLiveGridNav<GridField>({ rowIds: gridRowIds, fields: GRID_FIELDS, onAppendRow: appendRow });
   const { requestFocus, flushPendingFocus } = grid;
@@ -271,8 +311,7 @@ export function ResourcePanel() {
     // De Bezettingsweergave (B1b) rendert geen tabel — een meereizende draft zou er onzichtbaar
     // (en oncommitbaar) in blijven hangen, dus die vervalt daar altijd.
     setPendingNew(p => (p && resourcesView !== 'occupancy' && p.variant === variantForView(resourcesView) ? p : null));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resourcesView]);
+  }, [resourcesView, variantForView]);
 
   const onAssignFromCompany = (resourceId: string) => {
     const result = addLibraryResourceToProject(project.companyId!, resourceId);
@@ -307,10 +346,7 @@ export function ResourcePanel() {
   // koppeling-wissel), geen persistente voorkeur: de Bibliotheekweergave is een bewuste tabkeuze
   // per bezoek, geen toestand waar je een sessie later stil in terugvalt. Binnen één open paneel
   // blijft de gekozen weergave gewoon staan (dit effect draait niet per render/edit).
-  useEffect(() => {
-    if (resourcesView !== 'project') setUI({ resourcesView: 'project' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project.companyId, linked]);
+  useResourceViewReset(project.companyId, linked, setUI);
 
   // Lintknop "Nieuwe resource" (#48-1): die persisteerde vroeger meteen een naamloze resource (echte
   // store-mutatie + undo-stap). Nu zet hij alleen `ui.pendingNewResource` en opent dit effect
@@ -318,21 +354,7 @@ export function ResourcePanel() {
   // BEWUST ná het default-weergave-effect hierboven: dat kan bij een verse mount de weergave nog
   // omklappen, dus lezen we de weergave hier vers uit de store i.p.v. uit de render-waarde, zodat de
   // draft in de tabel landt die de gebruiker daadwerkelijk te zien krijgt.
-  useEffect(() => {
-    if (!pendingNewResource) return;
-    // B1b: de Bezettingsweergave is een leesvenster zonder tabel — een nieuwe resource hoort in de
-    // Projectweergave, dus daar eerst naartoe schakelen (de draft-reset hierboven laat een
-    // project-draft daar gewoon staan).
-    let view = useAppStore.getState().ui.resourcesView;
-    if (view === 'occupancy') {
-      view = 'project';
-      setUI({ resourcesView: 'project' });
-    }
-    openDraft(view);
-    requestFocus(DRAFT_ROW_ID, 'name');
-    setUI({ pendingNewResource: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingNewResource]);
+  usePendingResourceDraft({ pendingNewResource, openDraft, requestFocus, setUI });
 
   const crews = resources.filter(r => r.type === 'CREW');
   // Ploeg-kolom in de pool (issue #19, punt 1) — parentId is een geldig pool-lokaal veld (zie
@@ -385,7 +407,7 @@ export function ResourcePanel() {
   // vóór een niet-lege naam, zie `pendingNew`/`commitPendingNew` hierboven) — vervangt de oude aparte
   // "Nieuw in de bibliotheek"-knop (dubbelop geworden).
   const onAddClick = () => {
-    setPendingNew({ variant: inPoolView ? 'pool' : 'project', draft: freshDraft() });
+    openDraft(resourcesView);
     // Stond er al een concept-rij, dan is `autoFocus` al verbruikt — deze aanvraag zet de cursor
     // er alsnog in.
     requestFocus(DRAFT_ROW_ID, 'name');

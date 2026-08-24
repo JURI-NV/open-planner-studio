@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
 import { renderPrintCanvas, renderReport, REPORT_FONT_SCALES, PrintOptions } from '@/services/print/printPreview';
@@ -317,43 +317,40 @@ export function ReportPanel() {
   const [previewTotalPages, setPreviewTotalPages] = useState(0);
 
   const locale = i18n.language;
-  const localizedMonths = getLocalizedMonths(locale);
-  const localizedMonthsShort = getLocalizedMonthsShort(locale);
-
-  const labels = {
-    noTasks: t('noTasks'),
-    printed: t('printed'),
-    legend: {
-      criticalPath: t('legend.criticalPath'),
-      normal: t('legend.normal'),
-      milestone: t('legend.milestone'),
-      summary: t('legend.summary'),
-      float: t('showFloat'),
-      completion: t('showCompletion', { defaultValue: 'Completion' }),
-      relationStyle: t('legend.relationStyle'),
-    },
-    tableHeaders: {
-      rowNum: '#',
-      wbs: t('tableHeaders.wbs'),
-      taskName: t('tableHeaders.taskName'),
-      start: t('tableHeaders.start'),
-      end: t('tableHeaders.end'),
-      duration: t('tableHeaders.duration'),
-      completion: t('tableHeaders.completion', { defaultValue: 'Volt.' }),
-    },
-    page: t('page', { defaultValue: 'Pagina' }),
-    of: t('of', { defaultValue: 'van' }),
-    today: t('today', { defaultValue: 'Vandaag' }),
-    statusDate: t('statusDateLabel', { defaultValue: 'Statusdatum' }),
-  };
-
-  const options: PrintOptions = {
+  // Eén waardeobject is de contractgrens tussen UI, preview en export. Daardoor kan geen van beide
+  // renderpaden per ongeluk een losse oude optie of vertaalde kop uit een eerdere render vasthouden.
+  const options = useMemo<PrintOptions>(() => ({
     showCritical, showFloat, showDeps, showWeekends, showLegend,
     showTaskNames, showCompletion, autoFit, customZoom,
     paperSize, orientation, companyName,
-    labels,
-    localizedMonths,
-    localizedMonthsShort,
+    labels: {
+      noTasks: t('noTasks'),
+      printed: t('printed'),
+      legend: {
+        criticalPath: t('legend.criticalPath'),
+        normal: t('legend.normal'),
+        milestone: t('legend.milestone'),
+        summary: t('legend.summary'),
+        float: t('showFloat'),
+        completion: t('showCompletion', { defaultValue: 'Completion' }),
+        relationStyle: t('legend.relationStyle'),
+      },
+      tableHeaders: {
+        rowNum: '#',
+        wbs: t('tableHeaders.wbs'),
+        taskName: t('tableHeaders.taskName'),
+        start: t('tableHeaders.start'),
+        end: t('tableHeaders.end'),
+        duration: t('tableHeaders.duration'),
+        completion: t('tableHeaders.completion', { defaultValue: 'Volt.' }),
+      },
+      page: t('page', { defaultValue: 'Pagina' }),
+      of: t('of', { defaultValue: 'van' }),
+      today: t('today', { defaultValue: 'Vandaag' }),
+      statusDate: t('statusDateLabel', { defaultValue: 'Statusdatum' }),
+    },
+    localizedMonths: getLocalizedMonths(locale),
+    localizedMonthsShort: getLocalizedMonthsShort(locale),
     locale,
     projectStartDate: project.startDate,
     projectEndDate: project.endDate,
@@ -386,7 +383,12 @@ export function ReportPanel() {
       criticalOutline: t('legend.criticalOutline', { defaultValue: 'Kritiek pad (rand)' }),
       categoriesMore: (n: number) => t('legend.categoriesMore', { count: n }),
     },
-  };
+  }), [showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion,
+    autoFit, customZoom, paperSize, orientation, companyName, t, locale, project.startDate,
+    project.endDate, project.author, dateNotation, weekStartDay, timelineColumns, reportFontScale,
+    cpmResult, barColorSelection, fieldCtx.activityCodeTypes, fieldCtx.customFieldDefs,
+    fieldCtx.taskTypeLabels, taskTypeLabelsSignature, tTask, statusLine, statusDate, resources,
+    assignments, followView, viewRows]);
 
   // Bereken de Gantt-preview als gepagineerde papiervellen — via dezelfde pagineer-engine als de
   // PDF-export (paginateCanvasToTiles), zodat de preview WYSIWYG-identiek is aan de export.
@@ -406,16 +408,16 @@ export function ReportPanel() {
       );
       renderPrintCanvas(offscreen, tasks, sequences, calendar, projectName, options, PREVIEW_RENDER_SCALE);
       const tiles = paginateCanvasToTiles(offscreen, {
-        paperSize: paperSize.toLowerCase() as 'a4' | 'a3' | 'a1',
-        orientation,
-        mode: autoFit ? 'fit-width' : 'actual',
+        paperSize: options.paperSize.toLowerCase() as 'a4' | 'a3' | 'a1',
+        orientation: options.orientation,
+        mode: options.autoFit ? 'fit-width' : 'actual',
         logicalWidth,
         logicalHeight,
         frozenColumnWidthPx: tableWidth,
         // Kop herhalen per pagina (issue #25 punt 1): de hoogte komt uit de render zelf; 0 = niet
         // herhalen (oud gedrag). De raster-tak wil px, de vector-tak een boolean.
         repeatHeaderHeightPx: repeatHeader ? headerHeight : 0,
-        timelineColumns,
+        timelineColumns: options.timelineColumns,
         supersample: 1, // preview: goedkoper; wordt toch verkleind weergegeven
         // De limiet hoort HIER, niet pas bij het uitsnijden hieronder: de pagineerder maakt per
         // pagina een volledig papier-canvas aan (A3 ≈ 4 MB RGBA), dus een rooster van 20×8 zou
@@ -440,7 +442,7 @@ export function ReportPanel() {
     // cancelled-guard voorkomt dat een verouderde async-render na deps-wijziging/unmount nog toepast.
     void ensureInterLoaded().then(renderPreview);
     return () => { cancelled = true; };
-  }, [reportType, tasks, sequences, calendar, projectName, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation, companyName, locale, dateNotation, repeatHeader, timelineColumns, reportFontScale, cpmResult, barColorSelection, statusLine, statusDate, resources, assignments, followView, viewRows, fieldCtx.activityCodeTypes, fieldCtx.customFieldDefs, taskTypeLabelsSignature, tTask]);
+  }, [reportType, tasks, sequences, calendar, projectName, options, repeatHeader]);
 
   const milestoneRows = useMilestoneRows();
   const varianceResult = useVarianceResult();
@@ -637,7 +639,8 @@ export function ReportPanel() {
     }
 
     await writePdf(tablePdfBytes, `${fileBase}-${suffix}.pdf`);
-  }, [reportType, projectName, fileBase, tasks, sequences, calendar, options, paperSize, orientation, autoFit, writePdf, t, dd, milestoneRows, varianceResult]);
+  }, [reportType, projectName, fileBase, tasks, sequences, calendar, options, paperSize, orientation,
+    autoFit, repeatHeader, timelineColumns, writePdf, t, dd, milestoneRows, varianceResult]);
 
   const criticalCount = tasks.filter(t => t.time.isCritical && t.childIds.length === 0).length;
   const leafCount = tasks.filter(t => t.childIds.length === 0).length;
