@@ -442,6 +442,11 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   BARCOLORSETTINGSCHECK="$DIR/.bar-color-settings.mjs"
   if bundle_check "$DIR/check-bar-color-settings.ts" "$BARCOLORSETTINGSCHECK"; then node "$BARCOLORSETTINGSCHECK" || STATUS=1; fi
 
+  # Balkkleurcategorieën delen exact de Group-veldcatalogus; een verwijderd projectveld valt
+  # tijdelijk terug op Taaktype zonder de globale keuze te overschrijven.
+  BARCOLORFIELDCHECK="$DIR/.bar-color-field-options.mjs"
+  if bundle_check "$DIR/check-bar-color-field-options.ts" "$BARCOLORFIELDCHECK"; then node "$BARCOLORFIELDCHECK" || STATUS=1; fi
+
   # Rapportexport #21/#54: volg-weergave (viewRows→renderReport), statuslijn (statusDate/progress),
   # kleurmodi + legenda — via opnemende Draw2D, zelfde renderer als preview én vector-PDF.
   PRTEXPCHECK="$DIR/.print-report.mjs"

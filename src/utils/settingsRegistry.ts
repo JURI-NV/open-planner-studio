@@ -102,9 +102,6 @@ function parseModifierMap(raw: unknown): ModifierMap | undefined {
 const SCROLL_MODES: ScrollMode[] = ['position', 'modifier', 'drag'];
 const POSITION_DIVISIONS: PositionDivision[] = ['left-right', 'top-bottom', 'corner'];
 const WEEK_START_DAYS: WeekStartDay[] = ['monday', 'sunday'];
-/** #21: scherm-kleurmodi — zelfde waardeverzameling als de rapport-dropdown (barColors importeert
- *  hier bewust niet: dit register leeft in utils en importeert géén services). */
-const SCREEN_BAR_COLOR_MODES = ['critical', 'task', 'auto', 'resource'] as const;
 const DOCUMENT_CHROME_STYLES: DocumentChromeStyle[] = ['tabs', 'rail', 'switcher'];
 
 // --- Register -----------------------------------------------------------------------------------
@@ -165,7 +162,6 @@ export const SETTINGS: SettingDescriptor[] = [
   setting({ key: 'showProgressLine', field: 'showProgressLine', parse: parseBoolean }),
   setting({ key: 'showStatusDateLine', field: 'showStatusDateLine', parse: parseBoolean }),
   setting({ key: 'showResourceAccent', field: 'showResourceAccent', parse: parseBoolean }),
-  setting({ key: 'screenBarColorMode', field: 'screenBarColorMode', parse: parseEnum(SCREEN_BAR_COLOR_MODES) }),
 
   // Mini-map (view-state)
   setting({ key: 'showMiniMap', field: 'showMiniMap', parse: parseBoolean }),

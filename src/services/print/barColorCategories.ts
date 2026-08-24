@@ -5,10 +5,14 @@ import type { ActivityCodeType, CustomFieldDef } from '@/types/structure';
 import type { Task } from '@/types/task';
 import type { FieldRef } from '@/types/view';
 
-/** Projectdata die nodig is om dezelfde Group-velden voor balkkleuren op te lossen. */
-export interface BarColorContext {
+/** Minimale projectcontext waarmee de gedeelde Group-veldlijst en fallback bepaald worden. */
+export interface BarColorFieldContext {
   activityCodeTypes: ReadonlyArray<ActivityCodeType>;
   customFieldDefs: ReadonlyArray<CustomFieldDef>;
+}
+
+/** Projectdata die nodig is om de gekozen categorie ook per taak op te lossen. */
+export interface BarColorContext extends BarColorFieldContext {
   resources: ReadonlyArray<Resource>;
   assignments: ReadonlyArray<ResourceAssignment>;
   taskTypeLabels?: Readonly<Record<string, string>>;
@@ -49,7 +53,7 @@ function noneValue(field: FieldRef, noneLabel: string): BarCategoryValue {
 }
 
 /** De toegestane categorievelden komen bewust rechtstreeks uit de Group-catalogus. */
-export function isBarColorFieldAvailable(field: FieldRef, ctx: BarColorContext): boolean {
+export function isBarColorFieldAvailable(field: FieldRef, ctx: BarColorFieldContext): boolean {
   return groupFieldList(ctx).some(candidate => fieldsEqual(candidate, field));
 }
 
@@ -59,7 +63,7 @@ export function isBarColorFieldAvailable(field: FieldRef, ctx: BarColorContext):
  */
 export function effectiveBarColorSelection(
   selection: BarColorSelection,
-  ctx: BarColorContext,
+  ctx: BarColorFieldContext,
 ): EffectiveBarColorSelection {
   if (selection.mode !== 'category' || isBarColorFieldAvailable(selection.field, ctx)) {
     return { effective: selection };

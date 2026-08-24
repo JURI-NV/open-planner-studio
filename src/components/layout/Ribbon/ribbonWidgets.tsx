@@ -13,8 +13,8 @@ import { listWbsTemplates, deleteWbsTemplate, type WbsTemplate } from '@/utils/w
 import { scaleFromZoom } from '@/engine/renderer/timelineTiers';
 import {
   saveShowMiniMap, loadLayouts, saveLayouts, loadLastLayoutId, saveLastLayoutId,
-  saveScreenBarColorMode,
 } from '@/utils/settingsStore';
+import { saveBarColorSelection } from '@/utils/barColorSettings';
 import { ExportFormat } from '@/state/appStore';
 import { EXPORT_FORMATS } from '@/services/formatRegistry';
 import { addTaskNearSelection } from '@/state/taskInsertActions';
@@ -27,6 +27,10 @@ import { RESOURCE_CURVES, CURVE_KEY } from '@/components/task-sections/shared';
 import { UnitsInput } from '@/components/common/UnitsInput';
 import { groupFieldList, fullFieldList, fieldOptions } from '@/components/viewControls/fieldCatalog';
 import { useFieldCatalogCtx } from '@/components/viewControls/useFieldCatalogCtx';
+import {
+  barColorFieldOptions,
+  effectiveBarColorControl,
+} from '@/components/viewControls/barColorFieldOptions';
 import { buildImportLabels } from '@/i18n/importLabels';
 import { snapshotLayout } from '@/components/viewControls/layoutSnapshot';
 import {
@@ -547,17 +551,36 @@ export function ResourceAssignDropdown() {
  * flex-basis 0) ~12px over: een sliver zonder leesbare tekst. Zelfde valkuil als issue #46.
  */
 /**
- * #21 (user-wens): scherm-kleurmodi — dezelfde vier standen als de Balkkleuren-dropdown in het
- * Rapport-tab, maar dan voor de Gantt op het scherm. 'critical' is het klassieke beeld; de andere
- * standen kleuren de balken (moduskleuren worden in het donkere thema automatisch verlicht) met
- * het kritieke pad als rode rand. App-globaal + persistent via `ops-screenBarColorMode`.
+ * Eén app-globale bediening voor scherm én rapport. Categorievelden komen rechtstreeks uit Group;
+ * een projectgebonden veld dat hier ontbreekt blijft bewaard maar gebruikt tijdelijk Taaktype.
  */
 export function ScreenColorsPopoverButton() {
   const { t: tMenu } = useTranslation('menu');
-  const mode = useAppStore(s => s.ui.screenBarColorMode);
+  const selection = useAppStore(s => s.ui.barColorSelection);
   const setUI = useAppStore(s => s.setUI);
+  const ctx = useFieldCatalogCtx();
+  const fields = barColorFieldOptions(ctx);
+  const control = effectiveBarColorControl(selection, ctx);
   const [open, setOpen] = useState(false);
-  const OPTIONS = ['critical', 'task', 'auto', 'resource'] as const;
+
+  const updateSelection = (next: typeof selection) => {
+    setUI({ barColorSelection: next });
+    void saveBarColorSelection(next);
+  };
+  const selectMode = (mode: 'critical' | 'auto' | 'category') => {
+    if (mode === 'critical' || mode === 'auto') {
+      updateSelection({ mode });
+      setOpen(false);
+      return;
+    }
+    const effectiveField = control.effective.mode === 'category'
+      ? control.effective.field
+      : fields[0]?.field;
+    if (effectiveField) updateSelection({ mode: 'category', field: effectiveField });
+  };
+  const effectiveFieldValue = control.effective.mode === 'category'
+    ? encodeFieldRef(control.effective.field)
+    : (fields[0] ? encodeFieldRef(fields[0].field) : '');
 
   return (
     <Popover
@@ -569,7 +592,7 @@ export function ScreenColorsPopoverButton() {
       }}
       trigger={
         <button
-          className={`ribbon-btn small${mode !== 'critical' ? ' active' : ''}`}
+          className={`ribbon-btn small${selection.mode !== 'critical' ? ' active' : ''}`}
           title={tMenu('ribbon.screenColors')}
           aria-label={tMenu('ribbon.screenColors')}
           onClick={() => setOpen(o => !o)}
@@ -580,15 +603,32 @@ export function ScreenColorsPopoverButton() {
       }
     >
       <span className="ribbon-info" style={{ fontWeight: 600 }}>{tMenu('ribbon.screenColors')}</span>
-      {OPTIONS.map(m => (
+      {(['critical', 'auto', 'category'] as const).map(mode => (
         <button
-          key={m}
-          className={`ribbon-btn small w-full justify-start${mode === m ? ' active' : ''}`}
-          onClick={() => { setUI({ screenBarColorMode: m }); void saveScreenBarColorMode(m); setOpen(false); }}
+          key={mode}
+          className={`ribbon-btn small w-full justify-start${selection.mode === mode ? ' active' : ''}`}
+          onClick={() => selectMode(mode)}
         >
-          <span className="ribbon-btn-label">{tMenu(`ribbon.screenColors_${m}`)}</span>
+          <span className="ribbon-btn-label">{tMenu(`ribbon.screenColors_${mode}`, {
+            defaultValue: mode === 'critical' ? 'Kritiek pad'
+              : mode === 'auto' ? 'Per taak — automatisch' : 'Op categorie',
+          })}</span>
         </button>
       ))}
+      {selection.mode === 'category' && fields.length > 0 && (
+        <RibbonDropdown
+          value={effectiveFieldValue}
+          options={fields.map(option => ({ value: encodeFieldRef(option.field), label: option.label }))}
+          onChange={value => updateSelection({ mode: 'category', field: decodeFieldRef(value) })}
+        />
+      )}
+      {control.missingField && (
+        <span className="ribbon-info" role="status">
+          {tMenu('ribbon.screenColorsMissingField', {
+            defaultValue: 'Dit veld bestaat niet in dit project. Taaktype wordt tijdelijk gebruikt.',
+          })}
+        </span>
+      )}
       <span className="ribbon-info">{tMenu('ribbon.screenColorsHint')}</span>
     </Popover>
   );

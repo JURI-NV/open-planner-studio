@@ -47,8 +47,6 @@ export interface ReportSettings {
   repeatHeader: boolean;
   timelineColumns: number;
   reportFontScale: number;
-  /** Balkkleurmodi in de export (#21): critical (default = oud gedrag) / task / auto / resource. */
-  barColorMode: 'critical' | 'task' | 'auto' | 'resource';
   /** Statuslijn in de export (#54), letterlijk drie opties zoals gevraagd. */
   statusLine: 'none' | 'statusDate' | 'progress';
   /** Export volgt de schermweergave — filter, groepering, sortering én inklapstatus (#54). */
@@ -76,7 +74,6 @@ export const DEFAULT_REPORT_SETTINGS: ReportSettings = {
   repeatHeader: true,
   timelineColumns: 1,
   reportFontScale: 100,
-  barColorMode: 'critical',
   statusLine: 'none',
   followView: false,
 };
@@ -85,7 +82,6 @@ export const DEFAULT_REPORT_SETTINGS: ReportSettings = {
 const REPORT_TYPES: readonly ReportType[] = ['gantt', 'milestones', 'variance'];
 const PAPER_SIZES: readonly ReportPaperSize[] = ['A3', 'A4', 'A1'];
 const ORIENTATIONS: readonly ReportOrientation[] = ['landscape', 'portrait'];
-const BAR_COLOR_MODES: readonly ReportSettings['barColorMode'][] = ['critical', 'task', 'auto', 'resource'];
 const STATUS_LINES: readonly ReportSettings['statusLine'][] = ['none', 'statusDate', 'progress'];
 /** De vaste trap uit `printPreview` — bewust GEEN eigen kopie: de Select in het paneel, de klem in
  *  `makeMetrics` en deze parser moeten per definitie dezelfde waarden kennen, anders accepteert de
@@ -149,7 +145,6 @@ export async function loadReportSettings(): Promise<ReportSettings> {
     repeatHeader: parseBoolean(s.repeatHeader) ?? d.repeatHeader,
     timelineColumns: parseClampedInt(s.timelineColumns, TIMELINE_COLUMNS_MIN, TIMELINE_COLUMNS_MAX) ?? d.timelineColumns,
     reportFontScale: parseNumberChoice(FONT_SCALES, s.reportFontScale) ?? d.reportFontScale,
-    barColorMode: parseEnum(BAR_COLOR_MODES, s.barColorMode) ?? d.barColorMode,
     statusLine: parseEnum(STATUS_LINES, s.statusLine) ?? d.statusLine,
     followView: parseBoolean(s.followView) ?? d.followView,
   };

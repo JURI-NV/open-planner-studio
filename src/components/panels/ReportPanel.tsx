@@ -10,9 +10,16 @@ import { paginateCanvasToPdfBytes, paginateCanvasToTiles } from '@/services/prin
 import { ensureInterLoaded, getInterFontBytes, getArabicFontBytes } from '@/services/pdf/fontLoader';
 import { RTL_LOCALES, type Locale } from '@/i18n/config';
 import { Select } from '@/components/common/Select';
+import { useFieldCatalogCtx } from '@/components/viewControls/useFieldCatalogCtx';
+import {
+  barColorFieldOptions,
+  effectiveBarColorControl,
+} from '@/components/viewControls/barColorFieldOptions';
+import { encodeFieldRef, decodeFieldRef } from '@/components/layout/Ribbon/ribbonPrimitives';
 import { useSplitter } from '@/hooks/useSplitter';
 import { isTauri } from '@/utils/platform';
 import { DEFAULT_REPORT_SETTINGS, loadReportSettings, saveReportSettings } from '@/utils/reportSettings';
+import { saveBarColorSelection } from '@/utils/barColorSettings';
 import { useDisplayDate } from '@/hooks/displayDate';
 import { MilestoneReport, useMilestoneRows, STATUS_COLOR as MILESTONE_STATUS_COLOR, type MilestoneRow } from './MilestoneReport';
 import { VarianceReport, useVarianceResult, STATUS_COLOR as VARIANCE_STATUS_COLOR, fmtDelta } from './VarianceReport';
@@ -122,6 +129,7 @@ interface PreviewPage {
 export function ReportPanel() {
   const { t } = useTranslation('report');
   const { t: tCommon, i18n } = useTranslation('common');
+  const { t: tTask } = useTranslation('task');
   const dd = useDisplayDate();
   const tasks = useAppStore(s => s.tasks);
   const sequences = useAppStore(s => s.sequences);
@@ -147,6 +155,12 @@ export function ReportPanel() {
   const viewRows = useAppStore(s => s.viewRows);
   const resources = useAppStore(s => s.resources);
   const assignments = useAppStore(s => s.assignments);
+  const barColorSelection = useAppStore(s => s.ui.barColorSelection);
+  const setUI = useAppStore(s => s.setUI);
+  const fieldCtx = useFieldCatalogCtx();
+  const barColorFields = barColorFieldOptions(fieldCtx);
+  const barColorControl = effectiveBarColorControl(barColorSelection, fieldCtx);
+  const taskTypeLabelsSignature = JSON.stringify(fieldCtx.taskTypeLabels);
   const statusDate = project.statusDate;
 
   // De rapportopties starten op de gedeelde defaults uit `reportSettings.ts` en worden vlak na de
@@ -193,8 +207,6 @@ export function ReportPanel() {
   // die stuurt de app-chrome aan, deze alleen het papier. Werkt relatief (tekst/tabel groeien, de
   // tijdlijn-zoom niet) — zie de afleiding bij `ReportMetrics` in printPreview.ts.
   const [reportFontScale, setReportFontScale] = useState(DEFAULT_REPORT_SETTINGS.reportFontScale);
-  // #21 — balkkleurmodi in de export (critical is het huidige gedrag; task/auto/resource nieuw).
-  const [barColorMode, setBarColorMode] = useState(DEFAULT_REPORT_SETTINGS.barColorMode);
   // #54 — statuslijn in de export: letterlijk drie opties (geen / statusdatumlijn / voortgangslijn).
   const [statusLine, setStatusLine] = useState(DEFAULT_REPORT_SETTINGS.statusLine);
   // #54 — volg weergave: export tekent exact de viewRows van het scherm (WYSIWYG).
@@ -258,7 +270,6 @@ export function ReportPanel() {
       setRepeatHeader(s.repeatHeader);
       setTimelineColumns(s.timelineColumns);
       setReportFontScale(s.reportFontScale);
-      setBarColorMode(s.barColorMode);
       setStatusLine(s.statusLine);
       setFollowView(s.followView);
       hydratedRef.current = true;
@@ -292,11 +303,11 @@ export function ReportPanel() {
     void saveReportSettings({
       reportType, showCritical, showFloat, showDeps, showWeekends, showLegend,
       showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation,
-      repeatHeader, timelineColumns, reportFontScale, barColorMode, statusLine, followView,
+      repeatHeader, timelineColumns, reportFontScale, statusLine, followView,
     }).catch(() => {});
   }, [reportType, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames,
       showCompletion, autoFit, customZoom, paperSize, orientation, repeatHeader, timelineColumns,
-      reportFontScale, barColorMode, statusLine, followView]);
+      reportFontScale, statusLine, followView]);
 
   const milestoneRef = useRef<HTMLDivElement>(null);
   const varianceRef = useRef<HTMLDivElement>(null);
@@ -359,9 +370,13 @@ export function ReportPanel() {
     // Bij een cyclus (`cpmResult.error`) of vóór de eerste berekening blijft het `undefined`, en
     // tekent het rapport alles neutraal doorgetrokken — dezelfde eerlijke terugval als het scherm.
     drivingSequenceIds: cpmResult && !cpmResult.error ? cpmResult.drivingSequenceIds : undefined,
-    // #21/#54 — balkkleurmodi, statuslijn en volg-weergave. `rows` alléén bij followView: zonder
+    // #21/#54 — gedeelde balkkleurkeuze, statuslijn en volg-weergave. `rows` alléén bij followView: zonder
     // die optie tekent de export de volledige boom (oud gedrag, geen verrassingen).
-    barColorMode,
+    barColorSelection,
+    activityCodeTypes: fieldCtx.activityCodeTypes,
+    customFieldDefs: fieldCtx.customFieldDefs,
+    taskTypeLabels: fieldCtx.taskTypeLabels,
+    barColorNoneLabel: tTask('structure.none'),
     statusLine,
     statusDate,
     resources,
@@ -369,7 +384,7 @@ export function ReportPanel() {
     rows: followView ? viewRows : undefined,
     barColorsLegendLabels: {
       criticalOutline: t('legend.criticalOutline', { defaultValue: 'Kritiek pad (rand)' }),
-      resourcesMore: (n: number) => t('legend.resourcesMore', { count: n, defaultValue: `… en ${n} meer` }),
+      categoriesMore: (n: number) => t('legend.categoriesMore', { count: n, defaultValue: `… en ${n} meer` }),
     },
   };
 
@@ -425,7 +440,7 @@ export function ReportPanel() {
     // cancelled-guard voorkomt dat een verouderde async-render na deps-wijziging/unmount nog toepast.
     void ensureInterLoaded().then(renderPreview);
     return () => { cancelled = true; };
-  }, [reportType, tasks, sequences, calendar, projectName, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation, companyName, locale, dateNotation, repeatHeader, timelineColumns, reportFontScale, cpmResult, barColorMode, statusLine, statusDate, resources, assignments, followView, viewRows]);
+  }, [reportType, tasks, sequences, calendar, projectName, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation, companyName, locale, dateNotation, repeatHeader, timelineColumns, reportFontScale, cpmResult, barColorSelection, statusLine, statusDate, resources, assignments, followView, viewRows, fieldCtx.activityCodeTypes, fieldCtx.customFieldDefs, taskTypeLabelsSignature, tTask]);
 
   const milestoneRows = useMilestoneRows();
   const varianceResult = useVarianceResult();
@@ -782,24 +797,61 @@ export function ReportPanel() {
               />
             </div>
 
-            {/* Balkkleuren (issue #21 punt 1-nieuw): hoe de export de balken kleurt. Critical is
-                het vertrouwen rood/oranje/blauw; de overige modi kleuren per taak of per
-                uitvoerende resource, met het kritieke pad als rode rand. */}
+            {/* Eén app-globale balkkleurkeuze voor View en Report. De veldlijst is exact Group. */}
             <div className="flex items-center gap-2 min-w-0">
               <label className="text-text-secondary w-20 flex-shrink-0">{t('barColorModeLabel')}</label>
               <Select
                 className="flex-1 min-w-0"
                 aria-label={t('barColorModeLabel')}
-                value={barColorMode}
-                onChange={v => setBarColorMode(v as typeof barColorMode)}
+                value={barColorSelection.mode}
+                onChange={value => {
+                  if (value === 'critical' || value === 'auto') {
+                    const next = { mode: value } as const;
+                    setUI({ barColorSelection: next });
+                    void saveBarColorSelection(next);
+                    return;
+                  }
+                  const field = barColorControl.effective.mode === 'category'
+                    ? barColorControl.effective.field
+                    : barColorFields[0]?.field;
+                  if (!field) return;
+                  const next = { mode: 'category', field } as const;
+                  setUI({ barColorSelection: next });
+                  void saveBarColorSelection(next);
+                }}
                 options={[
                   { value: 'critical', label: t('barColorMode_critical') },
-                  { value: 'task', label: t('barColorMode_task') },
                   { value: 'auto', label: t('barColorMode_auto') },
-                  { value: 'resource', label: t('barColorMode_resource') },
+                  { value: 'category', label: t('barColorMode_category', { defaultValue: 'Op categorie' }) },
                 ]}
               />
             </div>
+            {barColorSelection.mode === 'category' && barColorControl.effective.mode === 'category' && (
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-20 flex-shrink-0" aria-hidden="true" />
+                <Select
+                  className="flex-1 min-w-0"
+                  aria-label={t('barColorFieldLabel', { defaultValue: 'Categorieveld' })}
+                  value={encodeFieldRef(barColorControl.effective.field)}
+                  onChange={value => {
+                    const next = { mode: 'category', field: decodeFieldRef(value) } as const;
+                    setUI({ barColorSelection: next });
+                    void saveBarColorSelection(next);
+                  }}
+                  options={barColorFields.map(option => ({
+                    value: encodeFieldRef(option.field),
+                    label: option.label,
+                  }))}
+                />
+              </div>
+            )}
+            {barColorControl.missingField && (
+              <p className="text-[10px] text-text-muted pl-[88px]" role="status">
+                {t('barColorMissingField', {
+                  defaultValue: 'Dit veld bestaat niet in dit project. Taaktype wordt tijdelijk gebruikt.',
+                })}
+              </p>
+            )}
 
             {/* Statuslijn (issue #54 punt 1): letterlijk drie opties. Zonder statusdatum in het
                 project tekent geen van beide iets — de hint maakt dat zichtbaar i.p.v. stil. */}

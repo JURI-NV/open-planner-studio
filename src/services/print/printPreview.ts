@@ -17,7 +17,6 @@ import { snapToChoice } from '@/utils/numberChoice';
 import {
   barCategoryDisplayColor,
   computeBarColors,
-  type BarColorMode,
   type BarFill,
   type BarPalette,
 } from '@/services/print/barColors';
@@ -26,7 +25,6 @@ import {
   visibleBarColorCategories,
   type BarColorContext,
 } from '@/services/print/barColorCategories';
-import { resourceDisplayColor } from '@/engine/renderer/resourcePalette';
 import type { Resource, ResourceAssignment } from '@/types/resource';
 import type { ActivityCodeType, CustomFieldDef } from '@/types/structure';
 import type { BarColorSelection } from '@/types/barColor';
@@ -264,8 +262,6 @@ export interface PrintOptions {
   customFieldDefs?: CustomFieldDef[];
   taskTypeLabels?: Record<string, string>;
   barColorNoneLabel?: string;
-  /** @deprecated Tijdelijke brug totdat ReportPanel in Task 4 op `barColorSelection` staat. */
-  barColorMode?: BarColorMode;
   /** Statuslijn in de export (#54): 'none' (default) | 'statusDate' (stippellijn) | 'progress' (zigzag). */
   statusLine?: 'none' | 'statusDate' | 'progress';
   /** Statusdatum (ISO) — bron voor beide lijnvarianten; ontbreekt ⇒ geen van beide tekent iets. */
@@ -284,8 +280,6 @@ export interface PrintOptions {
   barColorsLegendLabels?: {
     criticalOutline: string;
     categoriesMore?: (n: number) => string;
-    /** @deprecated Oude naam; tijdelijke fallback voor de nog niet gemigreerde ReportPanel. */
-    resourcesMore?: (n: number) => string;
   };
 }
 
@@ -796,9 +790,13 @@ export function renderReport(
     taskTypeLabels: options.taskTypeLabels,
     noneLabel: options.barColorNoneLabel ?? '(geen)',
   };
-  const colorAdvice = (task: Task, width?: number): BarFill => options.barColorSelection
-    ? computeBarColors(task, options.barColorSelection, colorContext, pal, width)
-    : computeBarColors(task, resources, assignments, options.barColorMode ?? 'critical', pal, width);
+  const colorAdvice = (task: Task, width?: number): BarFill => computeBarColors(
+    task,
+    options.barColorSelection ?? { mode: 'critical' },
+    colorContext,
+    pal,
+    width,
+  );
 
   for (let i = 0; i < printRows.length; i++) {
     const row = printRows[i];
@@ -1822,9 +1820,8 @@ function drawFooter(
         taskTypeLabels: options.taskTypeLabels,
         noneLabel: options.barColorNoneLabel ?? '(geen)',
       };
-      const selection = options.barColorSelection;
-      const legacyMode = options.barColorMode ?? 'critical';
-      const isCriticalMode = selection ? selection.mode === 'critical' : legacyMode === 'critical';
+      const selection = options.barColorSelection ?? { mode: 'critical' };
+      const isCriticalMode = selection.mode === 'critical';
       if (isCriticalMode) {
         if (options.showCritical) {
           items.push({ label: lg?.criticalPath ?? 'Kritiek pad', draw: (x) => {
@@ -1839,7 +1836,7 @@ function drawFooter(
           d2d.fill();
         } });
       }
-      if (selection?.mode === 'category') {
+      if (selection.mode === 'category') {
         const effective = effectiveBarColorSelection(selection, legendContext).effective;
         if (effective.mode === 'category') {
           const visibleTasks = printRows
@@ -1854,42 +1851,13 @@ function drawFooter(
               d2d.fill();
             } });
           }
-          const moreLabel = options.barColorsLegendLabels?.categoriesMore
-            ?? options.barColorsLegendLabels?.resourcesMore;
+          const moreLabel = options.barColorsLegendLabels?.categoriesMore;
           if (categories.length > LEGEND_CATEGORY_CAP && moreLabel) {
             items.push({
               label: moreLabel(categories.length - LEGEND_CATEGORY_CAP),
               draw: () => { /* tekst-only item — geen swatch */ },
             });
           }
-        }
-      } else if (!selection && legacyMode === 'resource' && options.resources && options.assignments) {
-        // Resources die daadwerkelijk op zichtbare BLADBALKEN voorkomen (first-come volgorde),
-        // cap op 8 + "… en N meer" — de legenda mag de voettekst niet overnemen.
-        const visibleLeafIds = new Set<string>();
-        for (const r of printRows) {
-          if (r.kind === 'task' && r.task && !r.task.childIds.length) visibleLeafIds.add(r.task.id);
-        }
-        const byId = new Map(options.resources.map(r => [r.id, r]));
-        const seen: { id: string; name: string; color: string }[] = [];
-        for (const a of options.assignments) {
-          if (visibleLeafIds.size > 0 && !visibleLeafIds.has(a.taskId)) continue;
-          const res = byId.get(a.resourceId);
-          if (!res || seen.some(s => s.id === res.id)) continue;
-          seen.push({ id: res.id, name: res.name, color: resourceDisplayColor(res) });
-        }
-        const LEGEND_RESOURCE_CAP = 8;
-        for (const s of seen.slice(0, LEGEND_RESOURCE_CAP)) {
-          items.push({ label: s.name, draw: (x) => {
-            d2d.fillStyle = s.color;
-            d2d.roundRect(x, midY - swatchH / 2, swatchW, swatchH, m.s(2));
-            d2d.fill();
-          } });
-        }
-        const moreLabel = options.barColorsLegendLabels?.resourcesMore;
-        if (seen.length > LEGEND_RESOURCE_CAP && moreLabel) {
-          const more = moreLabel(seen.length - LEGEND_RESOURCE_CAP);
-          items.push({ label: more, draw: () => { /* tekst-only item — geen swatch */ } });
         }
       }
       if (!isCriticalMode) {
