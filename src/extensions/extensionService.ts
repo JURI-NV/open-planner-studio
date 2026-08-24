@@ -3,7 +3,8 @@
  * ZIP-parsing gebeurt met een minimale eigen parser op basis van
  * DecompressionStream — geen JSZip-dependency (zelfde aanpak als Open Calc Studio).
  */
-import type { ExtensionManifest, InstalledExtension, CatalogEntry, ExtensionCatalog } from './types';
+import type { ExtensionManifest, InstalledExtension, CatalogEntry } from './types';
+import { parseCatalog } from './validation';
 import {
   saveExtensionToDb,
   removeExtensionFromDb,
@@ -36,8 +37,21 @@ export async function fetchCatalog(): Promise<void> {
     // niet stale wordt geserveerd (de store-cache hierboven beperkt de frequentie al).
     const res = await fetch(CATALOG_URL, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const catalog: ExtensionCatalog = await res.json();
-    store.setCatalog(catalog.extensions || [], now);
+    const parsed = parseCatalog(await res.json());
+    if (!parsed.ok) throw new Error(parsed.error);
+    store.setCatalog(parsed.value.catalog.extensions, parsed.value.issues, now);
+    if (parsed.value.issues.length > 0) {
+      const details = parsed.value.issues.slice(0, 5)
+        .map((issue) => `#${issue.index}: ${issue.error}`)
+        .join('; ');
+      const remaining = parsed.value.issues.length - 5;
+      appLog.emit(
+        'warn',
+        'Extensies',
+        `${parsed.value.issues.length} ongeldige catalogusentry(s) overgeslagen: ${details}`
+          + (remaining > 0 ? `; en ${remaining} meer` : ''),
+      );
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Catalogus ophalen mislukt';
     useAppStore.getState().setCatalogError(message);

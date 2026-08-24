@@ -259,7 +259,7 @@ type AppGlobalKey =
   | 'documents' | 'activeDocumentId'
   // Extensies: app-niveau data, geen projectdata (zie CLAUDE.md, *Extensiesysteem*).
   | 'installedExtensions' | 'extensionRibbonButtons' | 'extensionImporters'
-  | 'catalogEntries' | 'catalogLoading' | 'catalogError' | 'catalogLastFetched'
+  | 'catalogEntries' | 'catalogIssues' | 'catalogLoading' | 'catalogError' | 'catalogLastFetched'
   // Resourcebibliotheek: app-globaal, net als extensies (zie CLAUDE.md, *Resourcebibliotheken*).
   | 'companies' | 'defaultCompanyId' | 'pools' | 'libraryLoaded';
 

@@ -3,8 +3,18 @@
 // Deze batterij toetst bewust de herbouwde uitkomst en niet alleen foutmeldingen: onbekende velden
 // moeten verdwijnen, arrays moeten losstaan van de invoer en legacydefaults mogen uitsluitend de
 // expliciet toegestane gaten vullen. Draait via run.sh. Exit 0 = alles groen.
-import { EXTENSION_LIMITS, parseExtensionManifest } from '@/extensions/validation';
-import type { ExtensionManifest, ParseResult } from '@/extensions/types';
+import {
+  EXTENSION_LIMITS,
+  parseCatalog,
+  parseExtensionManifest,
+} from '@/extensions/validation';
+import type {
+  CatalogEntry,
+  CatalogIssue,
+  ExtensionManifest,
+  ParseResult,
+} from '@/extensions/types';
+import { createAppStoreContext } from '@/state/appStore';
 
 const diffs: string[] = [];
 let checks = 0;
@@ -46,6 +56,47 @@ const volledig = (): Record<string, unknown> => ({
   icon: '<svg viewBox="0 0 24 24"><path d="M0 0"/></svg>',
   onbekend: { genest: { magNietLekken: true } },
 });
+
+const catalogEntry = (
+  id: string,
+  patch: Record<string, unknown> = {},
+): Record<string, unknown> => ({
+  id,
+  name: `Catalogus ${id}`,
+  version: '1.2.3',
+  apiVersion: '1.0',
+  minAppVersion: '2026.8.1',
+  author: 'OpenAEC',
+  description: '',
+  category: 'Utility',
+  tags: ['planning', 'planning'],
+  repository: `https://example.invalid/${id}`,
+  downloadUrl: `https://downloads.example.invalid/${id}.zip`,
+  icon: '',
+  onbekend: { niet: 'doorgeven' },
+  ...patch,
+});
+
+const catalog = (extensions: unknown): Record<string, unknown> => ({
+  version: '1.0',
+  lastUpdated: '2026-08-24T12:00:00Z',
+  extensions,
+});
+
+const expectCatalogFail = (label: string, input: unknown) => {
+  const result = parseCatalog(input);
+  eq(`${label}: catalogusparse faalt`, result.ok, false);
+  if (!result.ok) eq(`${label}: catalogusfout is concreet`, result.error.length > 0, true);
+};
+
+const expectCatalogOk = (
+  label: string,
+  input: unknown,
+): Extract<ReturnType<typeof parseCatalog>, { ok: true }> | null => {
+  const result = parseCatalog(input);
+  eq(`${label}: catalogusparse slaagt`, result.ok, true);
+  return result.ok ? result : null;
+};
 
 // ── 1. Topniveau en verplichte identiteit ───────────────────────────────────
 expectFail('null is geen manifest', null);
@@ -174,6 +225,136 @@ for (const [label, patch] of [
 
   for (const veld of ['id', 'name', 'version', 'author', 'description', 'category', 'main']) {
     expectFail(`legacy vereist ${veld}`, { ...volledig(), [veld]: undefined }, 'stored-legacy');
+  }
+}
+
+// ── 7. Catalogustopniveau is atomair ────────────────────────────────────────
+expectCatalogFail('null is geen catalogus', null);
+expectCatalogFail('catalogusarray is geen catalogus', []);
+expectCatalogFail('ongeldige catalogusversie', { ...catalog([]), version: 'v1' });
+expectCatalogFail('ontbrekende catalogusversie', { ...catalog([]), version: undefined });
+expectCatalogFail('ongeldige lastUpdated', { ...catalog([]), lastUpdated: '24 augustus 2026' });
+expectCatalogFail('onmogelijke lastUpdated', { ...catalog([]), lastUpdated: '2026-02-31' });
+expectCatalogFail('extensions is geen array', catalog({}));
+
+// ── 8. Entries falen geïsoleerd en bewaren hun echte index ──────────────────
+{
+  const parsed = expectCatalogOk('geldig-ongeldig-geldig blijft bruikbaar', catalog([
+    catalogEntry('eerste'),
+    catalogEntry('kapot', { name: undefined }),
+    catalogEntry('laatste', { sha256: 'a'.repeat(64) }),
+  ]));
+  if (parsed) {
+    eq('geldige catalogusburen blijven staan',
+      parsed.value.catalog.extensions.map((entry) => entry.id), ['eerste', 'laatste']);
+    eq('entryfout gebruikt de echte bronindex',
+      parsed.value.issues.map(({ index, idHint }) => ({ index, idHint })),
+      [{ index: 1, idHint: 'kapot' }]);
+    eq('catalogusissues worden niet als parserwarnings verstopt', parsed.warnings, []);
+  }
+}
+
+{
+  const parsed = expectCatalogOk('onafhankelijke entryveldafwijkingen', catalog([
+    catalogEntry('goed-zonder-hash', { sha256: undefined }),
+    catalogEntry('foute-download', { downloadUrl: 'file:///tmp/extensie.zip' }),
+    catalogEntry('foute-categorie', { category: 'Security' }),
+    catalogEntry('foute-tags', {
+      tags: Array.from({ length: EXTENSION_LIMITS.tags + 1 }, (_, i) => `tag-${i}`),
+    }),
+    catalogEntry('foute-hash-kort', { sha256: 'a'.repeat(63) }),
+    catalogEntry('foute-hash-te-lang', { sha256: 'a'.repeat(65) }),
+    catalogEntry('foute-hash-teken', { sha256: `${'a'.repeat(63)}g` }),
+    catalogEntry('goed-met-uppercase-hash', { sha256: 'A'.repeat(64) }),
+  ]));
+  if (parsed) {
+    eq('alleen geldige entries blijven over',
+      parsed.value.catalog.extensions.map((entry) => entry.id),
+      ['goed-zonder-hash', 'goed-met-uppercase-hash']);
+    eq('iedere ongeldige entry levert één issue op zijn bronindex',
+      parsed.value.issues.map((issue) => issue.index), [1, 2, 3, 4, 5, 6]);
+    eq('afwezige sha256 blijft afwezig',
+      parsed.value.catalog.extensions[0]?.sha256, undefined);
+    eq('exacte uppercase hex blijft geldig en ongewijzigd',
+      parsed.value.catalog.extensions[1]?.sha256, 'A'.repeat(64));
+  }
+}
+
+// ── 9. De eerste geldige id wint deterministisch ────────────────────────────
+for (const [label, entries] of [
+  ['dezelfde id en versie', [
+    catalogEntry('dubbel', { version: '1.0' }),
+    catalogEntry('dubbel', { version: '1.0' }),
+  ]],
+  ['dezelfde id met twee versies', [
+    catalogEntry('dubbel', { version: '1.0' }),
+    catalogEntry('dubbel', { version: '2.0' }),
+  ]],
+] as const) {
+  const parsed = expectCatalogOk(label, catalog(entries));
+  if (parsed) {
+    eq(`${label}: alleen de eerste kaart blijft`,
+      parsed.value.catalog.extensions.map((entry) => `${entry.id}@${entry.version}`),
+      ['dubbel@1.0']);
+    eq(`${label}: de latere entry is issue index 1`,
+      parsed.value.issues.map(({ index, idHint }) => ({ index, idHint })),
+      [{ index: 1, idHint: 'dubbel' }]);
+  }
+}
+
+{
+  const parsed = expectCatalogOk('ongeldige entry reserveert zijn id niet', catalog([
+    catalogEntry('herstelbaar', { name: undefined }),
+    catalogEntry('herstelbaar'),
+  ]));
+  if (parsed) {
+    eq('latere geldige entry met dezelfde id blijft bruikbaar',
+      parsed.value.catalog.extensions.map((entry) => entry.id), ['herstelbaar']);
+    eq('alleen de ongeldige eerste entry is een issue',
+      parsed.value.issues.map(({ index, idHint }) => ({ index, idHint })),
+      [{ index: 0, idHint: 'herstelbaar' }]);
+  }
+}
+
+// ── 10. Een geldige catalogus wordt losstaand en zonder onbekende velden herbouwd ─────────────
+{
+  const bronEntry = catalogEntry('losstaand', { tags: ['een', 'twee', 'een'] });
+  const bron = catalog([bronEntry]);
+  const parsed = expectCatalogOk('volledige catalogusreconstructie', bron);
+  if (parsed) {
+    const entry: CatalogEntry | undefined = parsed.value.catalog.extensions[0];
+    eq('catalogusentrytags zijn stabiel gededupliceerd', entry?.tags, ['een', 'twee']);
+    eq('onbekend entryveld verdwijnt', entry ? 'onbekend' in entry : true, false);
+    eq('catalogustopobject is vers', Object.is(parsed.value.catalog, bron), false);
+    bronEntry.name = 'NA PARSE GEWIJZIGD';
+    (bronEntry.tags as unknown[]).push('drie');
+    eq('bronmutatie wijzigt catalogusnaam niet', entry?.name, 'Catalogus losstaand');
+    eq('bronmutatie wijzigt catalogustags niet', entry?.tags, ['een', 'twee']);
+  }
+}
+
+// ── 11. Cataloguskwaliteit is appglobale, niet-destructieve storestate ───────
+{
+  const context = createAppStoreContext();
+  eq('catalogusissues starten leeg', context.store.getState().catalogIssues, []);
+
+  const parsed = expectCatalogOk('storefixture gebruikt een gevalideerde entry', catalog([
+    catalogEntry('store-entry'),
+  ]));
+  if (parsed) {
+    const entries: CatalogEntry[] = parsed.value.catalog.extensions;
+    const issues: CatalogIssue[] = [{ index: 4, idHint: 'kapot', error: 'testreden' }];
+    context.store.getState().setCatalog(entries, issues, 1234);
+    eq('setCatalog bewaart gevalideerde entries', context.store.getState().catalogEntries, entries);
+    eq('setCatalog bewaart issues', context.store.getState().catalogIssues, issues);
+    eq('setCatalog bewaart fetchtijd', context.store.getState().catalogLastFetched, 1234);
+
+    context.store.getState().setCatalogError('netwerkfout');
+    eq('fetchfout bewaart de bruikbare catalogus', context.store.getState().catalogEntries, entries);
+    eq('fetchfout bewaart de bijbehorende issues', context.store.getState().catalogIssues, issues);
+    eq('fetchfout bewaart de laatste succesvolle fetchtijd',
+      context.store.getState().catalogLastFetched, 1234);
+    eq('fetchfout wordt wel zichtbaar', context.store.getState().catalogError, 'netwerkfout');
   }
 }
 

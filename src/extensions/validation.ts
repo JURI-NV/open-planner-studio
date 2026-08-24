@@ -1,5 +1,8 @@
 import type {
+  CatalogEntry,
+  CatalogIssue,
   ExtensionCategory,
+  ExtensionCatalog,
   ExtensionManifest,
   ExtensionPermission,
   ParseResult,
@@ -151,17 +154,28 @@ function parseTags(value: unknown): ParseResult<string[]> {
   return { ok: true, value: tags, warnings: [] };
 }
 
-function parseRepository(value: unknown): ParseResult<string> {
+function parseHttpUrl(value: unknown, field: string): ParseResult<string> {
   if (typeof value !== 'string' || value.length === 0) {
-    return fail('repository moet een niet-lege http(s)-URL zijn');
+    return fail(`${field} moet een niet-lege http(s)-URL zijn`);
   }
   try {
     const url = new URL(value);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-      return fail('repository moet een http(s)-URL zijn');
+      return fail(`${field} moet een http(s)-URL zijn`);
     }
   } catch {
-    return fail('repository moet een geldige http(s)-URL zijn');
+    return fail(`${field} moet een geldige http(s)-URL zijn`);
+  }
+  return { ok: true, value, warnings: [] };
+}
+
+function parseLastUpdated(value: unknown): ParseResult<string> {
+  if (typeof value !== 'string') return fail('lastUpdated moet een ISO-datumstring zijn');
+  const isoPattern = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z)?$/;
+  if (!isoPattern.test(value)) return fail('lastUpdated moet een geldige ISO-datum zijn');
+  const parsed = new Date(value.length === 10 ? `${value}T00:00:00Z` : value);
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value.slice(0, 10)) {
+    return fail('lastUpdated moet een bestaande ISO-datum zijn');
   }
   return { ok: true, value, warnings: [] };
 }
@@ -246,7 +260,7 @@ export function parseExtensionManifest(
 
   let repository: string | undefined;
   if (input.repository !== undefined) {
-    const parsed = parseRepository(input.repository);
+    const parsed = parseHttpUrl(input.repository, 'repository');
     if (!parsed.ok) return parsed;
     repository = parsed.value;
   }
@@ -275,4 +289,133 @@ export function parseExtensionManifest(
   if (icon !== undefined) value.icon = icon;
 
   return { ok: true, value, warnings };
+}
+
+function parseCatalogEntry(input: unknown): ParseResult<CatalogEntry> {
+  if (!isRecord(input)) return fail('catalogusentry moet een object zijn');
+
+  const id = parseExtensionId(input.id);
+  if (!id.ok) return id;
+  const name = parseString(input.name, 'name', EXTENSION_LIMITS.name);
+  if (!name.ok) return name;
+  const version = parseVersion(input.version, 'version');
+  if (!version.ok) return version;
+  const author = parseString(input.author, 'author', EXTENSION_LIMITS.author);
+  if (!author.ok) return author;
+  const description = parseString(
+    input.description,
+    'description',
+    EXTENSION_LIMITS.description,
+    true,
+  );
+  if (!description.ok) return description;
+  const category = parseCategory(input.category);
+  if (!category.ok) return category;
+  const tags = parseTags(input.tags);
+  if (!tags.ok) return tags;
+  const minAppVersion = parseVersion(input.minAppVersion, 'minAppVersion');
+  if (!minAppVersion.ok) return minAppVersion;
+  const repository = parseHttpUrl(input.repository, 'repository');
+  if (!repository.ok) return repository;
+  const downloadUrl = parseHttpUrl(input.downloadUrl, 'downloadUrl');
+  if (!downloadUrl.ok) return downloadUrl;
+
+  let apiVersion: string | undefined;
+  if (input.apiVersion !== undefined) {
+    const parsed = parseVersion(input.apiVersion, 'apiVersion');
+    if (!parsed.ok) return parsed;
+    apiVersion = parsed.value;
+  }
+
+  let sha256: string | undefined;
+  if (input.sha256 !== undefined) {
+    if (typeof input.sha256 !== 'string' || !/^[0-9a-fA-F]{64}$/.test(input.sha256)) {
+      return fail('sha256 moet exact 64 hextekens bevatten');
+    }
+    sha256 = input.sha256;
+  }
+
+  let icon: string | undefined;
+  if (input.icon !== undefined) {
+    const parsed = parseIcon(input.icon);
+    if (!parsed.ok) return parsed;
+    icon = parsed.value;
+  }
+
+  const value: CatalogEntry = {
+    id: id.value,
+    name: name.value,
+    version: version.value,
+    author: author.value,
+    description: description.value,
+    category: category.value,
+    tags: tags.value,
+    minAppVersion: minAppVersion.value,
+    repository: repository.value,
+    downloadUrl: downloadUrl.value,
+  };
+  if (apiVersion !== undefined) value.apiVersion = apiVersion;
+  if (sha256 !== undefined) value.sha256 = sha256;
+  if (icon !== undefined) value.icon = icon;
+
+  return { ok: true, value, warnings: [] };
+}
+
+function catalogIdHint(input: unknown): string | undefined {
+  if (!isRecord(input) || typeof input.id !== 'string' || input.id.length === 0) return undefined;
+  return input.id.slice(0, EXTENSION_LIMITS.id);
+}
+
+/** Parse het catalogustopobject atomair en isoleer fouten vervolgens per entry. */
+export function parseCatalog(input: unknown): ParseResult<{
+  catalog: ExtensionCatalog;
+  issues: CatalogIssue[];
+}> {
+  if (!isRecord(input)) return fail('catalogus moet een object zijn');
+  const version = parseVersion(input.version, 'catalogus.version');
+  if (!version.ok) return version;
+  const lastUpdated = parseLastUpdated(input.lastUpdated);
+  if (!lastUpdated.ok) return lastUpdated;
+  if (!Array.isArray(input.extensions)) return fail('catalogus.extensions moet een array zijn');
+
+  const extensions: CatalogEntry[] = [];
+  const issues: CatalogIssue[] = [];
+  const acceptedIds = new Set<string>();
+
+  for (let index = 0; index < input.extensions.length; index++) {
+    const rawEntry = input.extensions[index];
+    const parsed = parseCatalogEntry(rawEntry);
+    if (!parsed.ok) {
+      const idHint = catalogIdHint(rawEntry);
+      issues.push({
+        index,
+        ...(idHint !== undefined ? { idHint } : {}),
+        error: parsed.error,
+      });
+      continue;
+    }
+    if (acceptedIds.has(parsed.value.id)) {
+      issues.push({
+        index,
+        idHint: parsed.value.id,
+        error: `dubbele catalogus-id "${parsed.value.id}"`,
+      });
+      continue;
+    }
+    acceptedIds.add(parsed.value.id);
+    extensions.push(parsed.value);
+  }
+
+  return {
+    ok: true,
+    value: {
+      catalog: {
+        version: version.value,
+        lastUpdated: lastUpdated.value,
+        extensions,
+      },
+      issues,
+    },
+    warnings: [],
+  };
 }

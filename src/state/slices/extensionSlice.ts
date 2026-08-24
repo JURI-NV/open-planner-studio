@@ -2,6 +2,7 @@ import type {
   InstalledExtension,
   ExtensionStatus,
   CatalogEntry,
+  CatalogIssue,
   RibbonButtonRegistration,
   ImporterDefinition,
 } from '@/extensions/types';
@@ -32,6 +33,7 @@ export interface ExtensionSlice {
   extensionRibbonButtons: ExtensionRibbonButton[];
   extensionImporters: ExtensionImporter[];
   catalogEntries: CatalogEntry[];
+  catalogIssues: CatalogIssue[];
   catalogLoading: boolean;
   catalogError: string | null;
   catalogLastFetched: number | null;
@@ -53,7 +55,7 @@ export interface ExtensionSlice {
   removeAllExtensionUI: (extensionId: string) => void;
 
   // Catalogus
-  setCatalog: (entries: CatalogEntry[], fetchedAt: number) => void;
+  setCatalog: (entries: CatalogEntry[], issues: CatalogIssue[], fetchedAt: number) => void;
   setCatalogLoading: (loading: boolean) => void;
   setCatalogError: (error: string | null) => void;
 }
@@ -63,6 +65,7 @@ export const createExtensionSlice: AppSlice<ExtensionSlice> = (set) => ({
   extensionRibbonButtons: [],
   extensionImporters: [],
   catalogEntries: [],
+  catalogIssues: [],
   catalogLoading: false,
   catalogError: null,
   catalogLastFetched: null,
@@ -133,9 +136,10 @@ export const createExtensionSlice: AppSlice<ExtensionSlice> = (set) => ({
       );
     }),
 
-  setCatalog: (entries, fetchedAt) =>
+  setCatalog: (entries, issues, fetchedAt) =>
     set((s) => {
       s.catalogEntries = entries;
+      s.catalogIssues = issues;
       s.catalogLastFetched = fetchedAt;
       s.catalogError = null;
     }),
