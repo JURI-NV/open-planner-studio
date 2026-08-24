@@ -1400,7 +1400,7 @@ function parseLeveling(
  * kloppen als de leveling de EERSTE stap van de batch is en de store al stale de batch in ging.
  */
 function levelResourcesCore(ctx: McpContext, p: { options: LevelingOptions; dryRun: boolean }): MutationOutcome {
-  const fresh = ensureFreshSchedule();
+  const fresh = ensureFreshSchedule(ctx.app);
   if (fresh.error) {
     throw new McpStepError('VALIDATION', `planning kon niet worden herrekend vóór het nivelleren: ${fresh.error}`);
   }
@@ -1462,7 +1462,7 @@ const levelResources: BatchStepTool = {
     const g = guardNonTransactional(ctx);
     if (g) return g;
 
-    const fresh = ensureFreshSchedule();
+    const fresh = ensureFreshSchedule(ctx.app);
     if (fresh.error) {
       return toolError(ctx, 'VALIDATION', `planning kon niet worden herrekend vóór het nivelleren: ${fresh.error}`);
     }
@@ -1957,7 +1957,7 @@ const saveBaseline: McpToolDef = {
 
     // WP8: eerst herrekenen bij een stale planning (runCPM pusht hier geen undo-snapshot: "modus
     // aan én stale" is onbereikbaar, zie de kop van readTools.ts).
-    const fresh = ensureFreshSchedule();
+    const fresh = ensureFreshSchedule(ctx.app);
     if (fresh.error) {
       return toolError(ctx, 'VALIDATION', `planning kon niet worden herrekend vóór de baseline: ${fresh.error}`);
     }

@@ -708,7 +708,7 @@ function getResourceHistogram(ctx: McpContext, args: HistogramArgs) {
   // Vers herrekenen wanneer stale of nog nooit gerekend. Dit is de enige leestool die de cache
   // raakt; het is een versheids-refresh, geen mutatie — en hij kan de undo-stack niet raken, want
   // "datums zoals opgeslagen" is onbereikbaar in combinatie met stale/nooit-gerekend (zie de kop).
-  const fresh = ensureFreshSchedule();
+  const fresh = ensureFreshSchedule(ctx.app);
   const s = ctx.app.store.getState(); // verse contextstate ná een eventuele recompute
 
   const bucket: 'dag' | 'week' = args.bucket === 'dag' ? 'dag' : 'week';

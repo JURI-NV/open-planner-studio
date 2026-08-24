@@ -23,10 +23,10 @@ import { createMcpTransactions, type McpTransactions } from '@/state/runtime/cre
 import { loadMcpPort, loadMcpToken, saveMcpToken, saveAiMode } from '@/utils/settingsStore';
 import { handleMcpMessage } from './dispatcher';
 import { record as recordActivity, capField } from './activityLog';
-import { ensureBackup, resetBackupSession, markDuplicateBorn } from './backup';
+import { createAppBackupService, ensureBackup, resetBackupSession, markDuplicateBorn } from './backup';
 import { registerAllTools } from './toolRegistry';
 import { documentToolDeps } from './tools/documentTools';
-import type { McpContext, McpServerStatus, ActivityEntry } from './contracts';
+import type { EnsureBackupFn, McpContext, McpServerStatus, ActivityEntry } from './contracts';
 
 /** Draaien we in de Tauri-shell? (zelfde runtime-poort als de rest van de app-code). */
 const isTauri = (): boolean => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -142,14 +142,24 @@ export function applyAiModeLive(value: boolean): Promise<void> {
  * hergebruikt zijn compatibiliteitsfactory, een geïnjecteerde context krijgt standaard een verse
  * factory rond diezelfde runtime. `paused`/`readOnly` worden LIVE uit die ui-state gelezen (de user
  * kan ze tussen requests door omzetten). `expectedDocId` begint op null en `tempIdMap` is leeg.
- * `ensureBackup` is voorlopig de bestaande appservice (Task 6 bindt ook die service aan `app`) — zijn
- * `isTauri()`-gate + web-terugval zitten in `backup.ts`.
+ * De backup-hook hoort bij dezelfde storecontext. De app-singleton behoudt de publieke, Tauri-gated
+ * wrapper; een custom context krijgt zijn eigen per-context service. Tests en andere composition
+ * roots mogen die hook expliciet injecteren.
  */
 export function buildMcpContext(
   app: AppStoreContext = appStoreContext,
   transactions?: McpTransactions,
+  ensureBackupOverride?: EnsureBackupFn,
 ): McpContext {
   const ui = app.store.getState().ui;
+  const contextBackupService = app === appStoreContext ? null : createAppBackupService(app);
+  const contextEnsureBackup: EnsureBackupFn = ensureBackupOverride ?? (
+    app === appStoreContext
+      ? ensureBackup
+      : (docId, kind) => isTauri()
+          ? contextBackupService!.ensureBackup(docId, kind)
+          : Promise.resolve(null)
+  );
   return {
     app,
     transactions: transactions ?? (app === appStoreContext ? mcpTransactions : createMcpTransactions(app)),
@@ -157,7 +167,7 @@ export function buildMcpContext(
     tempIdMap: new Map<string, string>(),
     paused: ui.aiPaused,
     readOnly: ui.aiReadOnly,
-    ensureBackup,
+    ensureBackup: contextEnsureBackup,
   };
 }
 

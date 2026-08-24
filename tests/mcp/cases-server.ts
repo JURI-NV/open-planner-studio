@@ -179,6 +179,23 @@ test('buildMcpContext leest paused/readOnly LIVE uit de ui-state en levert de pl
   useAppStore.getState().setAiReadOnly(false);
 });
 
+test('buildMcpContext accepteert een expliciete contextgebonden backup-hook', async () => {
+  const B = createAppStoreContext();
+  const calls: Array<{ docId: string; kind: string }> = [];
+  const injectedBackup = async (docId: string, kind: McpToolDef['kind']) => {
+    calls.push({ docId, kind });
+    return `/backup/${docId}.ifc`;
+  };
+  const ctx = buildMcpContext(B, undefined, injectedBackup);
+
+  assert(ctx.ensureBackup === injectedBackup,
+    'de requestcontext hoort exact de expliciet geïnjecteerde backup-hook te gebruiken');
+  const path = await ctx.ensureBackup(B.store.getState().activeDocumentId, 'mutate');
+  assertEq(path, `/backup/${B.store.getState().activeDocumentId}.ifc`, 'de hookresultaat hoort door te komen');
+  assertEq(calls, [{ docId: B.store.getState().activeDocumentId, kind: 'mutate' }],
+    'de hook hoort B\'s document-id en kind te ontvangen');
+});
+
 test('buildMcpContext(B) bindt read, mutatie, rollback en envelop uitsluitend aan B', async () => {
   const A = createAppStoreContext();
   const B = createAppStoreContext();
