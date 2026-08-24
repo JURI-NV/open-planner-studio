@@ -41,7 +41,9 @@
 **Interfaces:**
 - Produces: `BarColorSelection`, `DEFAULT_BAR_COLOR_SELECTION`, `TASK_TYPE_BAR_COLOR_FIELD`, `parseBarColorSelection(raw)`, `migrateLegacyBarColorSelection(screenRaw, reportRaw)`, `loadBarColorSelection()`, `saveBarColorSelection(selection)`.
 - Produces: `UIState.barColorSelection: BarColorSelection` als enige live bron voor scherm en rapport.
-- Removes: `UIState.screenBarColorMode`, `saveScreenBarColorMode` en `ReportSettings.barColorMode` als canonieke instellingen.
+- Keeps temporarily: `UIState.screenBarColorMode`, `saveScreenBarColorMode` en
+  `ReportSettings.barColorMode` blijven tot Task 4 bestaan voor compileerbare tussencommits, maar
+  worden niet door de nieuwe migratietest als canonieke instelling beschouwd.
 
 - [ ] **Step 1: Schrijf de falende contract- en migratietest**
 
@@ -111,13 +113,17 @@ Maak `src/utils/barColorSettings.ts`. Valideer iedere `FieldRef`-variant op bron
 
 - [ ] **Step 4: Sluit de globale store en rapportinstellingen op het contract aan**
 
-Vervang `screenBarColorMode` door `barColorSelection` in `UIState` en `createUISlice`, hydrateer de nieuwe selectie expliciet in `loadAllSettings()` en verwijder de oude descriptor/wrapper. Verwijder `barColorMode` uit `ReportSettings`, defaults, parser en saver; de oude property blijft alleen als rauwe migratie-input in `barColorSettings.ts` bestaan.
+Voeg `barColorSelection` toe aan `UIState` en `createUISlice` en hydrateer de nieuwe selectie
+expliciet in `loadAllSettings()`. Laat de oude screen-/reportvelden in deze tussencommit nog staan,
+zodat Task 1 geen UI-gedrag vooruitloopt op de falende UI-test van Task 4. De nieuwe selectie is wel
+de canonieke opslagroute; Task 4 verwijdert de tijdelijke legacyvelden en hun writers.
 
 - [ ] **Step 5: Draai rood naar groen en controleer de typen**
 
 Run: `npm run test:planning && npm run typecheck`
 
-Expected: beide exit 0; de nieuwe check meldt alle migratiegevallen groen en TypeScript wijst vervolgens alleen nog eventuele oude callsites aan die in latere taken doelbewust worden omgezet. Als die callsites de volledige typecheck blokkeren, zet ze in deze stap mechanisch op `barColorSelection` zonder renderer- of UI-gedrag te veranderen.
+Expected: beide exit 0; de nieuwe check meldt alle migratiegevallen groen. Bestaande callsites
+blijven in deze tussencommit op de tijdelijk behouden legacyvelden en worden in Task 4 omgezet.
 
 - [ ] **Step 6: Commit alleen contract, migratie en test**
 
@@ -314,6 +320,11 @@ git commit -m "feat(report): gebruik categoriekleuren in scherm en export"
 - Create: `tests/planning/check-bar-color-field-options.ts`
 - Modify: `src/components/layout/Ribbon/ribbonWidgets.tsx`
 - Modify: `src/components/panels/ReportPanel.tsx`
+- Modify: `src/state/slices/types.ts`
+- Modify: `src/state/slices/uiSlice.ts`
+- Modify: `src/utils/settingsRegistry.ts`
+- Modify: `src/utils/settingsStore.ts`
+- Modify: `src/utils/reportSettings.ts`
 - Modify: `tests/planning/run.sh`
 
 **Interfaces:**
@@ -356,7 +367,13 @@ Toon bij `missingField` de vertaalde melding dat Taaktype tijdelijk wordt gebrui
 
 - [ ] **Step 5: Bouw ReportPanel om naar dezelfde storewaarde**
 
-Verwijder de lokale `barColorMode`-state, hydratatie, save-effectdependency en `ReportSettings`-property. Subscribe op `s.ui.barColorSelection`, gebruik dezelfde drie hoofdopties en dezelfde veldoptiehelper, en schrijf via dezelfde setter/saver. Geef de actuele selectie en categoriecontext door aan `PrintOptions`; daardoor reageert de preview meteen op een wijziging vanuit View.
+Verwijder de lokale `barColorMode`-state, hydratatie, save-effectdependency en
+`ReportSettings.barColorMode`. Verwijder tegelijk `UIState.screenBarColorMode`, de oude
+settingsRegistry-descriptor en `saveScreenBarColorMode`; vanaf dit punt bestaat er nog maar één
+live en persistente bron. Subscribe op `s.ui.barColorSelection`, gebruik dezelfde drie hoofdopties
+en dezelfde veldoptiehelper, en schrijf via dezelfde setter/saver. Geef de actuele selectie en
+categoriecontext door aan `PrintOptions`; daardoor reageert de preview meteen op een wijziging
+vanuit View.
 
 - [ ] **Step 6: Draai tests en typecheck groen**
 
