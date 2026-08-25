@@ -336,6 +336,7 @@ export function ReportPanel() {
       legend: {
         criticalPath: t('legend.criticalPath'),
         normal: t('legend.normal'),
+        nearCritical: tTask('table.isNearCritical'),
         milestone: t('legend.milestone'),
         summary: t('legend.summary'),
         float: t('showFloat'),
@@ -355,6 +356,7 @@ export function ReportPanel() {
       of: t('of', { defaultValue: 'van' }),
       today: t('today', { defaultValue: 'Vandaag' }),
       statusDate: t('statusDateLabel', { defaultValue: 'Statusdatum' }),
+      progressDate: t('progressDateLabel', { defaultValue: 'Voortgangsdatum' }),
     },
     localizedMonths: getLocalizedMonths(locale),
     localizedMonthsShort: getLocalizedMonthsShort(locale),

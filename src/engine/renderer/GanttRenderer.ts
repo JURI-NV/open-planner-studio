@@ -407,20 +407,22 @@ export class GanttRenderer {
     // Draw layers
     this.drawGridBackground();
     this.drawTodayLine();
-    this.drawStatusDateLine();
     this.drawDependencyArrows();
     this.drawTaskBars();
     // Ná de taakbalken (niet direct na de grid): een balk die een feestdagblok overspant zou het
     // naamlabel anders overschilderen — juist het scenario dat §6.2 zichtbaar moet maken (2.5-QA:
     // "opgerekte balk van vier weken" zonder duiding).
     this.drawHolidayLabels();
-    this.drawProgressLine();
     // Issue #51: het duur-pilletje van een lopende rand-sleep. Ná alle chart-lagen (het moet
     // leesbaar bovenop de balk staan), maar VÓÓR header en taaktabel — die overschilderen hun eigen
     // zone, zodat een pilletje dat tegen de linker chart-rand aan zit nooit óver de takenlijst valt.
     this.drawDragDurationBadge();
     this.drawTimelineHeader();
     this.drawTaskTable();
+    // Referentielijnen horen boven alle lagen te liggen. De voortgangslijn is alleen actief
+    // wanneer de losse statusdatumlijn terugtreedt, dus deze aanroepen blijven exclusief.
+    this.drawProgressLine();
+    this.drawStatusDateLine();
   }
 
   private drawGridBackground(): void {

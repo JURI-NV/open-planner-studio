@@ -129,5 +129,6 @@
   "statusLine_progress": "خط التقدم",
   "statusLineHint": "عيّن أولاً تاريخ حالة",
   "followView": "متابعة العرض (تصفية، تجميع، فرز)",
-  "statusDateLabel": "تاريخ الحالة"
+  "statusDateLabel": "تاريخ الحالة",
+  "progressDateLabel": "تاريخ التقدم"
 }

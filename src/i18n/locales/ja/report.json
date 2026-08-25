@@ -114,5 +114,6 @@
   "statusLine_progress": "進捗線",
   "statusLineHint": "先にステータス日付を設定してください",
   "followView": "ビューに追従（フィルター・グループ化・並べ替え）",
-  "statusDateLabel": "ステータス日付"
+  "statusDateLabel": "ステータス日付",
+  "progressDateLabel": "進捗日"
 }

@@ -117,5 +117,6 @@
   "statusLine_progress": "Fortschrittslinie",
   "statusLineHint": "Legen Sie zuerst ein Statusdatum fest",
   "followView": "Ansicht folgen (Filter, Gruppierung, Sortierung)",
-  "statusDateLabel": "Statusdatum"
+  "statusDateLabel": "Statusdatum",
+  "progressDateLabel": "Fortschrittsdatum"
 }

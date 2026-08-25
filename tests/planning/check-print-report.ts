@@ -120,6 +120,18 @@ const baseOptions = (over: Partial<PrintOptions> = {}): PrintOptions => ({
   customFieldDefs: [],
   taskTypeLabels: { CONSTRUCTION: 'Constructie', INSTALLATION: 'Installatie' },
   barColorNoneLabel: '(geen)',
+  // De labels komen in het product vanuit ReportPanel. De voortgangsdatum moet een eigen label
+  // krijgen: met alleen `statusDate` zou de export bij beide lijnsoorten "Statusdatum" afdrukken.
+  labels: {
+    noTasks: '-', printed: '-', page: '-', of: '-', today: '-', statusDate: 'Statusdatum',
+    progressDate: 'Voortgangsdatum',
+    legend: {
+      criticalPath: 'Kritiek pad', normal: 'Normaal', nearCritical: 'Bijna-kritiek',
+      milestone: 'Mijlpaal', summary: 'Samenvatting', float: 'Speling', completion: 'Voortgang',
+      relationStyle: 'Bepalend / niet-bepalend',
+    },
+    tableHeaders: { rowNum: '#', wbs: 'WBS', taskName: 'Taak', start: 'Start', end: 'Eind', duration: 'Duur', completion: 'Volt.' },
+  } as PrintOptions['labels'],
   barColorsLegendLabels: {
     criticalOutline: 'Kritiek pad (rand)',
     categoriesMore: (n: number) => `… en ${n} meer`,
@@ -152,16 +164,18 @@ const baseOptions = (over: Partial<PrintOptions> = {}): PrintOptions => ({
 // Fixture-datums liggen in januari 2026; "vandaag" (echte run-datum) valt ver buiten het
 // chart-gebied, dus elke dash-[5,3]-path hieronder is de statuslijn.
 {
-  const { paths } = record(FIX_TASKS, [], cal, baseOptions({ statusLine: 'statusDate', statusDate: '2026-01-07' }));
+  const { paths, roundRects } = record(FIX_TASKS, [], cal, baseOptions({ statusLine: 'statusDate', statusDate: '2026-01-07' }));
   const dashed = paths.filter(p => p.dash.length === 2 && p.dash[0] === 5);
   ok(dashed.length === 1, `statusDate: exact één gestippelde lijn (got ${dashed.length})`);
   const ln = dashed[0];
   const vertical = ln.pts.length === 2 && ln.pts[0].x === ln.pts[1].x && ln.pts[0].y < ln.pts[1].y;
   ok(vertical, 'statusDate: de lijn is verticaal (moveTo + lineTo, zelfde x)');
+  const lastBar = Math.max(...roundRects.filter(r => r.h > 10).map(r => r.seq));
+  ok(ln.seq > lastBar, 'statusDate: de referentielijn ligt boven alle activiteitbalken');
 }
 {
   // progress: dezelfde spine, maar met uitstulpingen — ≥ 1 punt met x ≠ spine-x per lopende taak.
-  const { paths } = record(FIX_TASKS, [], cal, baseOptions({ statusLine: 'progress', statusDate: '2026-01-07' }));
+  const { paths, roundRects, texts } = record(FIX_TASKS, [], cal, baseOptions({ statusLine: 'progress', statusDate: '2026-01-07' }));
   const dashed = paths.filter(p => p.dash.length === 2 && p.dash[0] === 5);
   ok(dashed.length === 1, `progress: één path (got ${dashed.length})`);
   const ln = dashed[0];
@@ -171,6 +185,9 @@ const baseOptions = (over: Partial<PrintOptions> = {}): PrintOptions => ({
   // t-norm heeft completion 0.4 ⇒ de uitstulping wijst naar rechts van de spine (balk begint 05-01).
   const bulges = ln.pts.filter(p => p.x !== spineX);
   ok(bulges.length >= 1 && bulges.every(b => b.x > spineX), 'progress: t-norm stulpt rechts uit (completion 0.6)');
+  const lastBar = Math.max(...roundRects.filter(r => r.h > 10).map(r => r.seq));
+  ok(ln.seq > lastBar, 'progress: de referentielijn ligt boven alle activiteitbalken');
+  ok(texts.some(t => t.text === 'Voortgangsdatum'), 'progress: de exportkop benoemt de voortgangsdatum');
 }
 {
   // 'none' en ontbrekende statusDate: geen enkele statuslijn.
@@ -241,8 +258,10 @@ const baseOptions = (over: Partial<PrintOptions> = {}): PrintOptions => ({
 
 // ── 4. Legenda ─────────────────────────────────────────────────────────────────────────────────
 {
-  const crit = record(FIX_TASKS, [], cal, baseOptions({ barColorSelection: { mode: 'critical' } }));
+  const near = mkTask('t-near', 'Bijna-kritieke taak', { time: mkTime({ isNearCritical: true }) });
+  const crit = record([...FIX_TASKS, near], [], cal, baseOptions({ barColorSelection: { mode: 'critical' } }));
   ok(!crit.texts.some(t => t.text === 'Metselaar' || t.text === 'Loodgieter'), 'critical-legenda: géén resourcenamen');
+  ok(crit.texts.some(t => t.text === 'Bijna-kritiek'), 'critical-legenda: bijna-kritieke kleur wordt verklaard');
   const res = record(FIX_TASKS, [], cal, baseOptions({
     barColorSelection: { mode: 'category', field: { src: 'resource' } },
     resources: [R1, R2], assignments: FIX_ASG,

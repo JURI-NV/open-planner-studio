@@ -114,5 +114,6 @@
   "statusLine_progress": "진행선",
   "statusLineHint": "먼저 상태 날짜를 설정하세요",
   "followView": "보기 따르기(필터, 그룹화, 정렬)",
-  "statusDateLabel": "상태 날짜"
+  "statusDateLabel": "상태 날짜",
+  "progressDateLabel": "진행 날짜"
 }

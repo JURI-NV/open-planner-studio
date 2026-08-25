@@ -117,5 +117,6 @@
   "statusLine_progress": "Voortgangslijn",
   "statusLineHint": "Stel eerst een statusdatum in",
   "followView": "Volg weergave (filter, groepering, sortering)",
-  "statusDateLabel": "Statusdatum"
+  "statusDateLabel": "Statusdatum",
+  "progressDateLabel": "Voortgangsdatum"
 }

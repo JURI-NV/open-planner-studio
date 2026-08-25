@@ -114,5 +114,6 @@
   "statusLine_progress": "进度线",
   "statusLineHint": "请先设置状态日期",
   "followView": "跟随视图（筛选、分组、排序）",
-  "statusDateLabel": "状态日期"
+  "statusDateLabel": "状态日期",
+  "progressDateLabel": "进度日期"
 }

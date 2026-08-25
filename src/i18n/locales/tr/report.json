@@ -117,5 +117,6 @@
   "statusLine_progress": "İlerleme çizgisi",
   "statusLineHint": "Önce bir durum tarihi belirleyin",
   "followView": "Görünüme uy (filtre, gruplama, sıralama)",
-  "statusDateLabel": "Durum tarihi"
+  "statusDateLabel": "Durum tarihi",
+  "progressDateLabel": "İlerleme tarihi"
 }

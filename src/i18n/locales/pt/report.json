@@ -120,5 +120,6 @@
   "statusLine_progress": "Linha de progresso",
   "statusLineHint": "Defina primeiro uma data de status",
   "followView": "Seguir a vista (filtro, agrupamento, ordenação)",
-  "statusDateLabel": "Data de status"
+  "statusDateLabel": "Data de status",
+  "progressDateLabel": "Data de progresso"
 }

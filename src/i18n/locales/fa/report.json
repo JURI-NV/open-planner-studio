@@ -118,5 +118,6 @@
   "statusLine_progress": "خط پیشرفت",
   "statusLineHint": "ابتدا یک تاریخ وضعیت تعیین کنید",
   "followView": "دنبال‌کردن نما (فیلتر، گروه‌بندی، مرتب‌سازی)",
-  "statusDateLabel": "تاریخ وضعیت"
+  "statusDateLabel": "تاریخ وضعیت",
+  "progressDateLabel": "تاریخ پیشرفت"
 }

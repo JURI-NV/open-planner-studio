@@ -197,7 +197,7 @@ export interface PrintOptions {
     noTasks: string;
     printed: string;
     legend: {
-      criticalPath: string; normal: string; milestone: string; summary: string; float: string; completion: string;
+      criticalPath: string; normal: string; nearCritical?: string; milestone: string; summary: string; float: string; completion: string;
       /** Eén regel die de LIJNSTIJL van de relaties verklaart: doorgetrokken = bepalend (driving),
        *  gestreept = niet-bepalend. Verschijnt alleen als er relaties getekend worden én de
        *  bindend-informatie beschikbaar is (zie {@link PrintOptions.drivingSequenceIds}). */
@@ -210,6 +210,8 @@ export interface PrintOptions {
     today: string;
     /** Label boven de statusdatum-/voortgangslijn in de exportkop (#54). */
     statusDate: string;
+    /** Eigen label voor de voortgangslijn; dezelfde datum krijgt daarmee geen onjuiste statusnaam. */
+    progressDate?: string;
   };
   localizedMonths?: string[];
   localizedMonthsShort?: string[];
@@ -706,48 +708,51 @@ export function renderReport(
   // een gezette statusDate; buiten het chart-gebied tekent niets (zelfde visible-regel als today).
   // Zelfde dash-patroon en kleur als de today-lijn: op papier is dit "dezelfde soort referentielijn".
   let statusLineX: number | null = null;
+  let drawStatusReferenceLine: (() => void) | null = null;
   if (options.statusDate && options.statusLine && options.statusLine !== 'none') {
     const statusDay = parseDate(options.statusDate);
     statusLineX = dateToX(statusDay);
     if (statusLineX > m.tableWidth && statusLineX < canvasWidth) {
-      d2d.strokeStyle = PRINT_COLORS.today;
-      d2d.lineWidth = 1.5;
-      d2d.setLineDash([5, 3]);
-      d2d.beginPath();
-      if (options.statusLine === 'statusDate') {
-        d2d.moveTo(statusLineX, chartTop);
-        d2d.lineTo(statusLineX, chartBottom);
-      } else {
-        // progress: spine + per leaf-rij een zigzag naar de voortgangspositie (MSP-stijl). De
-        // dagniveau-vergelijking t.o.v. de statusdatum (niet het uur) houdt "op de statusdatum"
-        // stabiel — gespiegeld aan GanttRenderer.drawProgressLine.
-        d2d.moveTo(statusLineX, chartTop);
-        for (let i = 0; i < printRows.length; i++) {
-          const rowTop = rowToY(i);
-          const rowBottom = rowTop + m.rowHeight;
-          const rowMid = rowTop + m.rowHeight / 2;
-          let px = statusLineX;
-          const row = printRows[i];
-          if (row.kind === 'task' && row.task && !row.task.isMilestone && row.task.childIds.length === 0) {
-            const s = parseDate(row.task.time.earlyStart || row.task.time.scheduleStart);
-            const f = parseDate(row.task.time.earlyFinish || row.task.time.scheduleFinish);
-            const bx1 = dateToX(s);
-            const bx2 = dateToX(f) + zoom;
-            const c = Math.max(0, Math.min(1, row.task.time.completion || 0));
-            const finishDay = Date.UTC(f.getUTCFullYear(), f.getUTCMonth(), f.getUTCDate());
-            const startDay = Date.UTC(s.getUTCFullYear(), s.getUTCMonth(), s.getUTCDate());
-            const statusUtc = Date.UTC(statusDay.getUTCFullYear(), statusDay.getUTCMonth(), statusDay.getUTCDate());
-            const fullyDone = c >= 1 && finishDay <= statusUtc;
-            const notStarted = c === 0 && startDay >= statusUtc;
-            if (!fullyDone && !notStarted) px = bx1 + (bx2 - bx1) * c;
+      drawStatusReferenceLine = () => {
+        d2d.strokeStyle = PRINT_COLORS.today;
+        d2d.lineWidth = 1.5;
+        d2d.setLineDash([5, 3]);
+        d2d.beginPath();
+        if (options.statusLine === 'statusDate') {
+          d2d.moveTo(statusLineX!, chartTop);
+          d2d.lineTo(statusLineX!, chartBottom);
+        } else {
+          // progress: spine + per leaf-rij een zigzag naar de voortgangspositie (MSP-stijl). De
+          // dagniveau-vergelijking t.o.v. de statusdatum (niet het uur) houdt "op de statusdatum"
+          // stabiel — gespiegeld aan GanttRenderer.drawProgressLine.
+          d2d.moveTo(statusLineX!, chartTop);
+          for (let i = 0; i < printRows.length; i++) {
+            const rowTop = rowToY(i);
+            const rowBottom = rowTop + m.rowHeight;
+            const rowMid = rowTop + m.rowHeight / 2;
+            let px = statusLineX!;
+            const row = printRows[i];
+            if (row.kind === 'task' && row.task && !row.task.isMilestone && row.task.childIds.length === 0) {
+              const s = parseDate(row.task.time.earlyStart || row.task.time.scheduleStart);
+              const f = parseDate(row.task.time.earlyFinish || row.task.time.scheduleFinish);
+              const bx1 = dateToX(s);
+              const bx2 = dateToX(f) + zoom;
+              const c = Math.max(0, Math.min(1, row.task.time.completion || 0));
+              const finishDay = Date.UTC(f.getUTCFullYear(), f.getUTCMonth(), f.getUTCDate());
+              const startDay = Date.UTC(s.getUTCFullYear(), s.getUTCMonth(), s.getUTCDate());
+              const statusUtc = Date.UTC(statusDay.getUTCFullYear(), statusDay.getUTCMonth(), statusDay.getUTCDate());
+              const fullyDone = c >= 1 && finishDay <= statusUtc;
+              const notStarted = c === 0 && startDay >= statusUtc;
+              if (!fullyDone && !notStarted) px = bx1 + (bx2 - bx1) * c;
+            }
+            d2d.lineTo(statusLineX!, rowTop);
+            d2d.lineTo(px, rowMid);
+            d2d.lineTo(statusLineX!, rowBottom);
           }
-          d2d.lineTo(statusLineX, rowTop);
-          d2d.lineTo(px, rowMid);
-          d2d.lineTo(statusLineX, rowBottom);
         }
-      }
-      d2d.stroke();
-      d2d.setLineDash([]);
+        d2d.stroke();
+        d2d.setLineDash([]);
+      };
     } else {
       statusLineX = null;
     }
@@ -1002,6 +1007,10 @@ export function renderReport(
     drawBarLabel(d2d, m, job.name, job.barRightX, job.barLeftX, job.y, canvasWidth, PRINT_COLORS.text, 9, job.bold);
   }
 
+  // De referentielijn is bewust de laatste chart-laag: staven, relatiepijlen en taaklabels mogen
+  // hem nergens bedekken. De kop en taaklijst die hierna volgen vallen buiten dit chart-gebied.
+  drawStatusReferenceLine?.();
+
   // ---- TIMELINE HEADER ----
   drawTimelineHeader(d2d, m, canvasWidth, minDate, totalDays, zoom, dateToX, options, todayVisible ? todayX : null, statusLineX);
 
@@ -1225,7 +1234,10 @@ function drawTimelineHeader(
   // bij een zichtbare statuslijn; de reservering maakt dagcijfers vrij die eronder vallen.
   const statusLabel = statusLineX === null
     ? null
-    : reserveHeaderLineLabel(d2d, m, canvasWidth, statusLineX, options.labels?.statusDate ?? 'Statusdatum');
+    : reserveHeaderLineLabel(d2d, m, canvasWidth, statusLineX,
+      options.statusLine === 'progress'
+        ? options.labels?.progressDate ?? 'Voortgangsdatum'
+        : options.labels?.statusDate ?? 'Statusdatum');
 
   // Background
   d2d.fillStyle = PRINT_COLORS.headerBg;
@@ -1835,6 +1847,15 @@ function drawFooter(
           d2d.roundRect(x, midY - swatchH / 2, swatchW, swatchH, m.s(2));
           d2d.fill();
         } });
+        const hasNearCritical = printRows.some(row => row.kind === 'task' && row.task
+          && !row.task.time.isCritical && row.task.time.isNearCritical);
+        if (hasNearCritical) {
+          items.push({ label: lg?.nearCritical ?? 'Bijna-kritiek', draw: (x) => {
+            d2d.fillStyle = PRINT_COLORS.nearCritical;
+            d2d.roundRect(x, midY - swatchH / 2, swatchW, swatchH, m.s(2));
+            d2d.fill();
+          } });
+        }
       }
       if (selection.mode === 'category') {
         const effective = effectiveBarColorSelection(selection, legendContext).effective;
