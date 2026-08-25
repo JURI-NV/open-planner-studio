@@ -127,11 +127,16 @@ export interface GanttViewportCoordinatorOutput {
   refs: GanttViewportRefs;
   primary: GanttPaneViewport;
   secondary?: GanttPaneViewport;
+  effectiveViewStart: string;
   effectiveView: ViewState;
   sharedAxis: GanttAxis;
   scrollHandlers: GanttViewportScrollHandlers;
   splitters: GanttViewportSplitters;
   minimap: GanttViewportMiniMapControllers;
+  onPrimarySize: (width: number, height: number) => void;
+  onSecondarySize: (width: number, height: number) => void;
+  resetZoom: () => void;
+  fitToProject: () => void;
 }
 
 export interface GanttContextMenuState {

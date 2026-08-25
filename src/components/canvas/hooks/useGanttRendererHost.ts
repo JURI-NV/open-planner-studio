@@ -63,14 +63,15 @@ export function useGanttRendererHost(input: GanttRendererHostInput): GanttRender
     };
   }, []);
 
+  const { onPrimarySize, primary } = input;
   const drawPrimary = useCallback((
     ctx: CanvasRenderingContext2D,
     width: number,
     height: number,
   ) => {
-    input.onPrimarySize(width, height);
-    renderGantt(ctx, width, height, input.primary, primaryRendererRef, 'primary');
-  }, [input.onPrimarySize, input.primary]);
+    onPrimarySize(width, height);
+    renderGantt(ctx, width, height, primary, primaryRendererRef, 'primary');
+  }, [onPrimarySize, primary]);
 
   useCanvasLayer({
     canvasRef: primaryCanvasRef,
@@ -79,15 +80,16 @@ export function useGanttRendererHost(input: GanttRendererHostInput): GanttRender
     renderRevision: input.renderRevision,
   });
 
+  const { onSecondarySize, secondary } = input;
   const drawSecondary = useCallback((
     ctx: CanvasRenderingContext2D,
     width: number,
     height: number,
   ) => {
-    if (!input.secondary) return;
-    input.onSecondarySize(width, height);
-    renderGantt(ctx, width, height, input.secondary, secondaryRendererRef, 'secondary');
-  }, [input.onSecondarySize, input.secondary]);
+    if (!secondary) return;
+    onSecondarySize(width, height);
+    renderGantt(ctx, width, height, secondary, secondaryRendererRef, 'secondary');
+  }, [onSecondarySize, secondary]);
 
   useCanvasLayer({
     canvasRef: secondaryCanvasRef,

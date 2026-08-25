@@ -31,6 +31,32 @@ export const DEFAULT_ZOOM = 30;
  *  useZoomShortcuts (Ctrl+0-fit) en de open-fit (fileSlice.requestFitToProject → GanttCanvas). */
 export const ORIGIN_PADDING_DAYS = 14;
 
+export interface AnchoredZoomInput {
+  currentZoom: number;
+  currentScrollX: number;
+  requestedZoom: number;
+  /** Cursorpositie in canvaspixels, gemeten vanaf de linkerrand van het pane. */
+  anchorX: number;
+  /** 0 voor het secundaire pane; de echte taaktabelbreedte voor primary. */
+  taskTableWidth: number;
+  maxZoom: number;
+}
+
+/**
+ * Eén zoomankerformule voor beide Gantt-panes. De datum die vóór de zoom onder de cursor lag blijft
+ * daar na de zoom liggen; `null` betekent dat klemmen geen wijziging oplevert.
+ */
+export function computeAnchoredZoom(input: AnchoredZoomInput): { zoom: number; scrollX: number } | null {
+  const zoom = Math.max(0.5, Math.min(input.maxZoom, input.requestedZoom));
+  if (zoom === input.currentZoom) return null;
+  const chartAnchorX = input.anchorX - input.taskTableWidth;
+  const daysUnderCursor = (chartAnchorX + input.currentScrollX) / input.currentZoom;
+  return {
+    zoom,
+    scrollX: Math.max(0, daysUnderCursor * zoom - chartAnchorX),
+  };
+}
+
 /**
  * Effectieve tijdas-oorsprong (de datum die op scrollX = 0 valt) — DE ene bron voor die formule.
  *

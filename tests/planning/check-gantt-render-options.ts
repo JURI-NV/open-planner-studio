@@ -600,12 +600,13 @@ eq('35 secundair: eigen scrollX', optsSecondary.view.scrollX, 400);
   while (!existsSync(join(root, 'package.json')) && dirname(root) !== root) root = dirname(root);
   const canvasPath = join(root, 'src/components/canvas/GanttCanvas.tsx');
   const hostPath = join(root, 'src/components/canvas/hooks/useGanttRendererHost.ts');
+  const coordinatorPath = join(root, 'src/components/canvas/hooks/useGanttViewportCoordinator.ts');
   const viewportPath = join(root, 'src/utils/ganttViewport.ts');
   // Zonder deze guard eindigt een bundel die BUITEN de repo landt in een ongevangen ENOENT uit
   // readFileSync — een crash in plaats van een faalregel, precies wat de walk hierboven wil
   // vermijden. Zelf gereproduceerd.
   checks++;
-  if (!existsSync(canvasPath) || !existsSync(hostPath) || !existsSync(viewportPath)) {
+  if (!existsSync(canvasPath) || !existsSync(hostPath) || !existsSync(coordinatorPath) || !existsSync(viewportPath)) {
     diffs.push(`36 bron-assert overgeslagen: repo-root niet gevonden vanaf ${dirname(fileURLToPath(import.meta.url))}`);
   } else {
   const raw = readFileSync(canvasPath, 'utf8');
@@ -646,6 +647,7 @@ eq('35 secundair: eigen scrollX', optsSecondary.view.scrollX, 400);
   };
   const src = stripComments(raw);
   const hostSrc = stripComments(readFileSync(hostPath, 'utf8'));
+  const coordinatorSrc = stripComments(readFileSync(coordinatorPath, 'utf8'));
   // De stripper zelf toetsen op SYNTHETISCHE invoer, niet op het bestand. Een eerdere versie
   // beweerde "laat strings met // intact" en controleerde toen `src.includes('useCanvasLayer')` —
   // een kale identifier, geen string, en `GanttCanvas.tsx` bevat helemaal geen string met `//`.
@@ -703,11 +705,22 @@ eq('35 secundair: eigen scrollX', optsSecondary.view.scrollX, 400);
   // niet allebei waar zijn.
   eq('39 de start-veldketen staat in geen enkel bestand buiten ganttViewport.ts',
     hits, ['src/utils/ganttViewport.ts']);
-  // Issue #65 voegde een DERDE plek toe: het "spring naar taak"-effect (pendingFocusTaskId) rekent
-  // met dezelfde effectieve oorsprong als de render-memo en `revealTaskIfOffscreen`, om exact
-  // dezelfde reden — anders zou de gesprongen positie niet 1-op-1 kloppen met wat er getekend wordt.
-  eq('40 GanttCanvas gebruikt computeEffectiveViewStart op drie plekken (memo + reveal + spring-naar-taak)',
-    (src.match(/computeEffectiveViewStart\(/g) ?? []).length, 3);
+  eq('40 GanttCanvas orkestreert geen viewportformules meer', [
+    'computeEffectiveViewStart',
+    'computeGanttScrollBounds',
+    'setGanttScrollBounds',
+    'computeFitToProject',
+    'computeFocusTaskHorizontal',
+    'resolveWheelFunction',
+  ].filter(name => new RegExp(`${name}\\(`).test(src)), []);
+  eq('40a viewportcoördinator bezit de effectieve oorsprong',
+    (coordinatorSrc.match(/computeEffectiveViewStart\(/g) ?? []).length, 1);
+  eq('40b viewportcoördinator bezit fit, focus, bounds en wheel',
+    ['computeFitToProject', 'computeFocusTaskHorizontal', 'computeGanttScrollBounds',
+      'setGanttScrollBounds', 'resolveWheelFunction']
+      .filter(name => new RegExp(`${name}\\(`).test(coordinatorSrc)),
+    ['computeFitToProject', 'computeFocusTaskHorizontal', 'computeGanttScrollBounds',
+      'setGanttScrollBounds', 'resolveWheelFunction']);
 
   // En de gedeelde functie moet daadwerkelijk gedeeld zijn: `computeScrollToDate` had een eigen
   // kopie, alleen door een commentaarregel aan de render-memo gekoppeld.

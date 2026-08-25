@@ -18,7 +18,7 @@
 //
 // Draait via run.sh. Exit 0 = alles groen.
 import { useAppStore } from '@/state/appStore';
-import { ZOOM_STEP, DEFAULT_ZOOM } from '@/utils/ganttViewport';
+import { ZOOM_STEP, DEFAULT_ZOOM, computeAnchoredZoom } from '@/utils/ganttViewport';
 
 const S = () => useAppStore.getState();
 
@@ -53,6 +53,34 @@ for (let i = 0; i < 10; i++) {
   S().setZoom(S().view.zoom - ZOOM_STEP);
 }
 eq('03 tien keer in/uit laat de zoom niet weglopen', S().view.zoom, begin);
+
+// De wheelpaden van primary en secondary delen na de viewportextractie exact deze ankerformule.
+// 300px canvas-X, 100px tabel, scrollX 80 en zoom 20 ⇒ dag 14 onder de cursor. Bij zoom 40 moet
+// scrollX 360 worden om diezelfde dag onder canvas-X 300 te houden.
+eq('03c geankerde zoom houdt dezelfde dag onder de cursor', computeAnchoredZoom({
+  currentZoom: 20,
+  currentScrollX: 80,
+  requestedZoom: 40,
+  anchorX: 300,
+  taskTableWidth: 100,
+  maxZoom: 400,
+}), { zoom: 40, scrollX: 360 });
+eq('03d geankerde zoom klemt secondary zonder taaktabel op dezelfde route', computeAnchoredZoom({
+  currentZoom: 50,
+  currentScrollX: 150,
+  requestedZoom: 2000,
+  anchorX: 250,
+  taskTableWidth: 0,
+  maxZoom: 1000,
+}), { zoom: 1000, scrollX: 7750 });
+eq('03e ongewijzigde geankerde zoom is een expliciete no-op', computeAnchoredZoom({
+  currentZoom: 30,
+  currentScrollX: 90,
+  requestedZoom: 30,
+  anchorX: 200,
+  taskTableWidth: 0,
+  maxZoom: 400,
+}), null);
 
 // ── 2) Bron: geen kale zoomwaarden meer naast setZoom. ───────────────────────
 {
