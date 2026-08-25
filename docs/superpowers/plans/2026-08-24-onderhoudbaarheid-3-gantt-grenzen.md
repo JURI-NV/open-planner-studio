@@ -58,7 +58,8 @@ Schrijf cases voor deze huidige volgorde:
 8. kale taakrij in de tabel start alleen in tree mode rowdrag;
 9. chartachtergrond in drag-mode pant, behalve Ctrl/Cmd dat boxselect start;
 10. overige achtergrond start boxselect;
-11. Escape annuleert actieve dependency-, row- en boxgesture zonder domeinmutatie.
+11. Escape annuleert de bestaande row- en boxgesture zonder domeinmutatie. Dependency-draw behoudt
+    zijn bestaande muisgestuurde lifecycle; de basisversie had daarvoor geen Escape-annulering.
 
 Assert relaties, selecties, scroll, datums, overlays en undo; expose geen "force gesture"-API.
 
