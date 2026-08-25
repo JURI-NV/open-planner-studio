@@ -74,7 +74,10 @@ node --input-type=module -e '
   import { writeFileSync } from "node:fs";
   writeFileSync(process.argv[1], `#!/usr/bin/env node
 import { writeFileSync } from "node:fs";
-writeFileSync(process.env.OPS_FAKE_CHILD_READY, process.env.OPS_DEV_PORT + ":" + process.env.OPS_DEV_INSTANCE);
+writeFileSync(
+  process.env.OPS_FAKE_CHILD_READY,
+  process.env.OPS_DEV_PORT + ":" + process.env.OPS_DEV_INSTANCE + ":" + process.argv.slice(2).join(","),
+);
 process.on("SIGTERM", () => process.exit(23));
 setInterval(() => {}, 1000);
 `, { mode: 0o755 });
@@ -90,7 +93,7 @@ for _ in $(seq 1 100); do
   sleep 0.02
 done
 [ -f "$TMP/browser-child-ready.txt" ] || fail "fake Vite-child werd niet gereed: $(cat "$TMP/browser-server.txt")"
-[ "$(cat "$TMP/browser-child-ready.txt")" = "$BA:wt-a-browser-test" ] || fail "browser-server gaf verkeerde child-env door: $(cat "$TMP/browser-child-ready.txt")"
+[ "$(cat "$TMP/browser-child-ready.txt")" = "$BA:wt-a-browser-test:--host,127.0.0.1" ] || fail "browser-server gaf verkeerde child-env/host door: $(cat "$TMP/browser-child-ready.txt")"
 node --input-type=module -e '
   const locks = await import(process.argv[1]);
   const ports = await import(process.argv[2]);

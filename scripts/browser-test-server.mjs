@@ -35,7 +35,11 @@ const cleanup = () => {
 
 const viteBin = join(root, 'node_modules', '.bin', process.platform === 'win32' ? 'vite.cmd' : 'vite');
 const instance = `${worktreeSlug(root)}-browser-test`;
-const child = spawn(viteBin, [], {
+// Playwright pollt bewust 127.0.0.1. Op sommige CI-runners resolveert Vites
+// standaardhost `localhost` uitsluitend naar ::1, waardoor Vite gezond draait
+// maar de webServer-poort na 60 seconden alsnog time-out. Bind beide kanten
+// daarom expliciet aan hetzelfde IPv4-adres.
+const child = spawn(viteBin, ['--host', '127.0.0.1'], {
   cwd: root,
   stdio: 'inherit',
   env: {
