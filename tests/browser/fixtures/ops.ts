@@ -26,16 +26,37 @@ export interface OpsStateSnapshot {
     earlyStart?: string;
     earlyFinish?: string;
   }>;
+  sequences: Array<{
+    id: string;
+    predecessorId: string;
+    successorId: string;
+    type: string;
+  }>;
   selectedTaskIds: string[];
+  viewRows: Array<
+    | { kind: 'task'; taskId: string }
+    | { kind: 'group'; key: string }
+  >;
   view: {
     zoom: number;
     scrollX: number;
     scrollY: number;
+    viewStartDate: string;
+    pendingFit: boolean;
+    pendingFocusTaskId: string | null;
+    histogramResourceId: string | null;
     splitView: {
       ratio: number;
       secondaryZoom: number;
       secondaryScrollX: number;
     } | null;
+  };
+  ui: {
+    leftPanelWidth: number;
+    histogramHeight: number;
+    scrollMode: string;
+    showHistogram: boolean;
+    showMiniMap: boolean;
   };
   undoDepth: number;
   redoDepth: number;
@@ -73,12 +94,34 @@ export async function state(page: Page): Promise<OpsStateSnapshot> {
         earlyStart: task.time.earlyStart,
         earlyFinish: task.time.earlyFinish,
       })),
+      sequences: s.sequences.map(sequence => ({
+        id: sequence.id,
+        predecessorId: sequence.predecessorId,
+        successorId: sequence.successorId,
+        type: sequence.type,
+      })),
       selectedTaskIds: [...s.selectedTaskIds],
+      viewRows: s.viewRows.map(row => (
+        row.kind === 'task'
+          ? { kind: 'task' as const, taskId: row.task.id }
+          : { kind: 'group' as const, key: row.key }
+      )),
       view: {
         zoom: s.view.zoom,
         scrollX: s.view.scrollX,
         scrollY: s.view.scrollY,
+        viewStartDate: s.view.viewStartDate,
+        pendingFit: !!s.view.pendingFit,
+        pendingFocusTaskId: s.view.pendingFocusTaskId ?? null,
+        histogramResourceId: s.view.histogramResourceId ?? null,
         splitView: s.view.splitView ? { ...s.view.splitView } : null,
+      },
+      ui: {
+        leftPanelWidth: s.ui.leftPanelWidth,
+        histogramHeight: s.ui.histogramHeight,
+        scrollMode: s.ui.scrollMode,
+        showHistogram: s.ui.showHistogram,
+        showMiniMap: s.ui.showMiniMap,
       },
       undoDepth: s.undoStack.length,
       redoDepth: s.redoStack.length,

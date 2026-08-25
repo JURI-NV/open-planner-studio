@@ -4,6 +4,7 @@ import type { Page } from '@playwright/test';
 import { barPoint, expect, seedProject, state, test } from './fixtures/ops';
 
 interface ViewFixture {
+  ratio: number;
   zoom: number;
   scrollX: number;
   scrollY: number;
@@ -25,7 +26,7 @@ async function configureDocument(page: Page, selectedTaskId: string, view: ViewF
     const s = window.__OPS__!.store.getState();
     s.setZoom(fixture.zoom);
     s.setSplitView({
-      ratio: 0.58,
+      ratio: fixture.ratio,
       secondaryZoom: fixture.secondaryZoom,
       secondaryScrollX: fixture.secondaryScrollX,
     });
@@ -54,7 +55,7 @@ async function expectDocument(page: Page, documentId: string, prefix: string, se
   expect(snapshot.view.scrollX).toBe(view.scrollX);
   expect(snapshot.view.scrollY).toBe(view.scrollY);
   expect(snapshot.view.splitView).toEqual({
-    ratio: 0.58,
+    ratio: view.ratio,
     secondaryZoom: view.secondaryZoom,
     secondaryScrollX: view.secondaryScrollX,
   });
@@ -71,17 +72,21 @@ async function expectDocument(page: Page, documentId: string, prefix: string, se
   });
 }
 
-test('documenttabs herstellen taakset, selectie, viewstate en DOM-scrollbars', async ({ page, ops: _ops }) => {
+test('Gantt documenttabs herstellen beide paneviews en DOM-scrollbars', async ({ page, ops: _ops }) => {
   const aIds = await seedProject(page, taskInputs('Document A', 45), 'Document A');
   const aId = (await state(page)).activeDocumentId;
   await barPoint(page, aIds[0]);
-  const viewA: ViewFixture = { zoom: 36, scrollX: 210, scrollY: 84, secondaryZoom: 22, secondaryScrollX: 130 };
+  const viewA: ViewFixture = {
+    ratio: 0.42, zoom: 36, scrollX: 210, scrollY: 84, secondaryZoom: 22, secondaryScrollX: 130,
+  };
   await configureDocument(page, aIds[3], viewA);
 
   const bId = await page.evaluate(() => window.__OPS__!.store.getState().newDocument());
   const bIds = await seedProject(page, taskInputs('Document B', 48), 'Document B');
   await barPoint(page, bIds[0]);
-  const viewB: ViewFixture = { zoom: 48, scrollX: 360, scrollY: 196, secondaryZoom: 28, secondaryScrollX: 275 };
+  const viewB: ViewFixture = {
+    ratio: 0.68, zoom: 48, scrollX: 360, scrollY: 196, secondaryZoom: 28, secondaryScrollX: 275,
+  };
   await configureDocument(page, bIds[5], viewB);
 
   await page.locator(`[data-testid="document-tab"][data-ops-tab="${aId}"]`).click();

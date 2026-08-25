@@ -2,7 +2,7 @@
 // Shift+wiel-event scrolt de gedeelde rijen en houdt beide rendereroppervlakken actief.
 import { barPoint, expect, seedProject, state, test } from './fixtures/ops';
 
-test('splitview isoleert horizontale scroll en deelt verticale wheel-scroll', async ({ page, ops: _ops }) => {
+test('Gantt splitview isoleert horizontale scroll en deelt verticale wheel-scroll', async ({ page, ops: _ops }) => {
   const taskIds = await seedProject(page, Array.from({ length: 60 }, (_, index) => ({
     name: `Splitrij ${index + 1}`,
     start: '2026-09-07',

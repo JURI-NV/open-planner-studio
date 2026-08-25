@@ -67,6 +67,44 @@ test('Gantt bodydrag wijzigt de datum en Ctrl+Z herstelt exact één handeling',
   expect(restored.redoDepth).toBe(before.redoDepth + 1);
 });
 
+for (const edge of ['left', 'right'] as const) {
+  test(`Gantt ${edge}-randdrag wijzigt de juiste grens in één undoable handeling`, async ({ page, ops: _ops }) => {
+    const [taskId] = await seedProject(page, [{
+      name: `${edge}-randtaak`,
+      start: '2026-09-07',
+      finish: '2026-09-18',
+      durationDays: 10,
+    }]);
+    await page.evaluate(() => window.__OPS__!.store.getState().setUI({
+      showPropertiesPanel: false,
+      rightPanelCollapsed: true,
+    }));
+    await expect(page.locator('[data-ops-rail="true"]')).toHaveCount(0);
+    const before = await state(page);
+    const beforeTask = before.tasks.find(task => task.id === taskId)!;
+    const point = await barPoint(page, taskId, edge);
+    // Vier kalenderdagen kruisen vanaf ma/vr ook werkelijk een werkdaggrens; twee dagen zouden
+    // uitsluitend in het weekend landen en door de bestaande canonicalisatie terecht no-op zijn.
+    const delta = edge === 'left' ? -120 : 120;
+
+    await page.mouse.move(point.x, point.y);
+    await page.mouse.down();
+    await expect(page.getByTestId('gantt-primary-canvas')).toHaveCSS('cursor', 'ew-resize');
+    await page.mouse.move(point.x + delta, point.y, { steps: 5 });
+    await page.mouse.up();
+
+    await expect.poll(() => state(page).then(snapshot => {
+      const task = snapshot.tasks.find(candidate => candidate.id === taskId)!;
+      return edge === 'left' ? task.scheduleStart : task.scheduleFinish;
+    })).not.toBe(edge === 'left' ? beforeTask.scheduleStart : beforeTask.scheduleFinish);
+    const after = await state(page);
+    const afterTask = after.tasks.find(task => task.id === taskId)!;
+    if (edge === 'left') expect(afterTask.scheduleFinish).toBe(beforeTask.scheduleFinish);
+    else expect(afterTask.scheduleStart).toBe(beforeTask.scheduleStart);
+    expect(after.undoDepth).toBe(before.undoDepth + 1);
+  });
+}
+
 // Rode fase vóór de refactor: de listener hield de oude rows/tasksById vast, zag Rij C niet en
 // liet Rij A daarom onbewogen staan. De test gebruikt voor de handeling uitsluitend echte muisevents.
 test('canvas rowdrag gebruikt actuele rijen en commit na een mid-gesture update precies eenmaal', async ({ page, ops: _ops }) => {
