@@ -154,7 +154,8 @@ export interface GanttTooltipState {
 }
 
 export interface GanttRelationPopoverState {
-  sequenceId: string;
+  sourceTaskId: string;
+  targetTaskId: string;
   x: number;
   y: number;
 }
@@ -206,7 +207,6 @@ export interface GanttPointerCoordinatorInput {
   moveTaskTo: (id: string, target: DropTarget) => void;
   moveTasksTo: (ids: string[], target: DropTarget) => void;
   setScroll: (x: number, y: number) => void;
-  createRelation: (sourceTaskId: string, targetTaskId: string) => string | null;
   openTask: (id: string) => void;
   revealTaskIfOffscreen: (task: Task) => void;
   clearHistogramTooltip: () => void;

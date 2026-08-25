@@ -51,7 +51,6 @@ export function useGanttPointerCoordinator(
     moveTaskTo,
     moveTasksTo,
     setScroll,
-    createRelation,
     openTask,
     revealTaskIfOffscreen,
     clearHistogramTooltip,
@@ -104,8 +103,8 @@ export function useGanttPointerCoordinator(
     justRowDraggedRef,
     headerHeight,
   });
-  const onRelationCreated = useCallback((sequenceId: string, x: number, y: number) => {
-    setRelationPopover({ sequenceId, x, y });
+  const onRelationDrawn = useCallback((sourceTaskId: string, targetTaskId: string, x: number, y: number) => {
+    setRelationPopover({ sourceTaskId, targetTaskId, x, y });
   }, []);
   const dependencyDraw = useDependencyDraw({
     canvasRef,
@@ -113,8 +112,7 @@ export function useGanttPointerCoordinator(
     depLineCanvasRef: host.dependencyCanvasRef,
     rendererRef,
     taskTableWidth,
-    createRelation,
-    onRelationCreated,
+    onRelationDrawn,
   });
 
   const onClick = useCallback((event: ReactMouseEvent<HTMLCanvasElement>) => {

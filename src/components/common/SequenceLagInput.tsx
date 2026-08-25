@@ -14,11 +14,13 @@ function lagSignature(seq: Sequence): string {
  * patroon als andere gevalideerde velden in dit paneel). Gedeeld door het eigenschappen-paneel
  * en de relatietabel.
  */
-export function SequenceLagInput({ seq, title, className, onCommit }: {
+export function SequenceLagInput({ seq, title, className, onCommit, onDraftChange }: {
   seq: Sequence;
   title: string;
   className?: string;
   onCommit: (patch: Pick<Sequence, 'lagDays' | 'lagUnit' | 'lagPercent' | 'lagMinutes'>) => void;
+  /** Optioneel voor lokale concepten: houd een geldige invoer actueel vóór de blur-commit. */
+  onDraftChange?: (patch: Pick<Sequence, 'lagDays' | 'lagUnit' | 'lagPercent' | 'lagMinutes'>) => void;
 }) {
   const [val, setVal] = useState(formatLagShort(seq));
   const signature = lagSignature(seq);
@@ -48,7 +50,12 @@ export function SequenceLagInput({ seq, title, className, onCommit }: {
       title={title}
       aria-invalid={invalid || undefined}
       placeholder="0d"
-      onChange={e => setVal(e.target.value)}
+      onChange={e => {
+        const next = e.target.value;
+        setVal(next);
+        const parsed = parseLagInput(next);
+        if (parsed) onDraftChange?.(parsed);
+      }}
       onBlur={commit}
       onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
       onClick={e => e.stopPropagation()}

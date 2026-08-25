@@ -15,11 +15,9 @@ interface UseDependencyDrawOptions {
   depLineCanvasRef: RefObject<HTMLCanvasElement | null>;
   rendererRef: RefObject<GanttRenderer | null>;
   taskTableWidth: number;
-  createRelation: (sourceTaskId: string, targetTaskId: string) => string | null;
-  /** Aangeroepen ná het aanmaken van de relatie (op de drop-positie) — GanttCanvas opent hier de
-   *  relatietype/lag-correctie-popover mee. Wordt NIET aangeroepen wanneer de relatie als
-   *  duplicaat geweigerd is (dan zou de popover een niet-bestaande relatie bewerken). */
-  onRelationCreated: (sequenceId: string, clientX: number, clientY: number) => void;
+  /** Op een geldig eindpunt opent de Gantt hier de conceptrelatie-popover. De projectmutatie
+   *  gebeurt pas wanneer de gebruiker de popover normaal sluit. */
+  onRelationDrawn: (sourceTaskId: string, targetTaskId: string, clientX: number, clientY: number) => void;
 }
 
 // Dependency-draw (drag van balk A naar balk B → FS-relatie + correctie-popover). Gearmd door
@@ -33,8 +31,7 @@ export function useDependencyDraw({
   depLineCanvasRef,
   rendererRef,
   taskTableWidth,
-  createRelation,
-  onRelationCreated,
+  onRelationDrawn,
 }: UseDependencyDrawOptions) {
   const [depDragState, setDepDragState] = useState<DependencyDragState | null>(null);
 
@@ -56,13 +53,7 @@ export function useDependencyDraw({
 
         const targetTask = renderer.getTaskAtY(y);
         if (targetTask && targetTask.id !== depDragState.sourceTaskId && x >= taskTableWidth) {
-          // Create Finish-to-Start dependency (default — ongewijzigd gedrag als de gebruiker de
-          // hieronder geopende popover negeert/wegklikt). Issue #40: via de gedeelde wrapper, die
-          // een geweigerd duplicaat meldt in plaats van stil niets te doen.
-          const newSequenceId = createRelation(depDragState.sourceTaskId, targetTask.id);
-          // Fase 2.10 (item 3): meteen de correctie-popover openen op de drop-positie — alleen als
-          // er écht een relatie bij gekomen is.
-          if (newSequenceId) onRelationCreated(newSequenceId, e.clientX, e.clientY);
+          onRelationDrawn(depDragState.sourceTaskId, targetTask.id, e.clientX, e.clientY);
         }
       }
       setDepDragState(null);
@@ -74,7 +65,7 @@ export function useDependencyDraw({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [depDragState, canvasRef, rendererRef, taskTableWidth, createRelation, onRelationCreated]);
+  }, [depDragState, canvasRef, rendererRef, taskTableWidth, onRelationDrawn]);
 
   // Draw temporary dependency line on overlay canvas
   useEffect(() => {

@@ -31,6 +31,7 @@ export interface OpsStateSnapshot {
     predecessorId: string;
     successorId: string;
     type: string;
+    lagDays: number;
   }>;
   selectedTaskIds: string[];
   viewRows: Array<
@@ -99,6 +100,7 @@ export async function state(page: Page): Promise<OpsStateSnapshot> {
         predecessorId: sequence.predecessorId,
         successorId: sequence.successorId,
         type: sequence.type,
+        lagDays: sequence.lagDays,
       })),
       selectedTaskIds: [...s.selectedTaskIds],
       viewRows: s.viewRows.map(row => (

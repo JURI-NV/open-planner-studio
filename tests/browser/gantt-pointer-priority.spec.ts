@@ -129,6 +129,9 @@ for (const mode of ['Shift', 'dependency mode'] as const) {
     await page.mouse.up();
     if (mode === 'Shift') await page.keyboard.up('Shift');
 
+    // De getrokken relatie is eerst een concept. Klik-buiten bewaart die als één undoable mutatie.
+    await expect(page.getByRole('combobox')).toBeVisible();
+    await page.getByRole('button', { name: 'File', exact: true }).click();
     await expect.poll(() => state(page).then(s => s.sequences.length)).toBe(1);
     const after = await state(page);
     expect(after.sequences[0]).toMatchObject({
@@ -140,6 +143,68 @@ for (const mode of ['Shift', 'dependency mode'] as const) {
     expect(after.undoDepth).toBe(before.undoDepth + 1);
   });
 }
+
+// Zonder deze annulering blijft een via de popover afgebroken relatie als onzichtbare
+// projectmutatie bestaan: zij verschijnt bij undo/redo en meldt ten onrechte succes.
+test('Gantt relationpopover Escape annuleert zonder relatie, undo-stap of melding', async ({ page, ops: _ops }) => {
+  const [sourceId, targetId] = await seedProject(page, [
+    { name: 'Annuleren bron', start: '2026-09-07', finish: '2026-09-11', durationDays: 5 },
+    { name: 'Annuleren doel', start: '2026-09-21', finish: '2026-09-25', durationDays: 5 },
+  ]);
+  const before = await state(page);
+  const notificationsBefore = await page.evaluate(() => window.__OPS__!.store.getState().ui.notifications.length);
+  const source = await barPoint(page, sourceId);
+  const target = await barPoint(page, targetId);
+
+  await page.keyboard.down('Shift');
+  await page.mouse.move(source.x, source.y);
+  await page.mouse.down();
+  await page.mouse.move(target.x, target.y, { steps: 5 });
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+  await expect(page.getByRole('combobox')).toBeVisible();
+
+  await page.keyboard.press('Escape');
+
+  await expect(page.getByRole('combobox')).toHaveCount(0);
+  const after = await state(page);
+  expect(after.sequences).toEqual(before.sequences);
+  expect(after.undoDepth).toBe(before.undoDepth);
+  expect(await page.evaluate(() => window.__OPS__!.store.getState().ui.notifications.length))
+    .toBe(notificationsBefore);
+});
+
+test('Gantt relationpopover bewaart gekozen type en lag als één relatie', async ({ page, ops: _ops }) => {
+  const [sourceId, targetId] = await seedProject(page, [
+    { name: 'Bewaren bron', start: '2026-09-07', finish: '2026-09-11', durationDays: 5 },
+    { name: 'Bewaren doel', start: '2026-09-21', finish: '2026-09-25', durationDays: 5 },
+  ]);
+  const before = await state(page);
+  const source = await barPoint(page, sourceId);
+  const target = await barPoint(page, targetId);
+
+  await page.keyboard.down('Shift');
+  await page.mouse.move(source.x, source.y);
+  await page.mouse.down();
+  await page.mouse.move(target.x, target.y, { steps: 5 });
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+  await page.getByRole('combobox').selectOption('FINISH_FINISH');
+  const lag = page.getByPlaceholder('0d');
+  await lag.fill('2d');
+
+  await page.getByRole('button', { name: 'File', exact: true }).click();
+
+  await expect.poll(() => state(page).then(snapshot => snapshot.sequences)).toEqual([
+    expect.objectContaining({
+      predecessorId: sourceId,
+      successorId: targetId,
+      type: 'FINISH_FINISH',
+      lagDays: 2,
+    }),
+  ]);
+  expect((await state(page)).undoDepth).toBe(before.undoDepth + 1);
+});
 
 test('Gantt pointer priority: Ctrl op een balk selecteert zonder drag', async ({ page, ops: _ops }) => {
   const [firstId, secondId] = await seedProject(page, [

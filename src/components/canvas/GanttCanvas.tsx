@@ -15,7 +15,7 @@ import { ContextMenu } from './ContextMenu';
 // als ÉÉN undo-stap. DOM-vrij afgezonderd zodat de regressiebatterij dezelfde functies draait.
 import { contextMenuOutlineScope, contextMenuBulk } from './contextMenuScope';
 import { RelationTypePopover } from './RelationTypePopover';
-import { createRelationWithFeedback } from '@/state/relationActions';
+import { createRelationDraftWithFeedback } from '@/state/relationActions';
 // Issue #58: hover-tooltip die zichzelf binnen het venster houdt (nodig zodra de titel wrapt).
 import { HoverTooltip } from './HoverTooltip';
 import { TaskTooltipContent } from './TaskTooltipContent';
@@ -330,7 +330,6 @@ export function GanttCanvas() {
     moveTaskTo,
     moveTasksTo,
     setScroll,
-    createRelation: createRelationWithFeedback,
     openTask,
     revealTaskIfOffscreen,
     clearHistogramTooltip: histogramInteraction.clearTooltip,
@@ -925,10 +924,15 @@ export function GanttCanvas() {
 
       {relationPopover && (
         <RelationTypePopover
-          sequenceId={relationPopover.sequenceId}
+          sourceTaskId={relationPopover.sourceTaskId}
+          targetTaskId={relationPopover.targetTaskId}
           x={relationPopover.x}
           y={relationPopover.y}
-          onClose={pointer.closeRelationPopover}
+          onCommit={(relation) => {
+            createRelationDraftWithFeedback(relation);
+            pointer.closeRelationPopover();
+          }}
+          onCancel={pointer.closeRelationPopover}
         />
       )}
     </div>
