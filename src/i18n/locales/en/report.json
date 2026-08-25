@@ -17,6 +17,7 @@
   "showLegend": "Legend",
   "showTaskNames": "Task names on bars",
   "showCompletion": "Show completion",
+  "showBaselineOverlay": "Show baseline overlay",
   "autoFit": "Auto-fit to paper",
   "zoom": "Zoom:",
   "repeatHeader": "Repeat header on each page",
@@ -40,6 +41,7 @@
   "legend": {
     "criticalPath": "Critical path",
     "normal": "Normal",
+    "baseline": "Baseline",
     "milestone": "Milestone",
     "summary": "Summary",
     "float": "Float",

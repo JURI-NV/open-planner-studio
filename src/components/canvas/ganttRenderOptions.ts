@@ -21,7 +21,7 @@ import type { Task } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import type { WorkCalendar } from '@/types/calendar';
 import type { Resource } from '@/types/resource';
-import type { Baseline } from '@/types/baseline';
+import { buildBaselineOverlay, type BaselineOverlay } from '@/types/baseline';
 import type { CPMResult } from '@/engine/scheduler/CPMSolver';
 import type { ResourceLoadResult } from '@/engine/scheduler/ResourceLoad';
 import type { GanttAxis } from '@/engine/renderer/timeAxis';
@@ -34,7 +34,8 @@ import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
 import { diffDays, parseDate } from '@/utils/dateUtils';
 
 /** Overlay-datums uit de actieve baseline, keyed op Task.id. */
-export type BaselineOverlay = NonNullable<GanttRenderOptions['baselineOverlay']>;
+export { buildBaselineOverlay };
+export type { BaselineOverlay };
 /** Path-tracing-bundel zoals de renderer hem verwacht. */
 export type GanttTrace = NonNullable<GanttRenderOptions['trace']>;
 
@@ -42,20 +43,6 @@ export type GanttTrace = NonNullable<GanttRenderOptions['trace']>;
  * Overlay-map uit de actieve baseline. `undefined` (geen actieve baseline, of een id dat niet meer
  * bestaat) betekent voor de renderer: teken geen baseline-schaduwen.
  */
-export function buildBaselineOverlay(
-  baselines: Baseline[],
-  activeBaselineId: string | null | undefined,
-): BaselineOverlay | undefined {
-  if (!activeBaselineId) return undefined;
-  const active = baselines.find(b => b.id === activeBaselineId);
-  if (!active) return undefined;
-  const map: BaselineOverlay = new Map();
-  for (const bt of active.tasks) {
-    map.set(bt.taskId, { start: bt.start, finish: bt.finish, isMilestone: bt.isMilestone });
-  }
-  return map;
-}
-
 /**
  * Path tracing rond de (eerst) geselecteerde taak: transitieve voorgangers/opvolgers, met de
  * driving-ketens apart zodat de renderer die sterker kan tinten (MSP Task Path-conventie).

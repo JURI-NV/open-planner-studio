@@ -1,4 +1,5 @@
 import { Task } from '@/types/task';
+import type { BaselineOverlay } from '@/types/baseline';
 import { Sequence } from '@/types/sequence';
 import type { ViewState, BarSplitMode, DurationDisplay } from '@/types/view';
 import { parseDate, parseInstant, addCalendarDays, diffCalendarDays, isoDayOfWeek, getWeekNumberFor } from '@/utils/dateUtils';
@@ -72,7 +73,7 @@ export interface GanttRenderOptions {
   resources?: import('@/types/resource').Resource[];
   assignments?: import('@/types/resource').ResourceAssignment[];
   /** Overlay-datums uit de actieve baseline, keyed op Task.id (alleen leaf-taken). */
-  baselineOverlay?: Map<string, { start: string; finish: string; isMilestone: boolean }>;
+  baselineOverlay?: BaselineOverlay;
   canvasWidth: number;
   canvasHeight: number;
   taskTableWidth: number;

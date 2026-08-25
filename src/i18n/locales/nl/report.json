@@ -17,6 +17,7 @@
   "showLegend": "Legenda",
   "showTaskNames": "Taaknamen op staafjes",
   "showCompletion": "Voltooiing tonen",
+  "showBaselineOverlay": "Baseline-overlay tonen",
   "autoFit": "Auto-fit op papier",
   "zoom": "Zoomen:",
   "repeatHeader": "Kop op elke pagina herhalen",
@@ -40,6 +41,7 @@
   "legend": {
     "criticalPath": "Kritiek pad",
     "normal": "Normaal",
+    "baseline": "Baseline",
     "milestone": "Mijlpaal",
     "summary": "Samenvatting",
     "float": "Speling",

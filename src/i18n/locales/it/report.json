@@ -17,6 +17,7 @@
   "showLegend": "Legenda",
   "showTaskNames": "Nomi attività sulle barre",
   "showCompletion": "Mostra avanzamento",
+  "showBaselineOverlay": "Mostra sovrapposizione baseline",
   "autoFit": "Adatta automaticamente alla pagina",
   "zoom": "Zoom:",
   "repeatHeader": "Ripeti intestazione su ogni pagina",
@@ -42,6 +43,7 @@
   "legend": {
     "criticalPath": "Percorso critico",
     "normal": "Normale",
+    "baseline": "Baseline",
     "milestone": "Traguardo",
     "summary": "Riepilogo",
     "float": "Margine",

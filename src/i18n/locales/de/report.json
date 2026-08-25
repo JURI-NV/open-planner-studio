@@ -17,6 +17,7 @@
   "showLegend": "Legende",
   "showTaskNames": "Aufgabennamen auf Balken",
   "showCompletion": "Fertigstellung anzeigen",
+  "showBaselineOverlay": "Baseline-Overlay anzeigen",
   "autoFit": "Automatisch an Papier anpassen",
   "zoom": "Zoom:",
   "repeatHeader": "Kopfzeile auf jeder Seite wiederholen",
@@ -40,6 +41,7 @@
   "legend": {
     "criticalPath": "Kritischer Pfad",
     "normal": "Normal",
+    "baseline": "Baseline",
     "milestone": "Meilenstein",
     "summary": "Zusammenfassung",
     "float": "Puffer",

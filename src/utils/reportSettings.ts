@@ -40,6 +40,7 @@ export interface ReportSettings {
   showLegend: boolean;
   showTaskNames: boolean;
   showCompletion: boolean;
+  showBaselineOverlay: boolean;
   autoFit: boolean;
   customZoom: number;
   paperSize: ReportPaperSize;
@@ -67,6 +68,7 @@ export const DEFAULT_REPORT_SETTINGS: ReportSettings = {
   showLegend: true,
   showTaskNames: true,
   showCompletion: true,
+  showBaselineOverlay: false,
   autoFit: true,
   customZoom: 22,
   paperSize: 'A3',
@@ -138,6 +140,7 @@ export async function loadReportSettings(): Promise<ReportSettings> {
     showLegend: parseBoolean(s.showLegend) ?? d.showLegend,
     showTaskNames: parseBoolean(s.showTaskNames) ?? d.showTaskNames,
     showCompletion: parseBoolean(s.showCompletion) ?? d.showCompletion,
+    showBaselineOverlay: parseBoolean(s.showBaselineOverlay) ?? d.showBaselineOverlay,
     autoFit: parseBoolean(s.autoFit) ?? d.autoFit,
     customZoom: parseClampedInt(s.customZoom, ZOOM_MIN, ZOOM_MAX) ?? d.customZoom,
     paperSize: parseEnum(PAPER_SIZES, s.paperSize) ?? d.paperSize,

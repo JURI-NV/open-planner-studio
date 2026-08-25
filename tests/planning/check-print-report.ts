@@ -64,6 +64,7 @@ function record(tasks: Task[], sequences: Sequence[], calendar: WorkCalendar, op
 // ── Fixtures ───────────────────────────────────────────────────────────────────────────────────
 const CRITICAL = '#DC2626';
 const NORMAL = '#2563EB';
+const BASELINE = '#6B7280';
 
 const cal: WorkCalendar = {
   id: 'c1', name: 'Standaard', description: '', workDays: [1, 2, 3, 4, 5, 6, 7],
@@ -270,6 +271,28 @@ const baseOptions = (over: Partial<PrintOptions> = {}): PrintOptions => ({
   ok(res.texts.some(t => t.text === 'Metselaar') && res.texts.some(t => t.text === 'Loodgieter'), 'resource-legenda: resourcenamen aanwezig');
   // …en de swatches in de juiste kleuren (roundRect 16×10 in de voettekst-zone).
   ok(res.roundRects.some(r => r.color === '#111111' && r.h < 14), 'resource-legenda: swatch in resourcekleur');
+}
+{
+  // Issue #81: dezelfde actieve-baselinegegevens als de Gantt krijgen een eigen, grijze
+  // onderbalk in de rapportpreview én PDF. Zonder expliciete rapportoptie blijft het oude beeld
+  // byte-identiek; de legenda komt alleen mee wanneer er daadwerkelijk een zichtbare overlay is.
+  const overlay = new Map([
+    ['t-norm', { start: '2026-01-06', finish: '2026-01-08', isMilestone: false }],
+  ]);
+  const without = record(FIX_TASKS, [], cal, baseOptions({ baselineOverlay: overlay }));
+  ok(!without.roundRects.some(r => r.mode === 'fill' && r.color === BASELINE),
+    'baseline-overlay uit: geen grijze baselinebalk');
+  ok(!without.texts.some(t => t.text === 'Baseline'),
+    'baseline-overlay uit: geen baselinelegenda');
+
+  const withOverlay = record(FIX_TASKS, [], cal, baseOptions({
+    showBaselineOverlay: true,
+    baselineOverlay: overlay,
+  }));
+  ok(withOverlay.roundRects.some(r => r.mode === 'fill' && r.color === BASELINE && r.h < 10),
+    'baseline-overlay aan: grijze onderbalk aanwezig');
+  ok(withOverlay.texts.some(t => t.text === 'Baseline'),
+    'baseline-overlay aan: legenda verklaart de grijze onderbalk');
 }
 {
   const nine = Array.from({ length: 9 }, (_, i) => mkTask(`legend-${i + 1}`, `L${i + 1}`, {

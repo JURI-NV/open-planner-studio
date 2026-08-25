@@ -17,6 +17,7 @@
   "showLegend": "Légende",
   "showTaskNames": "Noms des tâches sur les barres",
   "showCompletion": "Afficher l'avancement",
+  "showBaselineOverlay": "Afficher la superposition de référence",
   "autoFit": "Ajustement automatique au papier",
   "zoom": "Zoom :",
   "repeatHeader": "Répéter l'en-tête sur chaque page",
@@ -42,6 +43,7 @@
   "legend": {
     "criticalPath": "Chemin critique",
     "normal": "Normal",
+    "baseline": "Référence",
     "milestone": "Jalon",
     "summary": "Résumé",
     "float": "Marge",

@@ -17,6 +17,7 @@
   "showLegend": "图例",
   "showTaskNames": "在任务条上显示名称",
   "showCompletion": "显示完成度",
+  "showBaselineOverlay": "显示基线叠加层",
   "autoFit": "自动适配纸张",
   "zoom": "缩放：",
   "repeatHeader": "在每页重复页眉",
@@ -38,6 +39,7 @@
   "legend": {
     "criticalPath": "关键路径",
     "normal": "普通",
+    "baseline": "基线",
     "milestone": "里程碑",
     "summary": "摘要",
     "float": "浮动",

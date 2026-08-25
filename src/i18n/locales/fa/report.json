@@ -17,6 +17,7 @@
   "showLegend": "راهنما",
   "showTaskNames": "نام وظایف روی نوارها",
   "showCompletion": "نمایش پیشرفت",
+  "showBaselineOverlay": "نمایش هم‌پوشانی خط مبنا",
   "autoFit": "تنظیم خودکار روی کاغذ",
   "zoom": "بزرگنمایی:",
   "repeatHeader": "تکرار سرصفحه در هر صفحه",
@@ -40,6 +41,7 @@
   "legend": {
     "criticalPath": "مسیر بحرانی",
     "normal": "عادی",
+    "baseline": "خط مبنا",
     "milestone": "نقطه عطف",
     "summary": "خلاصه",
     "float": "شناوری",

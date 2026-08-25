@@ -17,6 +17,7 @@
   "showLegend": "Legenda",
   "showTaskNames": "Nazwy zadań na paskach",
   "showCompletion": "Pokaż postęp",
+  "showBaselineOverlay": "Pokaż nakładkę planu bazowego",
   "autoFit": "Dopasuj do papieru",
   "zoom": "Powiększenie:",
   "repeatHeader": "Powtarzaj nagłówek na każdej stronie",
@@ -44,6 +45,7 @@
   "legend": {
     "criticalPath": "Ścieżka krytyczna",
     "normal": "Normalne",
+    "baseline": "Plan bazowy",
     "milestone": "Kamień milowy",
     "summary": "Podsumowanie",
     "float": "Zapas",

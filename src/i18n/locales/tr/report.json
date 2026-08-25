@@ -17,6 +17,7 @@
   "showLegend": "Gösterge",
   "showTaskNames": "Çubuklarda görev adları",
   "showCompletion": "Tamamlanmayı göster",
+  "showBaselineOverlay": "Temel çizgi katmanını göster",
   "autoFit": "Kağıda otomatik sığdır",
   "zoom": "Yakınlaştırma:",
   "repeatHeader": "Üstbilgiyi her sayfada yinele",
@@ -40,6 +41,7 @@
   "legend": {
     "criticalPath": "Kritik yol",
     "normal": "Normal",
+    "baseline": "Temel çizgi",
     "milestone": "Kilometre taşı",
     "summary": "Özet",
     "float": "Bolluk",

@@ -26,6 +26,7 @@ import { VarianceReport, useVarianceResult, STATUS_COLOR as VARIANCE_STATUS_COLO
 import type { VarianceRow } from '@/engine/variance';
 import type { PdfTableColumn } from '@/services/pdf/pdfTable';
 import type { TFunction } from 'i18next';
+import { buildBaselineOverlay } from '@/types/baseline';
 
 /** Reactieve datum-formatters — zelfde vorm als `useDisplayDate()` (Hooks mogen hier niet in, dit
  * bouwt de kolomspec buiten React-render-tijd op in `handleExportPDF`). */
@@ -155,6 +156,8 @@ export function ReportPanel() {
   const viewRows = useAppStore(s => s.viewRows);
   const resources = useAppStore(s => s.resources);
   const assignments = useAppStore(s => s.assignments);
+  const baselines = useAppStore(s => s.baselines);
+  const activeBaselineId = useAppStore(s => s.activeBaselineId);
   const barColorSelection = useAppStore(s => s.ui.barColorSelection);
   const setUI = useAppStore(s => s.setUI);
   const fieldCtx = useFieldCatalogCtx();
@@ -169,6 +172,10 @@ export function ReportPanel() {
     [taskTypeLabelsSignature],
   );
   const statusDate = project.statusDate;
+  const baselineOverlay = useMemo(
+    () => buildBaselineOverlay(baselines, activeBaselineId),
+    [baselines, activeBaselineId],
+  );
 
   // De rapportopties starten op de gedeelde defaults uit `reportSettings.ts` en worden vlak na de
   // eerste render overschreven door de opgeslagen voorkeuren (zie het hydratatie-effect verderop).
@@ -180,6 +187,7 @@ export function ReportPanel() {
   const [showLegend, setShowLegend] = useState(DEFAULT_REPORT_SETTINGS.showLegend);
   const [showTaskNames, setShowTaskNames] = useState(DEFAULT_REPORT_SETTINGS.showTaskNames);
   const [showCompletion, setShowCompletion] = useState(DEFAULT_REPORT_SETTINGS.showCompletion);
+  const [showBaselineOverlay, setShowBaselineOverlay] = useState(DEFAULT_REPORT_SETTINGS.showBaselineOverlay);
   const [autoFit, setAutoFit] = useState(DEFAULT_REPORT_SETTINGS.autoFit);
   const [customZoom, setCustomZoom] = useState(DEFAULT_REPORT_SETTINGS.customZoom);
   const [paperSize, setPaperSize] = useState<'A3' | 'A4' | 'A1'>(DEFAULT_REPORT_SETTINGS.paperSize);
@@ -270,6 +278,7 @@ export function ReportPanel() {
       setShowLegend(s.showLegend);
       setShowTaskNames(s.showTaskNames);
       setShowCompletion(s.showCompletion);
+      setShowBaselineOverlay(s.showBaselineOverlay);
       setAutoFit(s.autoFit);
       setCustomZoom(s.customZoom);
       setPaperSize(s.paperSize);
@@ -309,11 +318,11 @@ export function ReportPanel() {
     // best-effort — mislukt het, dan blijft de instelling gewoon binnen deze sessie werken.
     void saveReportSettings({
       reportType, showCritical, showFloat, showDeps, showWeekends, showLegend,
-      showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation,
+      showTaskNames, showCompletion, showBaselineOverlay, autoFit, customZoom, paperSize, orientation,
       repeatHeader, timelineColumns, reportFontScale, statusLine, followView,
     }).catch(() => {});
   }, [reportType, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames,
-      showCompletion, autoFit, customZoom, paperSize, orientation, repeatHeader, timelineColumns,
+      showCompletion, showBaselineOverlay, autoFit, customZoom, paperSize, orientation, repeatHeader, timelineColumns,
       reportFontScale, statusLine, followView]);
 
   const milestoneRef = useRef<HTMLDivElement>(null);
@@ -328,7 +337,7 @@ export function ReportPanel() {
   // renderpaden per ongeluk een losse oude optie of vertaalde kop uit een eerdere render vasthouden.
   const options = useMemo<PrintOptions>(() => ({
     showCritical, showFloat, showDeps, showWeekends, showLegend,
-    showTaskNames, showCompletion, autoFit, customZoom,
+    showTaskNames, showCompletion, showBaselineOverlay, autoFit, customZoom,
     paperSize, orientation, companyName,
     labels: {
       noTasks: t('noTasks'),
@@ -337,6 +346,7 @@ export function ReportPanel() {
         criticalPath: t('legend.criticalPath'),
         normal: t('legend.normal'),
         nearCritical: tTask('table.isNearCritical'),
+        baseline: t('legend.baseline'),
         milestone: t('legend.milestone'),
         summary: t('legend.summary'),
         float: t('showFloat'),
@@ -387,17 +397,18 @@ export function ReportPanel() {
     statusDate,
     resources,
     assignments,
+    baselineOverlay,
     rows: followView ? viewRows : undefined,
     barColorsLegendLabels: {
       criticalOutline: t('legend.criticalOutline', { defaultValue: 'Kritiek pad (rand)' }),
       categoriesMore: (n: number) => t('legend.categoriesMore', { count: n }),
     },
-  }), [showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion,
+  }), [showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion, showBaselineOverlay,
     autoFit, customZoom, paperSize, orientation, companyName, t, locale, project.startDate,
     project.endDate, project.author, dateNotation, weekStartDay, timelineColumns, reportFontScale,
     cpmResult, barColorSelection, fieldCtx.activityCodeTypes, fieldCtx.customFieldDefs,
     reportTaskTypeLabels, tTask, statusLine, statusDate, resources,
-    assignments, followView, viewRows]);
+    assignments, baselineOverlay, followView, viewRows]);
 
   // Bereken de Gantt-preview als gepagineerde papiervellen — via dezelfde pagineer-engine als de
   // PDF-export (paginateCanvasToTiles), zodat de preview WYSIWYG-identiek is aan de export.
@@ -946,6 +957,10 @@ export function ReportPanel() {
             <label className="flex items-center gap-2 min-w-0">
               <input type="checkbox" checked={showCompletion} onChange={e => setShowCompletion(e.target.checked)} className="accent-accent flex-shrink-0" />
               <span className="min-w-0">{t('showCompletion', { defaultValue: 'Voltooiing tonen' })}</span>
+            </label>
+            <label className="flex items-center gap-2 min-w-0">
+              <input data-ops-report-baseline-overlay type="checkbox" checked={showBaselineOverlay} onChange={e => setShowBaselineOverlay(e.target.checked)} className="accent-accent flex-shrink-0" />
+              <span className="min-w-0">{t('showBaselineOverlay')}</span>
             </label>
             <label className="flex items-center gap-2 min-w-0">
               <input type="checkbox" checked={showCritical} onChange={e => setShowCritical(e.target.checked)} className="accent-accent flex-shrink-0" />

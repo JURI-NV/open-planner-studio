@@ -29,6 +29,7 @@ import type { Resource, ResourceAssignment } from '@/types/resource';
 import type { ActivityCodeType, CustomFieldDef } from '@/types/structure';
 import type { BarColorSelection } from '@/types/barColor';
 import type { ViewRow } from '@/engine/view/visibleRows';
+import type { BaselineOverlay } from '@/types/baseline';
 
 // BASISmaten bij rapport-lettergrootte 100%. Niets tekent hier nog rechtstreeks mee: alle
 // tekenhelpers rekenen met de geschaalde varianten uit {@link ReportMetrics}/{@link makeMetrics}.
@@ -188,6 +189,8 @@ export interface PrintOptions {
   showLegend: boolean;
   showTaskNames: boolean;
   showCompletion: boolean;
+  /** De actieve baseline als grijze onderbalk, gelijk aan de hoofd-Gantt (#81). */
+  showBaselineOverlay?: boolean;
   autoFit: boolean;
   customZoom: number;
   paperSize: 'A4' | 'A3' | 'A1';
@@ -197,7 +200,7 @@ export interface PrintOptions {
     noTasks: string;
     printed: string;
     legend: {
-      criticalPath: string; normal: string; nearCritical?: string; milestone: string; summary: string; float: string; completion: string;
+      criticalPath: string; normal: string; nearCritical?: string; baseline?: string; milestone: string; summary: string; float: string; completion: string;
       /** Eén regel die de LIJNSTIJL van de relaties verklaart: doorgetrokken = bepalend (driving),
        *  gestreept = niet-bepalend. Verschijnt alleen als er relaties getekend worden én de
        *  bindend-informatie beschikbaar is (zie {@link PrintOptions.drivingSequenceIds}). */
@@ -271,6 +274,8 @@ export interface PrintOptions {
   /** Resources + toewijzingen voor de resource-kleurmodi; de printlaag leeft buiten de store. */
   resources?: Resource[];
   assignments?: ResourceAssignment[];
+  /** Afleiding uit de actieve baseline; dezelfde taak-id-index als de hoofd-Gantt. */
+  baselineOverlay?: BaselineOverlay;
   /**
    * WYSIWYG-rijen (#54): gegeven ⇒ de export tekent precies deze rijen (filter, groepering,
    * sortering én inklapstatus van het scherm) i.p.v. de volledige takenboom. Groepsband-rijen
@@ -969,6 +974,34 @@ export function renderReport(
         const hasFloat = options.showFloat && task.time.totalFloat > 0 && !task.time.isCritical;
         const barRightX = x2 + (hasFloat ? task.time.totalFloat * zoom : 0);
         barLabelJobs.push({ name: task.name, barRightX, barLeftX: x1, y: y + barHeight / 2 + m.s(3), bold: false });
+      }
+    }
+
+    // Issue #81: dezelfde grijze baseline-onderbalk (of mijlpaalruit) als in de hoofd-Gantt.
+    // Hij ligt boven de huidige balk maar vóór relaties/labels, zodat beide uitvoerpaden dezelfde
+    // leesbare laagvolgorde hebben. Samenvattingstaken krijgen alleen iets als de actieve baseline
+    // daar expliciet een entry voor bevat.
+    const baseline = options.showBaselineOverlay ? options.baselineOverlay?.get(task.id) : undefined;
+    if (baseline) {
+      const baseHeight = Math.max(2, barHeight * 0.28);
+      const baseY = y + barHeight + 1;
+      d2d.fillStyle = PRINT_COLORS.baseline;
+      if (baseline.isMilestone) {
+        const x = dateToX(parseDate(baseline.start)) + zoom / 2;
+        const cy = baseY + baseHeight / 2;
+        d2d.beginPath();
+        d2d.moveTo(x, cy - baseHeight);
+        d2d.lineTo(x + baseHeight, cy);
+        d2d.lineTo(x, cy + baseHeight);
+        d2d.lineTo(x - baseHeight, cy);
+        d2d.closePath();
+        d2d.fill();
+      } else {
+        const x1 = dateToX(parseDate(baseline.start));
+        const x2 = dateToX(parseDate(baseline.finish)) + zoom;
+        d2d.beginPath();
+        d2d.roundRect(x1, baseY, Math.max(x2 - x1, 2), baseHeight, 1);
+        d2d.fill();
       }
     }
   }
@@ -1915,6 +1948,15 @@ function drawFooter(
         items.push({ label: lg?.float ?? 'Speling', draw: (x) => {
           d2d.fillStyle = PRINT_COLORS.float + '40';
           d2d.fillRect(x, midY - m.s(4), swatchW, m.s(8));
+        } });
+      }
+      const hasBaseline = options.showBaselineOverlay && printRows.some(row => row.kind === 'task' && row.task
+        && options.baselineOverlay?.has(row.task.id));
+      if (hasBaseline) {
+        items.push({ label: lg?.baseline ?? 'Baseline', draw: (x) => {
+          d2d.fillStyle = PRINT_COLORS.baseline;
+          d2d.roundRect(x, midY - m.s(2), swatchW, m.s(4), m.s(1));
+          d2d.fill();
         } });
       }
       // Lijnstijl-uitleg (issue #56): ÉÉN legenda-regel die beide stijlen tegelijk toont — boven een

@@ -17,6 +17,7 @@
   "showLegend": "وسيلة الإيضاح",
   "showTaskNames": "أسماء المهام على الأشرطة",
   "showCompletion": "إظهار نسبة الإنجاز",
+  "showBaselineOverlay": "إظهار تراكب خط الأساس",
   "autoFit": "ملاءمة تلقائية للورق",
   "zoom": "تكبير:",
   "repeatHeader": "تكرار الرأس في كل صفحة",
@@ -48,6 +49,7 @@
   "legend": {
     "criticalPath": "المسار الحرج",
     "normal": "عادي",
+    "baseline": "خط الأساس",
     "milestone": "معلم",
     "summary": "ملخص",
     "float": "الفائض",

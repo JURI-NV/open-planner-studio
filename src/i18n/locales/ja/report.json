@@ -17,6 +17,7 @@
   "showLegend": "凡例",
   "showTaskNames": "バー上のタスク名",
   "showCompletion": "進捗を表示",
+  "showBaselineOverlay": "ベースライン オーバーレイを表示",
   "autoFit": "用紙に自動調整",
   "zoom": "ズーム：",
   "repeatHeader": "各ページにヘッダーを繰り返す",
@@ -38,6 +39,7 @@
   "legend": {
     "criticalPath": "クリティカルパス",
     "normal": "通常",
+    "baseline": "ベースライン",
     "milestone": "マイルストーン",
     "summary": "サマリー",
     "float": "フロート",
