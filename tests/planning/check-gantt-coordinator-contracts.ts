@@ -66,7 +66,11 @@ ok('pointeroutput bezit de React-pointerhandlers', pointerOutputOwnsReactHandler
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const contractPath = resolve(root, 'src/components/canvas/hooks/ganttCoordinatorTypes.ts');
+const canvasPath = resolve(root, 'src/components/canvas/GanttCanvas.tsx');
+const pointerPath = resolve(root, 'src/components/canvas/hooks/useGanttPointerCoordinator.ts');
 const source = readFileSync(contractPath, 'utf8');
+const canvasSource = readFileSync(canvasPath, 'utf8');
+const pointerSource = readFileSync(pointerPath, 'utf8');
 
 for (const exportedName of [
   'GanttRendererHostInput',
@@ -84,6 +88,16 @@ ok('contract gebruikt geen singletonselector', !/\buseAppStore\b/.test(source));
 ok('rendererhost benoemt renderRevision', /interface GanttRendererHostInput[\s\S]*?renderRevision: string \| number;/.test(source));
 ok('viewport benoemt effectieve view en gedeelde as', /interface GanttViewportCoordinatorOutput[\s\S]*?effectiveView: ViewState;[\s\S]*?sharedAxis: GanttAxis;/.test(source));
 ok('pointeroutput benoemt overlays en popovers', /interface GanttPointerCoordinatorOutput[\s\S]*?overlays: GanttGestureOverlays;[\s\S]*?relationPopover:/.test(source));
+ok('GanttCanvas start geen gesturehooks rechtstreeks',
+  !/\.(?:startBarDrag|startPan|startBoxSelect|startRowDrag|startDepDraw)\(/.test(canvasSource));
+ok('pointercoördinator bezit precies één mousedown-dispatcher',
+  (pointerSource.match(/const onMouseDown\s*=\s*useCallback/g) ?? []).length === 1);
+ok('pointercoördinator gebruikt alle vijf gerichte gesture-starts',
+  ['startBarDrag', 'startPan', 'startBoxSelect', 'startRowDrag', 'startDepDraw']
+    .every(name => pointerSource.includes(`.${name}(`)));
+ok('pointercoördinator leest geen storesingleton', !/\buseAppStore\b/.test(pointerSource));
+ok('pointercoördinator kopieert geen renderer- of viewportgeometrie',
+  !/\b(?:barGeometry|dateToX|computeGanttScrollBounds|computeFitToProject)\b/.test(pointerSource));
 
 if (diffs.length === 0) {
   console.log(`OK: Gantt-coördinatorcontracten — ${checks} checks groen`);

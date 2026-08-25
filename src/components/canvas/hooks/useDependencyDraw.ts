@@ -1,6 +1,4 @@
 import { RefObject, useEffect, useState } from 'react';
-import { useAppStore } from '@/state/appStore';
-import { createRelationWithFeedback } from '@/state/relationActions';
 import { GanttRenderer } from '@/engine/renderer/GanttRenderer';
 
 export interface DependencyDragState {
@@ -16,6 +14,8 @@ interface UseDependencyDrawOptions {
   containerRef: RefObject<HTMLElement | null>;
   depLineCanvasRef: RefObject<HTMLCanvasElement | null>;
   rendererRef: RefObject<GanttRenderer | null>;
+  taskTableWidth: number;
+  createRelation: (sourceTaskId: string, targetTaskId: string) => string | null;
   /** Aangeroepen ná het aanmaken van de relatie (op de drop-positie) — GanttCanvas opent hier de
    *  relatietype/lag-correctie-popover mee. Wordt NIET aangeroepen wanneer de relatie als
    *  duplicaat geweigerd is (dan zou de popover een niet-bestaande relatie bewerken). */
@@ -24,14 +24,16 @@ interface UseDependencyDrawOptions {
 
 // Dependency-draw (drag van balk A naar balk B → FS-relatie + correctie-popover). Gearmd door
 // shift ingedrukt te houden ÓF door de relatiemodus (`ui.showDependencyMode`, issue #40 — de
-// lint-knop als "plakkende Shift"); die keuze zit in het centrale mousedown-hittest van
-// GanttCanvas, dat `startDepDraw(...)` aanroept. Deze hook bezit `depDragState`, de
+// lint-knop als "plakkende Shift"); die keuze zit in het centrale mousedown-hittest van de
+// pointercoordinator, die `startDepDraw(...)` aanroept. Deze hook bezit `depDragState`, de
 // window-listeners voor de sleep, én het tekenen van de tijdelijke pijl op het overlay-canvas.
 export function useDependencyDraw({
   canvasRef,
   containerRef,
   depLineCanvasRef,
   rendererRef,
+  taskTableWidth,
+  createRelation,
   onRelationCreated,
 }: UseDependencyDrawOptions) {
   const [depDragState, setDepDragState] = useState<DependencyDragState | null>(null);
@@ -53,11 +55,11 @@ export function useDependencyDraw({
         const y = e.clientY - rect.top;
 
         const targetTask = renderer.getTaskAtY(y);
-        if (targetTask && targetTask.id !== depDragState.sourceTaskId && x >= useAppStore.getState().ui.leftPanelWidth) {
+        if (targetTask && targetTask.id !== depDragState.sourceTaskId && x >= taskTableWidth) {
           // Create Finish-to-Start dependency (default — ongewijzigd gedrag als de gebruiker de
           // hieronder geopende popover negeert/wegklikt). Issue #40: via de gedeelde wrapper, die
           // een geweigerd duplicaat meldt in plaats van stil niets te doen.
-          const newSequenceId = createRelationWithFeedback(depDragState.sourceTaskId, targetTask.id);
+          const newSequenceId = createRelation(depDragState.sourceTaskId, targetTask.id);
           // Fase 2.10 (item 3): meteen de correctie-popover openen op de drop-positie — alleen als
           // er écht een relatie bij gekomen is.
           if (newSequenceId) onRelationCreated(newSequenceId, e.clientX, e.clientY);
@@ -83,7 +85,7 @@ export function useDependencyDraw({
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('keydown', handleKeyDown, true);
     };
-  }, [depDragState, canvasRef, rendererRef, onRelationCreated]);
+  }, [depDragState, canvasRef, rendererRef, taskTableWidth, createRelation, onRelationCreated]);
 
   // Draw temporary dependency line on overlay canvas
   useEffect(() => {

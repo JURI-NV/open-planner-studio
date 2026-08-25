@@ -32,11 +32,8 @@ function renderGantt(
   if (import.meta.env.DEV) recordGanttPaint(surface, width, height);
 }
 
-/**
- * Bezit de drie canvaslagen, rendererinstanties en hun mount/resize-lifecycle. De host leest geen
- * store en leidt geen domeinopties af; GanttCanvas levert daarvoor expliciete, getypeerde invoer.
- */
-export function useGanttRendererHost(input: GanttRendererHostInput): GanttRendererHost {
+/** Maakt de stabiele refs waarmee pointercoördinatie vóór de renderoptie-afleiding kan worden samengesteld. */
+export function useGanttRendererRefs(): GanttRendererHost {
   const primaryCanvasRef = useRef<HTMLCanvasElement>(null);
   const primaryRendererRef = useRef<GanttRenderer | null>(null);
   const secondaryCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -44,6 +41,34 @@ export function useGanttRendererHost(input: GanttRendererHostInput): GanttRender
   const histogramCanvasRef = useRef<HTMLCanvasElement>(null);
   const histogramRendererRef = useRef<HistogramRenderer | null>(null);
   const dependencyCanvasRef = useRef<HTMLCanvasElement>(null);
+  return {
+    primaryCanvasRef,
+    primaryRendererRef,
+    secondaryCanvasRef,
+    secondaryRendererRef,
+    histogramCanvasRef,
+    histogramRendererRef,
+    dependencyCanvasRef,
+  };
+}
+
+/**
+ * Bezit de drie canvaslagen, rendererinstanties en hun mount/resize-lifecycle. De host leest geen
+ * store en leidt geen domeinopties af; GanttCanvas levert daarvoor expliciete, getypeerde invoer.
+ */
+export function useGanttRendererHost(
+  input: GanttRendererHostInput,
+  refs: GanttRendererHost,
+): GanttRendererHost {
+  const {
+    primaryCanvasRef,
+    primaryRendererRef,
+    secondaryCanvasRef,
+    secondaryRendererRef,
+    histogramCanvasRef,
+    histogramRendererRef,
+    dependencyCanvasRef,
+  } = refs;
 
   // Dev-only browsernaad: uitsluitend de levende canvas-/rendererrefs; geen rendererdata en geen
   // mogelijkheid om vanuit de driver een paint of productmutatie te starten.
@@ -61,7 +86,7 @@ export function useGanttRendererHost(input: GanttRendererHostInput): GanttRender
       unregisterSecondary();
       unregisterPrimary();
     };
-  }, []);
+  }, [primaryCanvasRef, primaryRendererRef, secondaryCanvasRef, secondaryRendererRef]);
 
   const { onPrimarySize, primary } = input;
   const drawPrimary = useCallback((
@@ -71,7 +96,7 @@ export function useGanttRendererHost(input: GanttRendererHostInput): GanttRender
   ) => {
     onPrimarySize(width, height);
     renderGantt(ctx, width, height, primary, primaryRendererRef, 'primary');
-  }, [onPrimarySize, primary]);
+  }, [onPrimarySize, primary, primaryRendererRef]);
 
   useCanvasLayer({
     canvasRef: primaryCanvasRef,
@@ -89,7 +114,7 @@ export function useGanttRendererHost(input: GanttRendererHostInput): GanttRender
     if (!secondary) return;
     onSecondarySize(width, height);
     renderGantt(ctx, width, height, secondary, secondaryRendererRef, 'secondary');
-  }, [onSecondarySize, secondary]);
+  }, [onSecondarySize, secondary, secondaryRendererRef]);
 
   useCanvasLayer({
     canvasRef: secondaryCanvasRef,
@@ -101,7 +126,7 @@ export function useGanttRendererHost(input: GanttRendererHostInput): GanttRender
 
   useEffect(() => {
     if (!input.secondary) secondaryRendererRef.current = null;
-  }, [input.secondary]);
+  }, [input.secondary, secondaryRendererRef]);
 
   const drawHistogram = useCallback((
     ctx: CanvasRenderingContext2D,
@@ -117,7 +142,7 @@ export function useGanttRendererHost(input: GanttRendererHostInput): GanttRender
     histogramRendererRef.current = renderer;
     renderer.render();
     if (import.meta.env.DEV) recordGanttPaint('histogram', width, height);
-  }, [input.histogram]);
+  }, [input.histogram, histogramRendererRef]);
 
   useCanvasLayer({
     canvasRef: histogramCanvasRef,
@@ -129,7 +154,7 @@ export function useGanttRendererHost(input: GanttRendererHostInput): GanttRender
 
   useEffect(() => {
     if (!input.histogram) histogramRendererRef.current = null;
-  }, [input.histogram]);
+  }, [input.histogram, histogramRendererRef]);
 
   return {
     primaryCanvasRef,

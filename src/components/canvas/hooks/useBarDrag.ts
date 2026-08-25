@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAppStore } from '@/state/appStore';
 import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
 import { parseDate, parseInstant, formatDate, formatInstant } from '@/utils/dateUtils';
 import { pickTiers, TIER_CONFIG } from '@/engine/renderer/timelineTiers';
@@ -36,6 +35,8 @@ interface UseBarDragOptions {
    *  Effectieve compressie wordt, net als de as zelf, ook gegate op `hasWorkingDays()` van de
    *  PROJECTkalender (`calendar`, niet de per-taak-kalender) — zie `isCompressedEffective`. */
   compressNonWorkdays: boolean;
+  /** Actuele taaklezing tijdens native mousemove-events; de coördinator bindt deze aan zijn context. */
+  getTask: (id: string) => Task | undefined;
   updateTask: (id: string, updates: Partial<Task>, opts?: { coalesceKey?: string }) => void;
 }
 
@@ -53,7 +54,7 @@ interface UseBarDragOptions {
 // `addCalendarDays`). Toggle uit ⇒ ongewijzigd. De UUR-tak (`handleHourDrag`) blijft BEWUST op het
 // oude lineaire ms-pad (§6 van het ontwerp: een uur-balk die een naad kruist tekent bij compressie
 // "over de naad heen" — bekende, gedocumenteerde v1-beperking, geen regressie t.o.v. vandaag).
-export function useBarDrag({ zoom, enableQuarterHourZoom, enableHourPlanning, calendar, effectiveCalById, compressNonWorkdays, updateTask }: UseBarDragOptions) {
+export function useBarDrag({ zoom, enableQuarterHourZoom, enableHourPlanning, calendar, effectiveCalById, compressNonWorkdays, getTask, updateTask }: UseBarDragOptions) {
   const [dragState, setDragState] = useState<DragState | null>(null);
   // De kaart met effectieve taakkalenders verandert ook wanneer een live drag de taak muteert. Het
   // effect wordt dan terecht met actuele kalenderinvoer herstart, maar dat mag geen nieuw
@@ -120,7 +121,8 @@ export function useBarDrag({ zoom, enableQuarterHourZoom, enableHourPlanning, ca
       const deltaMin = Math.round(snappedMs / 60000);
       const origStart = parseInstant(dragState.originalStart);
       const origFinish = parseInstant(dragState.originalFinish);
-      const baseTime = useAppStore.getState().tasks.find(t => t.id === dragState.taskId)!.time;
+      const baseTime = getTask(dragState.taskId)?.time;
+      if (!baseTime) return;
       // Originele werk-duur bij drag-start; val terug op de klok-span als het veld ontbrak.
       const origMinutes = dragState.originalDurationMinutes
         ?? Math.max(60, Math.round((origFinish.getTime() - origStart.getTime()) / 60000));
@@ -183,6 +185,8 @@ export function useBarDrag({ zoom, enableQuarterHourZoom, enableHourPlanning, ca
 
       const origStart = parseDate(dragState.originalStart);
       const origFinish = parseDate(dragState.originalFinish);
+      const currentTime = getTask(dragState.taskId)?.time;
+      if (!currentTime) return;
 
       if (dragState.edge === 'body') {
         // Move entire task. Issue #21 punt 5 (review §10.3): onder compressie stelt `daysDelta`
@@ -193,7 +197,7 @@ export function useBarDrag({ zoom, enableQuarterHourZoom, enableHourPlanning, ca
         const newFinish = shiftByDisplayedColumns(axisCalEngine, origFinish, daysDelta, compressed);
         updateTask(dragState.taskId, {
           time: {
-            ...useAppStore.getState().tasks.find(t => t.id === dragState.taskId)!.time,
+            ...currentTime,
             scheduleStart: formatDate(newStart),
             scheduleFinish: formatDate(newFinish),
             earlyStart: formatDate(newStart),
@@ -215,7 +219,7 @@ export function useBarDrag({ zoom, enableQuarterHourZoom, enableHourPlanning, ca
         const canonFinish = resizeCalEngine.addWorkDays(origStart, newDuration);
         updateTask(dragState.taskId, {
           time: {
-            ...useAppStore.getState().tasks.find(t => t.id === dragState.taskId)!.time,
+            ...currentTime,
             scheduleFinish: formatDate(canonFinish),
             earlyFinish: formatDate(canonFinish),
             scheduleDuration: newDuration,
@@ -232,7 +236,7 @@ export function useBarDrag({ zoom, enableQuarterHourZoom, enableHourPlanning, ca
         const canonStart = resizeCalEngine.subtractWorkDays(origFinish, newDuration);
         updateTask(dragState.taskId, {
           time: {
-            ...useAppStore.getState().tasks.find(t => t.id === dragState.taskId)!.time,
+            ...currentTime,
             scheduleStart: formatDate(canonStart),
             earlyStart: formatDate(canonStart),
             scheduleDuration: newDuration,
@@ -260,6 +264,7 @@ export function useBarDrag({ zoom, enableQuarterHourZoom, enableHourPlanning, ca
     calendar,
     effectiveCalById,
     compressNonWorkdays,
+    getTask,
     updateTask,
   ]);
 

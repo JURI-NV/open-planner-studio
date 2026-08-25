@@ -181,7 +181,7 @@ export interface GanttPointerCoordinatorInput {
   >;
   viewport: Pick<
     GanttViewportCoordinatorOutput,
-    'refs' | 'primary' | 'effectiveView' | 'splitters'
+    'refs' | 'effectiveView' | 'splitters'
   >;
   tasks: Task[];
   rows: ViewRow[];
@@ -189,7 +189,6 @@ export interface GanttPointerCoordinatorInput {
   effectiveCalendarByTaskId: Map<string, WorkCalendar>;
   selectedTaskIds: string[];
   taskTableWidth: number;
-  rowHeight: number;
   headerHeight: number;
   dependencyMode: boolean;
   treeMode: boolean;
@@ -207,8 +206,10 @@ export interface GanttPointerCoordinatorInput {
   moveTaskTo: (id: string, target: DropTarget) => void;
   moveTasksTo: (ids: string[], target: DropTarget) => void;
   setScroll: (x: number, y: number) => void;
+  createRelation: (sourceTaskId: string, targetTaskId: string) => string | null;
   openTask: (id: string) => void;
   revealTaskIfOffscreen: (task: Task) => void;
+  clearHistogramTooltip: () => void;
 }
 
 /** React-bedrading en vluchtige presentatie die uitsluitend bij pointerinteractie hoort. */
