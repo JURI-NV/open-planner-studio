@@ -151,7 +151,7 @@ test('Gantt viewport: WBS-focusklik centreert taak en wist het pending signaal',
     s.setUI({ showPropertiesPanel: true, rightPanelCollapsed: false });
   }, { source: sourceId, target: targetId });
   const before = await state(page);
-  const jump = page.getByRole('button', { name: /^(Ga naar taak|Go to task)/ });
+  const jump = page.getByRole('button', { name: /(?:Ga naar taak|Go to task)/ });
   await expect(jump).toBeVisible();
 
   await jump.click();

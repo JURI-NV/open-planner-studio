@@ -160,7 +160,14 @@ export function ReportPanel() {
   const fieldCtx = useFieldCatalogCtx();
   const barColorFields = barColorFieldOptions(fieldCtx);
   const barColorControl = effectiveBarColorControl(barColorSelection, fieldCtx);
+  // `useTaskTypeLabels` bouwt per render een nieuw object. De inhoudssignatuur maakt voor het
+  // rapport een stabiele kopie: een preview-state-update mag `options` niet opnieuw maken, maar
+  // een echte taalwissel moet de labels wel vervangen.
   const taskTypeLabelsSignature = JSON.stringify(fieldCtx.taskTypeLabels);
+  const reportTaskTypeLabels = useMemo<Record<string, string>>(
+    () => JSON.parse(taskTypeLabelsSignature) as Record<string, string>,
+    [taskTypeLabelsSignature],
+  );
   const statusDate = project.statusDate;
 
   // De rapportopties starten op de gedeelde defaults uit `reportSettings.ts` en worden vlak na de
@@ -372,7 +379,7 @@ export function ReportPanel() {
     barColorSelection,
     activityCodeTypes: fieldCtx.activityCodeTypes,
     customFieldDefs: fieldCtx.customFieldDefs,
-    taskTypeLabels: fieldCtx.taskTypeLabels,
+    taskTypeLabels: reportTaskTypeLabels,
     barColorNoneLabel: tTask('structure.none'),
     statusLine,
     statusDate,
@@ -387,7 +394,7 @@ export function ReportPanel() {
     autoFit, customZoom, paperSize, orientation, companyName, t, locale, project.startDate,
     project.endDate, project.author, dateNotation, weekStartDay, timelineColumns, reportFontScale,
     cpmResult, barColorSelection, fieldCtx.activityCodeTypes, fieldCtx.customFieldDefs,
-    fieldCtx.taskTypeLabels, taskTypeLabelsSignature, tTask, statusLine, statusDate, resources,
+    reportTaskTypeLabels, tTask, statusLine, statusDate, resources,
     assignments, followView, viewRows]);
 
   // Bereken de Gantt-preview als gepagineerde papiervellen — via dezelfde pagineer-engine als de
