@@ -14,7 +14,6 @@ import { useAppStore } from '@/state/appStore';
 import { paletteColorForId } from '@/engine/renderer/resourcePalette';
 import { GanttRenderer } from '@/engine/renderer/GanttRenderer';
 import type { Task } from '@/types/task';
-import type { ViewRow } from '@/engine/view/visibleRows';
 import type { Resource, ResourceAssignment } from '@/types/resource';
 import type { BarColorSelection } from '@/types/barColor';
 
@@ -73,13 +72,17 @@ const ASG: ResourceAssignment[] = [
   { id: 'aa2', taskId: task.id, resourceId: 'ra2', unitsPerDay: 3 },
 ];
 
-const rows: ViewRow[] = [{ kind: 'task', task, depth: 0, dimmed: false }];
 const W = 1200, H = 200, TTW = 300, ROWH = 28, HDRH = 60;
 
-function render(showResourceAccent: boolean, over: { darkTheme?: boolean; task?: Task; selection?: BarColorSelection } = {}) {
+function render(showResourceAccent: boolean, over: {
+  darkTheme?: boolean;
+  task?: Task;
+  selection?: BarColorSelection;
+  baseline?: boolean;
+} = {}) {
   const st = S();
   const { ctx, fillRects, shapes } = makeCtx();
-  const row = over.task ? { kind: 'task' as const, task: over.task, depth: 0, dimmed: false } : rows[0];
+  const row = { kind: 'task' as const, task: over.task ?? task, depth: 0, dimmed: false };
   const renderer = new GanttRenderer(ctx, {
     rows: [row],
     sequences: [],
@@ -89,6 +92,14 @@ function render(showResourceAccent: boolean, over: { darkTheme?: boolean; task?:
     collapsedTaskIds: [],
     canvasWidth: W, canvasHeight: H, taskTableWidth: TTW, rowHeight: ROWH, headerHeight: HDRH,
     showResourceAccent,
+    showBaselineOverlay: over.baseline,
+    baselineOverlay: over.baseline
+      ? new Map([[row.task.id, {
+          start: row.task.time.earlyStart,
+          finish: row.task.time.earlyFinish,
+          isMilestone: false,
+        }]])
+      : undefined,
     darkTheme: over.darkTheme,
     barColorSelection: over.selection,
     activityCodeTypes: [],
@@ -123,6 +134,22 @@ const accents = (rects: Rect[]) => rects.filter(r => r.h === 3 && r.y > HDRH);
 {
   const { fillRects: off } = render(false);
   ok(accents(off).length === 0, 'accent uit: geen streepjes');
+}
+
+// Baseline en resource-accent zijn twee onafhankelijke onderbalken. Als beide aan staan, mogen ze
+// elkaar niet bedekken: de baseline begint pas onder het volledige 3px-resource-accent.
+{
+  const { fillRects, shapes } = render(true, { baseline: true });
+  const a = accents(fillRects);
+  const baseline = shapes.find(sh => sh.fill === '#6B7280' && sh.h < 10);
+  ok(a.length === 2, `baseline-combinatie: beide accentsegmenten aanwezig (got ${a.length})`);
+  ok(!!baseline, 'baseline-combinatie: baseline aanwezig');
+  if (a.length > 0 && baseline) {
+    ok(baseline.y >= a[0].y + a[0].h,
+      `baseline-combinatie: geen overlap (accent eindigt ${a[0].y + a[0].h}, baseline begint ${baseline.y})`);
+    ok(baseline.y + baseline.h <= HDRH + ROWH,
+      `baseline-combinatie: gestapelde baseline blijft binnen de rij (eindigt ${baseline.y + baseline.h}, rij eindigt ${HDRH + ROWH})`);
+  }
 }
 
 // ── Donker thema: te donkere resourcekleuren verlicht (#21 user-bevinding) ──────────────────────

@@ -690,7 +690,7 @@ export class GanttRenderer {
 
   /** Baseline-onderbalk (fase 2.6, §6.2): dunne balk (of ruit voor mijlpalen) in de baseline-kleur
    *  onder de hoofdbalk, uit de actieve-baseline-overlay. Alleen als de taak een baseline-entry heeft. */
-  private drawBaselineOverlay(task: Task, y: number, height: number): void {
+  private drawBaselineOverlay(task: Task, y: number, height: number, resourceAccentHeight = 0): void {
     const overlay = this.opts.baselineOverlay;
     if (!overlay || this.opts.showBaselineOverlay === false) return;
     const entry = overlay.get(task.id);
@@ -698,8 +698,15 @@ export class GanttRenderer {
 
     const ctx = this.ctx;
     const zoom = this.opts.view.zoom;
-    const baseHeight = Math.max(2, height * 0.28);
-    const baseY = y + height + 1;
+    const preferredBaseHeight = Math.max(2, height * 0.28);
+    const baseY = y + height + 1 + resourceAccentHeight;
+    // Resource-accent en baseline delen de vrije ruimte onder de hoofdbalk. Houd de baseline bij
+    // de combinatie binnen dezelfde rij; bij de kleinste ondersteunde tekengrootte resteert nog
+    // ruim 2 px en blijft de baseline dus zichtbaar zonder het accent te bedekken.
+    const rowBottom = y + height + (this.opts.rowHeight - height) / 2;
+    const baseHeight = resourceAccentHeight > 0
+      ? Math.min(preferredBaseHeight, Math.max(2, rowBottom - baseY))
+      : preferredBaseHeight;
     ctx.fillStyle = this.colors.baseline;
 
     if (entry.isMilestone) {
@@ -990,6 +997,7 @@ export class GanttRenderer {
       // M3 (Opus-review T15-iteratie-2): `isZeroDurationMilestone` — een mijlpaal-met-duur (T15) is
       // voor de PLANNING geen mijlpaal (zelfde discriminator als de solver) en tekent dus als een
       // gewone balk, niet als ruit.
+      let resourceAccentHeight = 0;
       if (isZeroDurationMilestone(task)) {
         this.drawMilestone(task, y, barHeight, isSelected, overrideColor);
       } else if (task.childIds.length > 0) {
@@ -997,7 +1005,7 @@ export class GanttRenderer {
       } else if (task.isHammock) {
         this.drawHammockBar(task, y, barHeight, isSelected, overrideColor);
       } else {
-        this.drawTaskBar(task, y, barHeight, isSelected, overrideColor);
+        resourceAccentHeight = this.drawTaskBar(task, y, barHeight, isSelected, overrideColor);
       }
       this.drawConstraintMarkers(task, y);
       this.drawNotesIndicator(task, y);
@@ -1006,11 +1014,11 @@ export class GanttRenderer {
       if (dimmed || row.dimmed) this.ctx.globalAlpha = 1;
       this.drawExternalGhosts(task, y, barHeight);
       // Baseline-onderbalk (fase 2.6): op volle dekking, ná het eventuele dim-herstel.
-      this.drawBaselineOverlay(task, y, barHeight);
+      this.drawBaselineOverlay(task, y, barHeight, resourceAccentHeight);
     }
   }
 
-  private drawTaskBar(task: Task, y: number, height: number, isSelected: boolean, overrideColor?: string): void {
+  private drawTaskBar(task: Task, y: number, height: number, isSelected: boolean, overrideColor?: string): number {
     const ctx = this.ctx;
     const geo = this.barGeometry(task);
     const { x1, x2 } = geo;
@@ -1026,7 +1034,7 @@ export class GanttRenderer {
     const floatWidth = task.time.totalFloat > 0 && !task.time.isCritical
       ? task.time.totalFloat * this.opts.view.zoom
       : 0;
-    if (x2 + floatWidth < this.opts.taskTableWidth || x1 > this.opts.canvasWidth) return;
+    if (x2 + floatWidth < this.opts.taskTableWidth || x1 > this.opts.canvasWidth) return 0;
 
     const width = Math.max(x2 - x1, 4);
     // De gedeelde selectie gebruikt dezelfde pure engine als print. In critical blijft de
@@ -1208,6 +1216,7 @@ export class GanttRenderer {
     // Resource-accent (#21): dun streepje in de resourcekleur direct ónder de balk, gesegmenteerd
     // naar rato van unitsPerDay bij meerdere resources. Eén vast hoogtemaatje van 3 px — subtiel
     // genoeg om het kritiek-pad-beeld niet te verdringen, duidelijk genoeg om "wie doet dit" te lezen.
+    let resourceAccentHeight = 0;
     if (this.opts.showResourceAccent) {
       const rows = assignmentsFor(task.id, this.opts.resources ?? [], this.opts.assignments ?? []);
       if (rows.length > 0) {
@@ -1224,6 +1233,7 @@ export class GanttRenderer {
           ctx.fillRect(ax, accentY, Math.max(w, 1), accentH);
           ax += w;
         });
+        resourceAccentHeight = accentH;
       }
     }
 
@@ -1239,6 +1249,7 @@ export class GanttRenderer {
       ctx.fillText(task.name, x1 + 6, y + height / 2);
       ctx.restore();
     }
+    return resourceAccentHeight;
   }
 
   /**
