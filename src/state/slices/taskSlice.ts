@@ -31,6 +31,8 @@ export interface TaskSlice {
   }) => string;
   updateTask: (id: string, updates: Partial<Task>, opts?: { coalesceKey?: string }) => void;
   deleteTask: (id: string) => void;
+  /** Verwijder meerdere taken en hun subbomen als precies één undoable storehandeling. */
+  deleteTasksBulk: (ids: readonly string[]) => void;
   /** Verplaats `id` onder een nieuwe ouder (null = root). `position` afwezig ⇒ byte-identiek aan het
    *  oude gedrag (achteraan childIds, rauwe array ongemoeid). `position` aanwezig ⇒ insert op die
    *  index — consistent in childIds (zichtbare volgorde niet-root, visibleRows.ts) ÉN in de rauwe
@@ -490,6 +492,37 @@ export const createTaskSlice: AppSliceFactory<TaskSlice> = (runtime) => (set, ge
       s.selectedTaskIds = s.selectedTaskIds.filter(sid => !removeIds.has(sid));
       if (s.project.wbsAutoNumber) applyWbsNumbering(s.tasks);
       finishMutation(s, { stale: true }); // datum-rakende mutatie (A6): planning verouderd tot F5.
+    });
+    get().recomputeViewRows();
+  },
+
+  deleteTasksBulk: (ids) => {
+    const frozen = [...ids];
+    if (frozen.length === 0) return;
+    if (frozen.length === 1) {
+      get().deleteTask(frozen[0]);
+      return;
+    }
+
+    set((s) => {
+      const roots = frozen.filter((id) => s.tasks.some((task) => task.id === id));
+      if (roots.length === 0) return;
+      runtime.beginUndoable(s);
+
+      const removeIds = new Set<string>();
+      for (const id of roots) {
+        detachFromParent(s.tasks, id);
+        for (const subtreeId of collectSubtreeIds(s.tasks, id)) removeIds.add(subtreeId);
+      }
+
+      s.tasks = s.tasks.filter((task) => !removeIds.has(task.id));
+      s.sequences = s.sequences.filter(
+        (sequence) => !removeIds.has(sequence.predecessorId) && !removeIds.has(sequence.successorId),
+      );
+      s.assignments = s.assignments.filter((assignment) => !removeIds.has(assignment.taskId));
+      s.selectedTaskIds = s.selectedTaskIds.filter((id) => !removeIds.has(id));
+      if (s.project.wbsAutoNumber) applyWbsNumbering(s.tasks);
+      finishMutation(s, { stale: true });
     });
     get().recomputeViewRows();
   },

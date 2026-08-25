@@ -53,8 +53,7 @@ export function createTaskBulkActions(context: AppStoreContext): TaskBulkActions
    * tijdens de handeling veranderen; een kind dat al met zijn ouder verdween is daarna een no-op.
    */
   function deleteTasksBulk(ids: readonly string[]): void {
-    const frozen = [...ids];
-    applyToTaskIds(frozen, (state, id) => state.deleteTask(id));
+    context.store.getState().deleteTasksBulk([...ids]);
   }
 
   return { applyToTaskIds, deleteTasksBulk };
