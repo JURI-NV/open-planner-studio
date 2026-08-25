@@ -60,6 +60,13 @@ export type McpToolResult = McpToolOk | McpToolErr;
  * vóór de contextgebonden MCP-transactie. Resolve = backup-pad, of null (geen backup nodig).
  */
 export type EnsureBackupFn = (docId: string, kind: McpToolDef['kind']) => Promise<string | null>;
+export type MarkDuplicateBornFn = (docId: string) => void;
+
+/** Eén ondeelbare backupbinding: beide functies moeten dezelfde contextservice bezitten. */
+export interface McpBackupBinding {
+  ensureBackup: EnsureBackupFn;
+  markDuplicateBorn: MarkDuplicateBornFn;
+}
 
 export interface McpContext {
   /** Store, runtime en app-host waarop dit request is gebonden. */
@@ -74,6 +81,8 @@ export interface McpContext {
   paused: boolean;
   readOnly: boolean;
   ensureBackup: EnsureBackupFn;
+  /** Registreert een duplicaat bij exact dezelfde service als `ensureBackup`. */
+  markDuplicateBorn: MarkDuplicateBornFn;
 }
 
 export interface McpToolAnnotations {

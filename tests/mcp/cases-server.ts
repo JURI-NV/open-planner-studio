@@ -20,8 +20,9 @@ import { createAppStoreContext } from '@/state/appStore';
 import { capturePayload } from '@/state/documentContract';
 import { createSnapshot } from '@/state/snapshot';
 import { runMutateTool, runReadTool } from '@/services/mcp/tools/runtime';
-import { registerToolModules } from '@/services/mcp/toolRegistry';
+import { getTool, registerAllTools, registerToolModules } from '@/services/mcp/toolRegistry';
 import { handleMcpMessage } from '@/services/mcp/dispatcher';
+import { createBackupService } from '@/services/mcp/backup';
 import {
   ensureMcpToken,
   generateToken,
@@ -179,21 +180,78 @@ test('buildMcpContext leest paused/readOnly LIVE uit de ui-state en levert de pl
   useAppStore.getState().setAiReadOnly(false);
 });
 
-test('buildMcpContext accepteert een expliciete contextgebonden backup-hook', async () => {
+test('buildMcpContext accepteert één expliciete contextgebonden backupbinding', async () => {
   const B = createAppStoreContext();
   const calls: Array<{ docId: string; kind: string }> = [];
   const injectedBackup = async (docId: string, kind: McpToolDef['kind']) => {
     calls.push({ docId, kind });
     return `/backup/${docId}.ifc`;
   };
-  const ctx = buildMcpContext(B, undefined, injectedBackup);
+  const marked: string[] = [];
+  const injectedBinding = {
+    ensureBackup: injectedBackup,
+    markDuplicateBorn: (docId: string) => { marked.push(docId); },
+  };
+  const ctx = buildMcpContext(B, undefined, injectedBinding);
 
   assert(ctx.ensureBackup === injectedBackup,
     'de requestcontext hoort exact de expliciet geïnjecteerde backup-hook te gebruiken');
+  assert(ctx.markDuplicateBorn === injectedBinding.markDuplicateBorn,
+    'de requestcontext hoort de markering uit dezelfde backupbinding te gebruiken');
   const path = await ctx.ensureBackup(B.store.getState().activeDocumentId, 'mutate');
   assertEq(path, `/backup/${B.store.getState().activeDocumentId}.ifc`, 'de hookresultaat hoort door te komen');
   assertEq(calls, [{ docId: B.store.getState().activeDocumentId, kind: 'mutate' }],
     'de hook hoort B\'s document-id en kind te ontvangen');
+  ctx.markDuplicateBorn('doc-b');
+  assertEq(marked, ['doc-b'], 'de gekoppelde markering hoort via dezelfde context bereikbaar te zijn');
+});
+
+test('duplicate_document markeert duplicate-born in context B en laat appcontext A ongemoeid', async () => {
+  const B = createAppStoreContext();
+  B.store.getState().setProject({ name: 'Context B' });
+  B.store.getState().addTask({ name: 'B-taak' });
+  const sourceId = B.store.getState().activeDocumentId;
+  const appBefore = {
+    payload: capturePayload(useAppStore.getState()),
+    undoDepth: useAppStore.getState().undoStack.length,
+  };
+
+  let writes = 0;
+  const backup = createBackupService({
+    getFs: async () => ({
+      appDataDir: async () => '/app',
+      join: async (...parts: string[]) => parts.join('/'),
+      mkdir: async () => {},
+      writeTextFile: async () => { writes += 1; },
+      readDir: async () => [],
+      remove: async () => {},
+    }),
+    getDoc: (docId) => ({ ifc: `IFC:${docId}`, projectName: 'Context B' }),
+    autoBackupEnabled: async () => true,
+    now: () => 1_700_000_000_000,
+    activeDocId: () => B.store.getState().activeDocumentId,
+  });
+  const ctx = buildMcpContext(B, undefined, {
+    ensureBackup: backup.ensureBackup,
+    markDuplicateBorn: backup.markDuplicateBorn,
+  });
+  ctx.expectedDocId = sourceId;
+
+  registerAllTools();
+  const duplicate = getTool('planner_duplicate_document');
+  assert(duplicate !== undefined, 'planner_duplicate_document moet geregistreerd zijn');
+  const result = await duplicate!.handler({}, ctx);
+  assert(result.ok, `dupliceren in B hoort te slagen: ${result.ok ? '' : result.error}`);
+  if (!result.ok) return;
+  const documentId = (result.data as { documentId: string }).documentId;
+  assert(documentId !== sourceId, 'het duplicaat hoort een vers document-id te krijgen');
+  assertEq(await ctx.ensureBackup(documentId, 'mutate'), null,
+    'de eerste B-mutatie na dupliceren hoort de duplicate-born backup over te slaan');
+  assertEq(writes, 0, 'B hoort voor het duplicate-born document geen backupbestand te schrijven');
+  assertEq({
+    payload: capturePayload(useAppStore.getState()),
+    undoDepth: useAppStore.getState().undoStack.length,
+  }, appBefore, 'de appcontext A hoort byte- en tellermatig gelijk te blijven');
 });
 
 test('buildMcpContext(B) bindt read, mutatie, rollback en envelop uitsluitend aan B', async () => {

@@ -407,8 +407,9 @@ test('reentrancy is niet te omzeilen via hetzelfde object of een tweede factory'
 
 test('twee buildMcpContext(B)-resultaten delen dezelfde runtimeguard', () => {
   const B = seedContext('nested-server-context');
-  const first = buildMcpContext(B.app, undefined, async () => null);
-  const second = buildMcpContext(B.app, undefined, async () => null);
+  const backup = { ensureBackup: async () => null, markDuplicateBorn: () => {} };
+  const first = buildMcpContext(B.app, undefined, backup);
+  const second = buildMcpContext(B.app, undefined, backup);
   assert(first.transactions !== second.transactions, 'voorwaarde: contexts hebben losse factoryobjecten');
   assertNestedRollback('twee servercontexts', B, first.transactions, second.transactions);
 });

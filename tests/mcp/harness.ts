@@ -44,6 +44,7 @@ export function makeMcpContext(
     paused: false,
     readOnly: false,
     ensureBackup: async () => null,
+    markDuplicateBorn: () => {},
     ...overrides,
   };
 }

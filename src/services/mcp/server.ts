@@ -14,8 +14,8 @@
 // De per-request `ctx` is VOLLEDIG aangesloten (SYNC-2): `paused`/`readOnly` komen live uit de
 // ui-state, `expectedDocId` (drift-anker) en `tempIdMap` (batch-executor) zijn per verbinding
 // meegroeiende velden, en `ensureBackup` wijst naar de ECHTE AI-backup uit `backup.ts` — geen stub
-// meer. `initMcpRuntime()` hieronder legt daarnaast de T16-naad (`markDuplicateBorn`) en registreert
-// de tool-modules. Zie de tool-contracten in `contracts.ts` (`McpContext`).
+// meer. `initMcpRuntime()` hieronder registreert de tool-modules; de T16-backupfuncties reizen als
+// één contextbinding met ieder request mee. Zie de tool-contracten in `contracts.ts` (`McpContext`).
 
 import { appStoreContext, useAppStore, type AppStoreContext } from '@/state/appStore';
 import { mcpTransactions } from '@/state/mcpTransaction';
@@ -25,8 +25,7 @@ import { handleMcpMessage } from './dispatcher';
 import { record as recordActivity, capField } from './activityLog';
 import { createAppBackupService, ensureBackup, resetBackupSession, markDuplicateBorn } from './backup';
 import { registerAllTools } from './toolRegistry';
-import { documentToolDeps } from './tools/documentTools';
-import type { EnsureBackupFn, McpContext, McpServerStatus, ActivityEntry } from './contracts';
+import type { McpBackupBinding, McpContext, McpServerStatus, ActivityEntry } from './contracts';
 
 /** Draaien we in de Tauri-shell? (zelfde runtime-poort als de rest van de app-code). */
 const isTauri = (): boolean => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -37,25 +36,18 @@ const isTauri = (): boolean => typeof window !== 'undefined' && '__TAURI_INTERNA
  * Knoop de losse tool-banen aan elkaar. Idempotent en zonder Tauri-afhankelijkheid, dus veilig om
  * meermaals én in de web-build aan te roepen. Twee draden:
  *
- *  1. **De T16-backup-naad.** `tools/documentTools.ts` draagt een injecteerbare `markDuplicateBorn`
- *     met een no-op default (de document-baan kende de backup-service nog niet). Hier hangen we de
- *     ECHTE implementatie uit `backup.ts` erin. Zonder deze regel krijgt een net via
- *     `duplicate_document` ontstaan document alsnog een overbodige auto-backup bij zijn eerste
- *     mutatie — zijn geboortestaat ÍS immers het nog openstaande bronbestand (spec regel 130).
- *
- *  2. **De toolregistratie.** `toolRegistry.ts` registreert zichzelf al bij module-load, maar dat is
+ * **De toolregistratie.** `toolRegistry.ts` registreert zichzelf al bij module-load, maar dat is
  *     een side-effect van het importeren. Deze expliciete aanroep garandeert dat `tools/list` in de
  *     echte app de VOLLEDIGE set toont, ook als een eerdere (test-)aanroep de registratie tot een
- *     deelverzameling had afgeknot.
+ *     deelverzameling had afgeknot. De T16-backupbinding zit niet langer in module-init: iedere
+ *     `McpContext` draagt `ensureBackup` en `markDuplicateBorn` van exact dezelfde service.
  */
 export function initMcpRuntime(): void {
-  documentToolDeps.markDuplicateBorn = markDuplicateBorn;
   registerAllTools();
 }
 
-// Bij module-load uitvoeren: `duplicate_document` kan de bridge binnenkomen zodra de server draait, en
-// de naad hoort dan al te staan. `startMcpServer` roept hem nogmaals aan (idempotent) zodat de koppeling
-// ook klopt wanneer een test de defaults tussendoor heeft vervangen.
+// Bij module-load uitvoeren; `startMcpServer` herhaalt dit idempotent zodat een test die de registry
+// afknot de volledige productie-toolset weer terugkrijgt.
 initMcpRuntime();
 
 // --- Token ---------------------------------------------------------------------------------------
@@ -149,16 +141,19 @@ export function applyAiModeLive(value: boolean): Promise<void> {
 export function buildMcpContext(
   app: AppStoreContext = appStoreContext,
   transactions?: McpTransactions,
-  ensureBackupOverride?: EnsureBackupFn,
+  backupOverride?: McpBackupBinding,
 ): McpContext {
   const ui = app.store.getState().ui;
   const contextBackupService = app === appStoreContext ? null : createAppBackupService(app);
-  const contextEnsureBackup: EnsureBackupFn = ensureBackupOverride ?? (
+  const backup: McpBackupBinding = backupOverride ?? (
     app === appStoreContext
-      ? ensureBackup
-      : (docId, kind) => isTauri()
-          ? contextBackupService!.ensureBackup(docId, kind)
-          : Promise.resolve(null)
+      ? { ensureBackup, markDuplicateBorn }
+      : {
+          ensureBackup: (docId, kind) => isTauri()
+            ? contextBackupService!.ensureBackup(docId, kind)
+            : Promise.resolve(null),
+          markDuplicateBorn: contextBackupService!.markDuplicateBorn,
+        }
   );
   return {
     app,
@@ -167,7 +162,8 @@ export function buildMcpContext(
     tempIdMap: new Map<string, string>(),
     paused: ui.aiPaused,
     readOnly: ui.aiReadOnly,
-    ensureBackup: contextEnsureBackup,
+    ensureBackup: backup.ensureBackup,
+    markDuplicateBorn: backup.markDuplicateBorn,
   };
 }
 

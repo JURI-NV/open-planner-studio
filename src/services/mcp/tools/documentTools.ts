@@ -22,7 +22,8 @@
 //     Daarom de veiligheidsvlag-guards los, via `guardBridgeFlags` hieronder.
 //  3. GEEN AI-BACKUP. Spec regel 130: document-tools triggeren zelf géén auto-backup; hun `kind` is
 //     `'document'` (alleen `'mutate'`/`'batch'` triggeren). Wel MOET `duplicate_document` het nieuwe
-//     document als "duplicate-born" registreren (T16-contract) — zie `documentToolDeps`.
+//     document als "duplicate-born" registreren (T16-contract) — via dezelfde contextbinding die
+//     ook de volgende backupbeslissing neemt.
 //
 // Batch-uitsluiting: spec regel 100 sluit document-tools uit van `batch` ⇒ `batchable: false` op alle
 // vier (ook op de leestool `list_documents`, die als document-tool meeloopt).
@@ -30,26 +31,6 @@
 import type { AppState } from '@/state/appStore';
 import { bindExpectedDoc, buildEnvelope, guardNonTransactional, mcpDocumentTitle, preBackupGuards, runReadTool, toolError } from './runtime';
 import type { McpContext, McpToolAnnotations, McpToolDef, McpToolErr, McpToolResult } from '../contracts';
-
-// --- T16-naad: markDuplicateBorn -----------------------------------------------------------------
-
-/**
- * Injecteerbare afhankelijkheden van de document-tools.
- *
- * `markDuplicateBorn` is het T16-contract (spec regel 130): een document dat in deze sessie via
- * `duplicate_document` is ontstaan slaat de automatische AI-backup over — zijn geboortestaat ÍS het
- * nog openstaande bronbestand. De echte implementatie woont in `services/mcp/backup.ts`.
- *
- * De naad blijft bestaan als INVERSIE, niet als tijdelijke stellage: een directe import zou deze
- * tool-module aan de backup-service (en daarmee aan de Tauri-fs) koppelen, terwijl de tests haar
- * juist los willen kunnen draaien. AANGESLOTEN sinds SYNC-2 — `initMcpRuntime()` in `server.ts` zet
- * `documentToolDeps.markDuplicateBorn = markDuplicateBorn`, en `cases-sync2-integration.ts` pint met
- * een identiteitscheck vast dat die naad écht ligt. Blijft de default staan, dan krijgt een duplicaat
- * alsnog een (overbodige, maar onschadelijke) auto-backup bij zijn eerste mutatie.
- */
-export const documentToolDeps: { markDuplicateBorn: (docId: string) => void } = {
-  markDuplicateBorn: () => { /* no-op tot initMcpRuntime() de backup-service aansluit */ },
-};
 
 // --- Gedeelde veiligheidsvlag-guard --------------------------------------------------------------
 
@@ -242,7 +223,7 @@ export const documentTools: McpToolDef[] = [
       const documentId = ctx.app.store.getState().duplicateDocument(name);
       // T16-contract (spec regel 130): dit document is deze sessie "geboren" uit een duplicaat en
       // slaat daarom de automatische backup over.
-      documentToolDeps.markDuplicateBorn(documentId);
+      ctx.markDuplicateBorn(documentId);
       bindExpectedDoc(ctx);
       const s = ctx.app.store.getState();
       const info = s.getOpenDocuments().find((d) => d.id === documentId);
