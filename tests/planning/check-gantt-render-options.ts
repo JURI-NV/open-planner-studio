@@ -579,7 +579,7 @@ eq('35 secundair: eigen scrollX', optsSecondary.view.scrollX, 400);
 // per constructie niet te zien. Veertien regels die het totaal opbliezen en niets bewaakten.
 
 // ════════════════════════════════════════════════════════════════════════════
-// DEEL 3 — Bron-assert op `GanttCanvas.tsx`.
+// DEEL 3 — Bron-assert op `GanttCanvas.tsx` en zijn rendererhost.
 //
 // Grens van deze batterij, expliciet: alles hierboven toetst de FUNCTIES, niet de BEDRADING. Er is
 // geen jsdom/testing-library in dit project, dus het component is niet headless te renderen — een
@@ -599,12 +599,13 @@ eq('35 secundair: eigen scrollX', optsSecondary.view.scrollX, 400);
   let root = dirname(fileURLToPath(import.meta.url));
   while (!existsSync(join(root, 'package.json')) && dirname(root) !== root) root = dirname(root);
   const canvasPath = join(root, 'src/components/canvas/GanttCanvas.tsx');
+  const hostPath = join(root, 'src/components/canvas/hooks/useGanttRendererHost.ts');
   const viewportPath = join(root, 'src/utils/ganttViewport.ts');
   // Zonder deze guard eindigt een bundel die BUITEN de repo landt in een ongevangen ENOENT uit
   // readFileSync — een crash in plaats van een faalregel, precies wat de walk hierboven wil
   // vermijden. Zelf gereproduceerd.
   checks++;
-  if (!existsSync(canvasPath) || !existsSync(viewportPath)) {
+  if (!existsSync(canvasPath) || !existsSync(hostPath) || !existsSync(viewportPath)) {
     diffs.push(`36 bron-assert overgeslagen: repo-root niet gevonden vanaf ${dirname(fileURLToPath(import.meta.url))}`);
   } else {
   const raw = readFileSync(canvasPath, 'utf8');
@@ -644,6 +645,7 @@ eq('35 secundair: eigen scrollX', optsSecondary.view.scrollX, 400);
     return out;
   };
   const src = stripComments(raw);
+  const hostSrc = stripComments(readFileSync(hostPath, 'utf8'));
   // De stripper zelf toetsen op SYNTHETISCHE invoer, niet op het bestand. Een eerdere versie
   // beweerde "laat strings met // intact" en controleerde toen `src.includes('useCanvasLayer')` —
   // een kale identifier, geen string, en `GanttCanvas.tsx` bevat helemaal geen string met `//`.
@@ -662,16 +664,18 @@ eq('35 secundair: eigen scrollX', optsSecondary.view.scrollX, 400);
   eq('36f stripComments haalt commentaar uit het echte bestand', src.includes('K-item 33: de pure afleidingen'), false);
   eq('36g stripComments laat de code van het echte bestand staan', src.includes('export function GanttCanvas()'), true);
 
-  // Beide teken-paden (primair + split-view-secundair) lopen via de gedeelde bouwer. Het KOPPEL
-  // van deze twee tellingen is de eigenlijke bewering: elke renderer die het component bouwt, moet
-  // zijn opties van de bouwer krijgen. Alleen `buildGanttRenderOptions` tellen is te zwak — dan
-  // overleeft een derde `new GanttRenderer(ctx, handgemaaktObject)` (gemeten: die sabotage bleef
-  // groen toen assert 38 nog alleen de inline-literalvorm herkende).
-  eq('37 GanttCanvas instantieert precies twee GanttRenderers (primair + secundair)',
-    (src.match(/new GanttRenderer\(/g) ?? []).length, 2);
-  eq('38 GanttCanvas roept buildGanttRenderOptions even vaak aan als het renderers maakt',
-    (src.match(/buildGanttRenderOptions\(/g) ?? []).length,
-    (src.match(/new GanttRenderer\(/g) ?? []).length);
+  // De shell levert alleen getypeerde bronopties; de host bezit één gedeelde constructieroute voor
+  // primary en secondary. Het KOPPEL van builder- en constructortelling bewaakt dat een pane niet
+  // alsnog met een handgemaakt optieobject naast `buildGanttRenderOptions` ontstaat.
+  eq('37 GanttCanvas instantieert geen renderer meer',
+    (src.match(/new (?:GanttRenderer|HistogramRenderer)\(/g) ?? []).length, 0);
+  eq('38 rendererhost heeft één gedeelde Gantt-constructorroute',
+    (hostSrc.match(/new GanttRenderer\(/g) ?? []).length, 1);
+  eq('38a rendererhost bouwt elke Gantt-optie via de gedeelde bouwer',
+    (hostSrc.match(/buildGanttRenderOptions\(/g) ?? []).length,
+    (hostSrc.match(/new GanttRenderer\(/g) ?? []).length);
+  eq('38b rendererhost bezit de enige histogramconstructor',
+    (hostSrc.match(/new HistogramRenderer\(/g) ?? []).length, 1);
 
   // De origin-lus stond drie keer in de codebase: de render-memo, `revealTaskIfOffscreen` en
   // `computeScrollToDate`. Alleen `GanttCanvas.tsx` scannen ving die derde per constructie niet —

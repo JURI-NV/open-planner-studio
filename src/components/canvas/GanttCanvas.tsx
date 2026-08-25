@@ -1,8 +1,7 @@
 import { useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
-import { GanttRenderer, GanttRenderOptions } from '@/engine/renderer/GanttRenderer';
-import { HistogramRenderer, HistogramSeries, HistogramPickerItem } from '@/engine/renderer/HistogramRenderer';
+import type { HistogramSeries, HistogramPickerItem } from '@/engine/renderer/HistogramRenderer';
 import { saveBranchAsWbsTemplate } from '@/utils/wbsTemplates';
 import { resolveUIFontStack } from '@/utils/uiFont';
 import { setGanttChartWidth, setGanttScrollBounds, getGanttScrollBounds, computeGanttScrollBounds, computeFitToProject, computeEffectiveViewStart, computeFocusTaskHorizontal, computeFocusTaskScrollY, DEFAULT_ZOOM } from '@/utils/ganttViewport';
@@ -34,15 +33,16 @@ import { saveLeftPanelWidth, saveHistogramHeight, TASK_TABLE_MIN_WIDTH, TASK_TAB
 import {
   buildBaselineOverlay, buildTrace, buildSharedAxis,
   computeContentSpanDays, computeContentWidth,
-  buildHistogramPicker, buildHistogramSeries, buildGanttRenderOptions,
+  buildHistogramPicker, buildHistogramSeries,
+  type GanttRenderOptionsSourceInput,
 } from './ganttRenderOptions';
-import { useCanvasLayer } from './hooks/useCanvasLayer';
+import { useGanttRendererHost } from './hooks/useGanttRendererHost';
+import type { HistogramRenderInput } from './hooks/ganttCoordinatorTypes';
 import { useBarDrag } from './hooks/useBarDrag';
 import { usePan } from './hooks/usePan';
 import { useBoxSelect } from './hooks/useBoxSelect';
 import { useRowDrag } from './hooks/useRowDrag';
 import { useDependencyDraw } from './hooks/useDependencyDraw';
-import { recordGanttPaint, registerGanttTestSurface } from '@/utils/ganttTestDriver';
 
 // Basisgeometrie op Tekengrootte 100% (issue #60): de component leidt hieruit de EFFECTIEVE
 // `rowHeight`/`headerHeight` af (× ui.uiFontScale/100) — gebruik binnen de component die geschaalde
@@ -80,17 +80,13 @@ interface TooltipState {
 }
 
 export function GanttCanvas() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hScrollRef = useRef<HTMLDivElement>(null);
   // Issue #35: eigen horizontale balk voor het secundaire split-view-pane + één verticale balk
   // voor de (gedeelde) rij-scroll van beide panes.
   const hScrollSecondaryRef = useRef<HTMLDivElement>(null);
   const vScrollRef = useRef<HTMLDivElement>(null);
-  const depLineCanvasRef = useRef<HTMLCanvasElement>(null);
   const histogramContainerRef = useRef<HTMLDivElement>(null);
-  const histogramCanvasRef = useRef<HTMLCanvasElement>(null);
-  const histogramRendererRef = useRef<HistogramRenderer | null>(null);
 
   const { t: tTask, i18n } = useTranslation('task');
   const { t: tCommon } = useTranslation('common');
@@ -207,30 +203,9 @@ export function GanttCanvas() {
   const { zoomAt } = useGanttZoom({ containerRef, taskTableWidth });
   useZoomShortcuts({ zoomAt, containerRef, taskTableWidth });
 
-  const rendererRef = useRef<GanttRenderer | null>(null);
   // Split view (fase 2.7, §10): secundair tijdvenster + sleepbare ratio-balk.
   const paneRowRef = useRef<HTMLDivElement>(null);
   const secondaryContainerRef = useRef<HTMLDivElement>(null);
-  const secondaryCanvasRef = useRef<HTMLCanvasElement>(null);
-  const secondaryRendererRef = useRef<GanttRenderer | null>(null);
-
-  // Dev-only browsernaad: registreer uitsluitend de levende refs. De registry bewaart geen
-  // rendererdata en kan zelf geen paint of productmutatie starten.
-  useEffect(() => {
-    if (!import.meta.env.DEV) return;
-    const unregisterPrimary = registerGanttTestSurface('primary', {
-      canvas: canvasRef,
-      renderer: rendererRef,
-    });
-    const unregisterSecondary = registerGanttTestSurface('secondary', {
-      canvas: secondaryCanvasRef,
-      renderer: secondaryRendererRef,
-    });
-    return () => {
-      unregisterSecondary();
-      unregisterPrimary();
-    };
-  }, []);
   const [isResizingSplit, setIsResizingSplit] = useState(false);
   const [primaryChartWidth, setPrimaryChartWidth] = useState(0);
   // Idem voor het secundaire pane (issue #35 punt 1): daar is taskTableWidth 0, dus de chart-breedte
@@ -302,51 +277,6 @@ export function GanttCanvas() {
     [barDrag.dragState],
   );
   const pan = usePan({ setScroll, justBoxSelectedRef });
-  const boxSelect = useBoxSelect({ canvasRef, rendererRef, selectTasks, deselectAll, justBoxSelectedRef });
-  // Issue #21 punt 1 (fase 2): id → Task voor `resolveDropTarget` (ouder/childIds-opzoek).
-  // Gememoized zodat de hook geen nieuwe Map per mousemove hoeft te bouwen.
-  const tasksById = useMemo(() => new Map(tasks.map(t => [t.id, t])), [tasks]);
-  const rowDrag = useRowDrag({
-    canvasRef, rendererRef, rows: viewRows, tasksById, moveTaskTo, selectedTaskIds, moveTasksTo,
-    justRowDraggedRef, headerHeight,
-  });
-  const depDraw = useDependencyDraw({
-    canvasRef,
-    containerRef,
-    depLineCanvasRef,
-    rendererRef,
-    onRelationCreated: useCallback(
-      (sequenceId: string, x: number, y: number) => setRelationPopover({ sequenceId, x, y }),
-      [],
-    ),
-  });
-
-  // Twee generieke sleep-splitters (pakket L, `useSplitter`): tabel/chart-breedte + histogram-hoogte.
-  // `max` altijd als functie (de hook vangt zijn opts bij drag-start; een kaal getal zou mid-drag
-  // stale kunnen zijn). `computeSize` valt terug op NaN als de ref (heel even) ontbreekt, en
-  // `onResize` slaat NaN over — zo blijft het "doe niets als het element weg is"-gedrag behouden.
-  const tableSplitter = useSplitter({
-    min: TASK_TABLE_MIN_WIDTH,
-    max: () => TASK_TABLE_MAX_WIDTH,
-    computeSize: (e) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return NaN;
-      return Math.round(e.clientX - canvas.getBoundingClientRect().left);
-    },
-    onResize: (w) => { if (!Number.isNaN(w)) setUI({ leftPanelWidth: w }); },
-    onCommit: () => { void saveLeftPanelWidth(useAppStore.getState().ui.leftPanelWidth); },
-  });
-  const histogramSplitter = useSplitter({
-    min: HISTOGRAM_MIN_HEIGHT,
-    max: () => HISTOGRAM_MAX_HEIGHT,
-    computeSize: (e) => {
-      const container = histogramContainerRef.current;
-      if (!container) return NaN;
-      return Math.round(container.getBoundingClientRect().bottom - e.clientY);
-    },
-    onResize: (h) => { if (!Number.isNaN(h)) setUI({ histogramHeight: h }); },
-    onCommit: () => { void saveHistogramHeight(useAppStore.getState().ui.histogramHeight); },
-  });
 
   // Baseline-overlay-Map uit de actieve baseline (fase 2.6, §6.2): keyed op Task.id (leaf-taken).
   const baselineOverlay = useMemo(
@@ -441,16 +371,12 @@ export function GanttCanvas() {
     [resourceLoadResult, histogramResourceId, resources],
   );
 
-  // Histogram-teken-callback (§6.4): dpr/resize-boilerplate zit nu in useCanvasLayer; hier alleen de
-  // HistogramRenderer opbouwen + tekenen. Hoogte en thema vormen samen één primitive revision.
-  const drawHistogram = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
-    const renderer = new HistogramRenderer(ctx, {
+  const histogramRenderInput = useMemo<HistogramRenderInput | undefined>(() => (
+    showHistogram ? {
       series: histogramSeries,
       picker: histogramPicker,
       selectedResourceId: histogramResourceId,
       view: effectiveView,
-      canvasWidth: width,
-      canvasHeight: height,
       taskTableWidth,
       // Issue #21 punt 5 (fase 2, §10.1): dezelfde as-instantie als de primaire Gantt-pane.
       axis: sharedAxis,
@@ -465,19 +391,8 @@ export function GanttCanvas() {
         : resources.length === 0
           ? tCommon('resource.histogram.noResources')
           : undefined,
-    });
-    histogramRendererRef.current = renderer;
-    renderer.render();
-    if (import.meta.env.DEV) recordGanttPaint('histogram', width, height);
-  }, [histogramSeries, histogramPicker, histogramResourceId, effectiveView, taskTableWidth, resourceLoadResult, resources.length, tCommon, sharedAxis, canvasFontFamily, fontScale]);
-
-  useCanvasLayer({
-    canvasRef: histogramCanvasRef,
-    containerRef: histogramContainerRef,
-    draw: drawHistogram,
-    enabled: showHistogram,
-    renderRevision: `${canvasThemeRevision}:${histogramHeight}`,
-  });
+    } : undefined
+  ), [showHistogram, histogramSeries, histogramPicker, histogramResourceId, effectiveView, taskTableWidth, resourceLoadResult, resources.length, tCommon, sharedAxis, canvasFontFamily, fontScale]);
 
   // Auto-dismiss van de drill-down-tooltip.
   useEffect(() => {
@@ -486,143 +401,55 @@ export function GanttCanvas() {
     return () => clearTimeout(timer);
   }, [histoTooltip]);
 
-  const contributingTaskNames = useCallback((iso: string): string[] => {
-    const names = new Set<string>();
-    for (const a of assignments) {
-      if (histogramResourceId && a.resourceId !== histogramResourceId) continue;
-      if (!histogramResourceId) {
-        const res = resources.find(r => r.id === a.resourceId);
-        if (!res || res.type === 'MATERIAL') continue;
-      }
-      const task = tasks.find(t => t.id === a.taskId);
-      if (!task) continue;
-      const es = task.time.earlyStart || task.time.scheduleStart;
-      const ef = task.time.earlyFinish || task.time.scheduleFinish;
-      if (es && ef && iso >= es && iso <= ef) names.add(task.name || task.id);
-    }
-    return [...names];
-  }, [assignments, resources, tasks, histogramResourceId]);
+  const primaryRenderInput = useMemo<GanttRenderOptionsSourceInput>(() => ({
+    rows: viewRows,
+    sequences,
+    calendar,
+    view: effectiveView,
+    selectedTaskIds,
+    collapsedTaskIds,
+    cpmResult,
+    statusDate,
+    showStatusDateLine,
+    showProgressLine,
+    showResourceAccent,
+    barColorSelection,
+    activityCodeTypes,
+    customFieldDefs,
+    taskTypeLabels,
+    barColorNoneLabel: tTask('structure.none'),
+    resources,
+    assignments,
+    showBaselineOverlay,
+    baselineOverlay,
+    trace,
+    taskTableWidth,
+    rowHeight,
+    headerHeight,
+    localizedMonths,
+    localizedWeekdays,
+    columnHeaders,
+    weekStartDay,
+    enableQuarterHourZoom,
+    effectiveCalById,
+    barSplitMode,
+    enableHourPlanning,
+    durationDisplay,
+    durationSuffixes,
+    externalStaleLabel: tTask('externalLinks.stale'),
+    durationDrag,
+    highContrast: uiTheme === 'high-contrast',
+    palette: undefined,
+    darkTheme: uiTheme === 'dark',
+    compressNonWorkdays,
+    axis: sharedAxis,
+    fontFamily: canvasFontFamily,
+    fontScale,
+  }), [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, statusDate, showStatusDateLine, showProgressLine, showResourceAccent, barColorSelection, activityCodeTypes, customFieldDefs, taskTypeLabels, resources, assignments, showBaselineOverlay, baselineOverlay, trace, taskTableWidth, rowHeight, headerHeight, localizedMonths, localizedWeekdays, columnHeaders, weekStartDay, enableQuarterHourZoom, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, tTask, durationDrag, uiTheme, compressNonWorkdays, sharedAxis, canvasFontFamily, fontScale]);
 
-  const handleHistogramClick = useCallback((e: React.MouseEvent) => {
-    const canvas = histogramCanvasRef.current;
-    const renderer = histogramRendererRef.current;
-    if (!canvas || !renderer) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const pick = renderer.pickerAt(x, y);
-    if (pick) {
-      setHistogramResource(pick.id);
-      setHistoTooltip(null);
-      return;
-    }
-    const iso = renderer.dayAt(x, y);
-    if (iso) {
-      const names = contributingTaskNames(iso);
-      setHistoTooltip({
-        x: e.clientX,
-        y: e.clientY,
-        lines: [tCommon('resource.histogram.overallocatedTooltip', { count: names.length, date: iso }), ...names.slice(0, 8)],
-      });
-    } else {
-      setHistoTooltip(null);
-    }
-  }, [setHistogramResource, contributingTaskNames, tCommon]);
-
-  // Primaire Gantt-teken-callback: dpr/resize-boilerplate zit nu in useCanvasLayer; hier alleen de
-  // viewport-registratie + het opbouwen/tekenen van de GanttRenderer (in CSS-pixels, `width`/`height`).
-  const drawPrimary = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
-    // Registreer het zichtbare tijdvenster (primaire pane) voor de recenter-formule van
-    // setTimeScale (§3.3) en voor het mini-map-viewportkader (§11).
-    const chartW = Math.max(0, width - taskTableWidth);
-    setGanttChartWidth(chartW);
-    setPrimaryChartWidth(prev => (Math.abs(prev - chartW) > 1 ? chartW : prev));
-
-    // Fix 2 (fase 2.8a QA): registreer de werkelijke scrolbare grenzen bij elke render, zodat
-    // `setScroll` (viewSlice) nooit voorbij de content kan klemmen — de vorige versie klemde
-    // alleen naar 0, zonder bovengrens, waardoor een verticale overscroll (of horizontaal ná een
-    // extreme zoom-uit/-in-cyclus) de taakbalken-laag permanent buiten beeld kon duwen.
-    setGanttScrollBounds(
-      computeGanttScrollBounds(totalContentWidth, viewRows.length, rowHeight, headerHeight, width, height),
-    );
-
-    const opts: GanttRenderOptions = buildGanttRenderOptions({
-      rows: viewRows,
-      sequences,
-      calendar,
-      view: effectiveView,
-      selectedTaskIds,
-      collapsedTaskIds,
-      cpmResult,
-      statusDate,
-      showStatusDateLine,
-      showProgressLine,
-      showResourceAccent,
-      barColorSelection,
-      activityCodeTypes,
-      customFieldDefs,
-      taskTypeLabels,
-      barColorNoneLabel: tTask('structure.none'),
-      resources,
-      assignments,
-      showBaselineOverlay,
-      baselineOverlay,
-      trace,
-      canvasWidth: width,
-      canvasHeight: height,
-      taskTableWidth,
-      rowHeight,
-      headerHeight,
-      localizedMonths,
-      localizedWeekdays,
-      columnHeaders,
-      weekStartDay,
-      enableQuarterHourZoom,
-      effectiveCalById,
-      barSplitMode,
-      enableHourPlanning,
-      durationDisplay,
-      durationSuffixes,
-      externalStaleLabel: tTask('externalLinks.stale'),
-      // Issue #51: live duur-pilletje bij een lopende rand-sleep (undefined ⇒ niets extra's).
-      durationDrag,
-      highContrast: uiTheme === 'high-contrast',
-      // Audit C5/P17: de renderer leest zijn palet zelf uit de DOM zolang we er geen injecteren.
-      // Expliciet opschrijven, want het invoertype is afgeleid van `GanttRenderOptions` — een
-      // weggelaten veld is hier een compilefout, geen stilte.
-      palette: undefined,
-      darkTheme: uiTheme === 'dark',
-      // Issue #21 punt 5 (fase 2): vlag + de gedeelde as-instantie (§10.1, zelfde als Histogram).
-      compressNonWorkdays,
-      axis: sharedAxis,
-      // Issue #25 punt 4: de gekozen interface-lettertypefamilie als concrete stack.
-      fontFamily: canvasFontFamily,
-      // Issue #60: Tekengrootte-schaal (rowHeight/headerHeight hierboven schalen al mee).
-      fontScale,
-    });
-
-    const renderer = new GanttRenderer(ctx, opts);
-    rendererRef.current = renderer;
-    renderer.render();
-    if (import.meta.env.DEV) recordGanttPaint('primary', width, height);
-  }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showResourceAccent, barColorSelection, activityCodeTypes, customFieldDefs, taskTypeLabels, resources, assignments, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis, canvasFontFamily, durationDrag, fontScale, rowHeight, headerHeight, tTask]);
-
-  useCanvasLayer({
-    canvasRef,
-    containerRef,
-    draw: drawPrimary,
-    renderRevision: canvasThemeRevision,
-  });
-
-  // --- Split view (fase 2.7, §10): secundair tijdvenster met eigen zoom/scrollX; gedeelde
-  // rijen + scrollY; geen canvas-taaktabel (taskTableWidth 0) — die tekent alleen links. ---
-  const drawSecondary = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
-    if (!splitView) return;
-    // Zelfde >1px-drempel als bij `primaryChartWidth`: zonder die drempel zet elke render een
-    // nieuwe state en tolt de render-lus rond (setState → render → setState).
-    setSecondaryChartWidth(prev => (Math.abs(prev - width) > 1 ? width : prev));
-    const renderer = new GanttRenderer(ctx, buildGanttRenderOptions({
+  // Secondary houdt exact zijn eigen zoom/scrollX, gedeelde rows/scrollY en taskTableWidth 0.
+  const secondaryRenderInput = useMemo<GanttRenderOptionsSourceInput | undefined>(() => (
+    splitView ? {
       rows: viewRows,
       sequences,
       calendar,
@@ -648,8 +475,6 @@ export function GanttCanvas() {
       showBaselineOverlay,
       baselineOverlay,
       trace,
-      canvasWidth: width,
-      canvasHeight: height,
       taskTableWidth: 0,
       rowHeight,
       headerHeight,
@@ -660,51 +485,142 @@ export function GanttCanvas() {
       enableQuarterHourZoom,
       effectiveCalById,
       barSplitMode,
-      // Deze drie voeden alléén de duurkolom (`drawTaskTable`, die bij `taskTableWidth <= 0` meteen
-      // terugkeert) en het sleep-pilletje. Dit pane heeft geen van beide, dus ze zijn hier inert —
-      // expliciet `undefined` in plaats van weggelaten, zodat het een keuze blijft en geen omissie.
+      // Deze velden voeden alleen de ontbrekende taaktabel of primaire rand-sleep.
       enableHourPlanning: undefined,
       durationDisplay: undefined,
       durationSuffixes: undefined,
-      // WEL vullen: dit is geen tabelveld. Het label wordt in de CHART getekend
-      // (`drawTaskBars` -> `drawExternalGhosts`), dus zonder dit toonde dit pane het
-      // hardgecodeerde NL 'verouderd' ongeacht de ingestelde taal. `tTask` staat daarom óók in de
-      // dep-array hieronder: hij ontbrak daar aanvankelijk en de taalwissel werkte alleen doordat
-      // `columnHeaders` (een TABELveld dat dit pane niet eens gebruikt) toevallig op `[tTask]`
-      // gememoized is. Haalt iemand dat inerte veld weg, dan bevriest de badge stil.
       externalStaleLabel: tTask('externalLinks.stale'),
-      // Rand-slepen gebeurt alleen in de primaire pane.
       durationDrag: undefined,
       highContrast: uiTheme === 'high-contrast',
       palette: undefined,
       darkTheme: uiTheme === 'dark',
-      // Issue #21 punt 5 (fase 2): geen `axis` meegegeven — de secundaire split-view-pane heeft
-      // eigen zoom/scrollX, dus bouwt de renderer zelf een consistente as via `compressNonWorkdays`.
+      // Geen gedeelde primary/histogram-as: secondary heeft een eigen tijdvenster.
       compressNonWorkdays,
       axis: undefined,
-      // Issue #25 punt 4: de secundaire pane volgt dezelfde lettertypefamilie als de primaire.
       fontFamily: canvasFontFamily,
-      // Issue #60: en dezelfde tekengrootte-schaal.
       fontScale,
-    }));
-    secondaryRendererRef.current = renderer;
-    renderer.render();
-    if (import.meta.env.DEV) recordGanttPaint('secondary', width, height);
-  }, [splitView, viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, statusDate, showStatusDateLine, showProgressLine, showResourceAccent, barColorSelection, activityCodeTypes, customFieldDefs, taskTypeLabels, resources, assignments, showBaselineOverlay, baselineOverlay, effectiveCalById, barSplitMode, compressNonWorkdays, canvasFontFamily, fontScale, rowHeight, headerHeight, tTask]);
+    } : undefined
+  ), [splitView, viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, statusDate, showStatusDateLine, showProgressLine, showResourceAccent, barColorSelection, activityCodeTypes, customFieldDefs, taskTypeLabels, resources, assignments, showBaselineOverlay, baselineOverlay, trace, rowHeight, headerHeight, localizedMonths, localizedWeekdays, columnHeaders, weekStartDay, enableQuarterHourZoom, effectiveCalById, barSplitMode, tTask, uiTheme, compressNonWorkdays, canvasFontFamily, fontScale]);
 
-  useCanvasLayer({
-    canvasRef: secondaryCanvasRef,
-    containerRef: secondaryContainerRef,
-    draw: drawSecondary,
-    enabled: splitEnabled,
+  const handlePrimarySize = useCallback((width: number, height: number) => {
+    // Registreer het zichtbare tijdvenster en de klemgrenzen bij exact dezelfde paint als voorheen.
+    const chartW = Math.max(0, width - taskTableWidth);
+    setGanttChartWidth(chartW);
+    setPrimaryChartWidth(prev => (Math.abs(prev - chartW) > 1 ? chartW : prev));
+    setGanttScrollBounds(
+      computeGanttScrollBounds(totalContentWidth, viewRows.length, rowHeight, headerHeight, width, height),
+    );
+  }, [taskTableWidth, totalContentWidth, viewRows.length, rowHeight, headerHeight]);
+
+  const handleSecondarySize = useCallback((width: number) => {
+    setSecondaryChartWidth(prev => (Math.abs(prev - width) > 1 ? width : prev));
+  }, []);
+
+  const {
+    primaryCanvasRef: canvasRef,
+    primaryRendererRef: rendererRef,
+    secondaryCanvasRef,
+    secondaryRendererRef,
+    histogramCanvasRef,
+    histogramRendererRef,
+    dependencyCanvasRef: depLineCanvasRef,
+  } = useGanttRendererHost({
+    containers: {
+      primaryContainerRef: containerRef,
+      secondaryContainerRef,
+      histogramContainerRef,
+    },
+    primary: primaryRenderInput,
+    secondary: secondaryRenderInput,
+    histogram: histogramRenderInput,
     renderRevision: canvasThemeRevision,
+    onPrimarySize: handlePrimarySize,
+    onSecondarySize: handleSecondarySize,
   });
 
-  // Reset de secundaire renderer-ref zodra split view uit gaat (het canvas verdwijnt dan; de
-  // klik-handler ernaar mag geen stale renderer meer zien). Was voorheen inline in het render-effect.
-  useEffect(() => {
-    if (!splitView) secondaryRendererRef.current = null;
-  }, [splitView]);
+  const boxSelect = useBoxSelect({ canvasRef, rendererRef, selectTasks, deselectAll, justBoxSelectedRef });
+  const tasksById = useMemo(() => new Map(tasks.map(t => [t.id, t])), [tasks]);
+  const rowDrag = useRowDrag({
+    canvasRef, rendererRef, rows: viewRows, tasksById, moveTaskTo, selectedTaskIds, moveTasksTo,
+    justRowDraggedRef, headerHeight,
+  });
+  const depDraw = useDependencyDraw({
+    canvasRef,
+    containerRef,
+    depLineCanvasRef,
+    rendererRef,
+    onRelationCreated: useCallback(
+      (sequenceId: string, x: number, y: number) => setRelationPopover({ sequenceId, x, y }),
+      [],
+    ),
+  });
+
+  // Splitters blijven voorlopig in de shell; Task 4 verhuist hun viewportcoördinatie als geheel.
+  const tableSplitter = useSplitter({
+    min: TASK_TABLE_MIN_WIDTH,
+    max: () => TASK_TABLE_MAX_WIDTH,
+    computeSize: (e) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return NaN;
+      return Math.round(e.clientX - canvas.getBoundingClientRect().left);
+    },
+    onResize: (w) => { if (!Number.isNaN(w)) setUI({ leftPanelWidth: w }); },
+    onCommit: () => { void saveLeftPanelWidth(useAppStore.getState().ui.leftPanelWidth); },
+  });
+  const histogramSplitter = useSplitter({
+    min: HISTOGRAM_MIN_HEIGHT,
+    max: () => HISTOGRAM_MAX_HEIGHT,
+    computeSize: (e) => {
+      const container = histogramContainerRef.current;
+      if (!container) return NaN;
+      return Math.round(container.getBoundingClientRect().bottom - e.clientY);
+    },
+    onResize: (h) => { if (!Number.isNaN(h)) setUI({ histogramHeight: h }); },
+    onCommit: () => { void saveHistogramHeight(useAppStore.getState().ui.histogramHeight); },
+  });
+
+  const contributingTaskNames = useCallback((iso: string): string[] => {
+    const names = new Set<string>();
+    for (const a of assignments) {
+      if (histogramResourceId && a.resourceId !== histogramResourceId) continue;
+      if (!histogramResourceId) {
+        const res = resources.find(r => r.id === a.resourceId);
+        if (!res || res.type === 'MATERIAL') continue;
+      }
+      const task = tasks.find(t => t.id === a.taskId);
+      if (!task) continue;
+      const es = task.time.earlyStart || task.time.scheduleStart;
+      const ef = task.time.earlyFinish || task.time.scheduleFinish;
+      if (es && ef && iso >= es && iso <= ef) names.add(task.name || task.id);
+    }
+    return [...names];
+  }, [assignments, resources, tasks, histogramResourceId]);
+
+  const handleHistogramClick = useCallback((e: React.MouseEvent) => {
+    const canvas = histogramCanvasRef.current;
+    const renderer = histogramRendererRef.current;
+    if (!canvas || !renderer) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const pick = renderer.pickerAt(x, y);
+    if (pick) {
+      setHistogramResource(pick.id);
+      setHistoTooltip(null);
+      return;
+    }
+    const iso = renderer.dayAt(x, y);
+    if (iso) {
+      const names = contributingTaskNames(iso);
+      setHistoTooltip({
+        x: e.clientX,
+        y: e.clientY,
+        lines: [tCommon('resource.histogram.overallocatedTooltip', { count: names.length, date: iso }), ...names.slice(0, 8)],
+      });
+    } else {
+      setHistoTooltip(null);
+    }
+  }, [histogramCanvasRef, histogramRendererRef, setHistogramResource, contributingTaskNames, tCommon]);
 
   // Wiel boven het secundaire pane. Wélke functie het wiel uitvoert (zoom/horizontaal/verticaal)
   // wordt bepaald door exact dezelfde gedeelde beslissing als links (`resolveWheelFunction`), dus

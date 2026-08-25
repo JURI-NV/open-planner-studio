@@ -244,6 +244,16 @@ export type GanttRenderOptionsInput =
   };
 
 /**
+ * Rendererinvoer die vóór een canvaspaint kan worden samengesteld. De host meet breedte en hoogte
+ * pas in `useCanvasLayer` en vult precies die twee velden daar aan; alle inhoudelijke opties blijven
+ * verplicht en worden nog steeds door dezelfde bouwer gevalideerd.
+ */
+export type GanttRenderOptionsSourceInput = Omit<
+  GanttRenderOptionsInput,
+  'canvasWidth' | 'canvasHeight'
+>;
+
+/**
  * Zet de invoer om in het `GanttRenderOptions`-object dat `GanttRenderer` verwacht. Puur — geen
  * store, geen DOM — en daarom headless assertbaar (`tests/planning/check-gantt-render-options.ts`).
  */

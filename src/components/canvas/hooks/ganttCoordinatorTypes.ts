@@ -22,7 +22,7 @@ import type { Task } from '@/types/task';
 import type { SplitViewState, ViewState } from '@/types/view';
 import type { WorkCalendar } from '@/types/calendar';
 import type { Splitter } from '@/hooks/useSplitter';
-import type { GanttRenderOptionsInput } from '../ganttRenderOptions';
+import type { GanttRenderOptionsSourceInput } from '../ganttRenderOptions';
 import type { DragState } from './useBarDrag';
 import type { PanState } from './usePan';
 import type { BoxSelectCandidate, BoxSelectState } from './useBoxSelect';
@@ -49,10 +49,12 @@ export interface GanttRendererHostInput {
     GanttViewportRefs,
     'primaryContainerRef' | 'secondaryContainerRef' | 'histogramContainerRef'
   >;
-  primary: GanttRenderOptionsInput;
-  secondary?: GanttRenderOptionsInput;
+  primary: GanttRenderOptionsSourceInput;
+  secondary?: GanttRenderOptionsSourceInput;
   histogram?: HistogramRenderInput;
   renderRevision: string | number;
+  onPrimarySize: (width: number, height: number) => void;
+  onSecondarySize: (width: number, height: number) => void;
 }
 
 /** Levende canvassen en renderers die de pointerlaag uitsluitend voor hit-tests mag lezen. */
