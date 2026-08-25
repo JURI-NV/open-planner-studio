@@ -118,3 +118,35 @@ test('canvas rowdrag Escape annuleert zonder mutatie', async ({ page, ops: _ops 
   expect(after.tasks.map(task => task.id)).toEqual(before.tasks.map(task => task.id));
   expect(after.undoDepth).toBe(before.undoDepth);
 });
+
+test('Gantt dependency-drag Escape annuleert zonder relatie of domeinmutatie', async ({ page, ops: _ops }) => {
+  const [sourceId, targetId] = await seedProject(page, [
+    { name: 'Escape bron', start: '2026-09-07', finish: '2026-09-11', durationDays: 5 },
+    { name: 'Escape doel', start: '2026-09-14', finish: '2026-09-18', durationDays: 5 },
+  ]);
+  const before = await state(page);
+  const sequencesBefore = await page.evaluate(() => window.__OPS__!.store.getState().sequences.length);
+  const source = await barPoint(page, sourceId);
+  const target = await barPoint(page, targetId);
+
+  await page.keyboard.down('Shift');
+  await page.mouse.move(source.x, source.y);
+  await page.mouse.down();
+  await page.mouse.move(target.x, target.y, { steps: 4 });
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+
+  const after = await state(page);
+  expect(await page.evaluate(() => window.__OPS__!.store.getState().sequences.length)).toBe(sequencesBefore);
+  expect(after.tasks.map(task => ({
+    id: task.id,
+    start: task.scheduleStart,
+    finish: task.scheduleFinish,
+  }))).toEqual(before.tasks.map(task => ({
+    id: task.id,
+    start: task.scheduleStart,
+    finish: task.scheduleFinish,
+  })));
+  expect(after.undoDepth).toBe(before.undoDepth);
+});

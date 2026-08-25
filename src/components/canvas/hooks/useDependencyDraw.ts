@@ -66,11 +66,22 @@ export function useDependencyDraw({
       setDepDragState(null);
     };
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      // Zelfde noodremcontract als row- en boxdrag: win in de capturefase van de globale
+      // sneltoetsen, zodat Escape uitsluitend het lopende relatiegebaar annuleert. De daarop
+      // volgende mouseup mag daardoor geen relatie meer maken.
+      e.stopImmediatePropagation();
+      setDepDragState(null);
+    };
+
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('keydown', handleKeyDown, true);
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [depDragState, canvasRef, rendererRef, onRelationCreated]);
 
