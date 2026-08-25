@@ -1395,24 +1395,31 @@ function drawTimelineHeader(
     const firstWeekOffset = (weekStartDow - isoDayOfWeek(minDate) + 7) % 7;
     let weekCursor = addCalendarDays(minDate, firstWeekOffset);
     while (weekCursor < endExclusive) {
-      const x = dateToX(weekCursor);
-      const weekLabel = `W${getWeekNumberFor(weekCursor, wsd)}`;
+      // Houd de weekgrens expliciet aan dezelfde datum vast als de labelberekening. De cursor
+      // springt al per week (veilig voor grote projecten), maar deze voorwaarde documenteert én
+      // bewaakt dat de zichtbare weeklabels op de ingestelde eerste dag liggen.
+      const date = weekCursor;
+      const dow = isoDayOfWeek(date);
+      if (dow === weekStartDow) {
+        const x = dateToX(date);
+        const weekLabel = `W${getWeekNumberFor(date, wsd)}`;
 
-      d2d.strokeStyle = PRINT_COLORS.grid;
-      d2d.lineWidth = 0.5;
-      d2d.beginPath();
-      d2d.moveTo(x, top + monthRowH);
-      d2d.lineTo(x, top + h);
-      d2d.stroke();
+        d2d.strokeStyle = PRINT_COLORS.grid;
+        d2d.lineWidth = 0.5;
+        d2d.beginPath();
+        d2d.moveTo(x, top + monthRowH);
+        d2d.lineTo(x, top + h);
+        d2d.stroke();
 
-      const weekLabelStart = x + m.s(2);
-      d2d.font = m.font(9);
-      if (weekLabelStart >= lastWeekLabelRight + m.s(4)) {
-        d2d.fillStyle = PRINT_COLORS.textSecondary;
-        d2d.textAlign = 'left';
-        d2d.textBaseline = 'middle';
-        d2d.fillText(weekLabel, weekLabelStart, top + monthRowH + weekRowH / 2);
-        lastWeekLabelRight = weekLabelStart + d2d.measureText(weekLabel).width;
+        const weekLabelStart = x + m.s(2);
+        d2d.font = m.font(9);
+        if (weekLabelStart >= lastWeekLabelRight + m.s(4)) {
+          d2d.fillStyle = PRINT_COLORS.textSecondary;
+          d2d.textAlign = 'left';
+          d2d.textBaseline = 'middle';
+          d2d.fillText(weekLabel, weekLabelStart, top + monthRowH + weekRowH / 2);
+          lastWeekLabelRight = weekLabelStart + d2d.measureText(weekLabel).width;
+        }
       }
       weekCursor = addCalendarDays(weekCursor, 7);
     }
