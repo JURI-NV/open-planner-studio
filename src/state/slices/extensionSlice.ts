@@ -79,6 +79,14 @@ export const createExtensionSlice: AppSlice<ExtensionSlice> = (set) => ({
   registerReadyExtension: (ext) =>
     set((s) => {
       s.installedExtensions[ext.id] = ext;
+      // Een valide opgeslagen extensie heeft door `parseStoredExtension` altijd exact dezelfde
+      // string als record-id, manifest-id en IndexedDB-sleutel. Ready en quarantaine zijn voor die
+      // ene fysieke sleutel wederzijds uitsluitend: laat een oude quarantainekaart staan en haar
+      // verwijderactie wist na reparatie juist het nieuwe geldige record. Doe beide wijzigingen in
+      // één store-update, zodat de UI nooit een tussenstaat met twee kaarten kan observeren.
+      for (const [quarantineId, quarantined] of Object.entries(s.quarantinedExtensions)) {
+        if (quarantined.storageKey === ext.id) delete s.quarantinedExtensions[quarantineId];
+      }
     }),
 
   registerQuarantinedExtension: (ext) =>

@@ -1,5 +1,82 @@
 import { expect, test, waitForOps } from './fixtures/ops';
 
+test('extension storage: reparatie vervangt quarantaine zonder het geldige record te bedreigen', async ({ page, ops: _ops }) => {
+  test.setTimeout(60_000);
+
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('ops-extensions', 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains('extensions')) {
+          request.result.createObjectStore('extensions', { keyPath: 'id' });
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction('extensions', 'readwrite');
+      const store = tx.objectStore('extensions');
+      store.clear();
+      store.put({ id: 'repair-demo', manifest: 17, mainCode: 99, enabled: 'ja' });
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error);
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  });
+
+  await page.reload();
+  await waitForOps(page);
+  const skipWelcome = page.getByRole('button', { name: /^(Skip|Overslaan)$/ });
+  await expect(skipWelcome).toBeVisible();
+  await skipWelcome.click();
+  await page.getByRole('button', { name: /^(File|Bestand)$/ }).click();
+  await page.getByRole('button', { name: /^(Extensions|Extensies)$/ }).click();
+
+  await expect(page.getByTestId('extension-ready-card')).toHaveCount(0);
+  await expect(page.getByTestId('extension-quarantine-card')).toHaveCount(1);
+
+  await page.evaluate(async () => {
+    await window.__OPS__!.extensions.installFromCode({
+      id: 'repair-demo',
+      name: 'Gerepareerde extensie',
+      version: '1.0.0',
+      apiVersion: '1.0',
+      minAppVersion: '0.0.0',
+      author: 'Browserfixture',
+      description: '',
+      category: 'Utility',
+      main: 'main.js',
+      permissions: [],
+    }, 'module.exports = { onLoad() {} };');
+  });
+
+  await expect(page.getByTestId('extension-ready-card')).toHaveCount(1);
+  await expect(page.getByTestId('extension-quarantine-card')).toHaveCount(0);
+  await expect(page.getByTestId('extension-ready-card')).toContainText('Gerepareerde extensie');
+
+  const persisted = await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('ops-extensions', 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const record = await new Promise<unknown>((resolve, reject) => {
+      const tx = db.transaction('extensions', 'readonly');
+      const request = tx.objectStore('extensions').get('repair-demo');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    return window.__OPS__!.extensions.scanStored().then(scan => ({
+      recordExists: record !== undefined,
+      validation: scan.find(item => item.storageKey === 'repair-demo')?.ok,
+    }));
+  });
+  expect(persisted).toEqual({ recordExists: true, validation: true });
+});
+
 test('extension storage: scant vier echte IndexedDB-records zonder code uit te voeren', async ({ page, ops }) => {
   test.setTimeout(60_000);
   await page.evaluate(async () => {
