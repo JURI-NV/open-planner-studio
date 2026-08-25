@@ -29,14 +29,17 @@ A full, formatted printout of the Gantt bars — this is the only report type wi
 
 - **Paper**: A4, A3 or A1.
 - **Orientation**: landscape or portrait.
-- **Auto-fit to paper** (on = the schedule scales automatically to the chosen size) or a manual
-  **zoom** slider if you turn auto-fit off.
+- **Auto-fit to paper** (on = the time axis is automatically compressed to the chosen size) or a
+  manual **zoom** slider if you turn auto-fit off. Even for a multi-year schedule, the activity
+  table and report text remain the same physical size on A4, A3 and A1; only the time axis becomes
+  denser or wider.
 - **Font size** — 90, 100, 110 or 125%; scales the report text, row height and header/footer,
   independently of the zoom level above.
 - **Repeat header on each page** — on by default; keeps the report header visible on every printed
   page instead of only the first.
 - **Timeline over** — spreads the Gantt timeline across 1 to 8 pages side by side; only available
-  with auto-fit on.
+  with auto-fit on. Choose more pages when you want a less compressed timeline without reducing
+  the table text.
 - Toggles for **task names on bars**, **show completion**, **critical path**, **show float**,
   **dependencies**, **weekends** and **legend**.
 - **Bar colors** — one choice shared by the on-screen Gantt and the report. *Critical path* gives

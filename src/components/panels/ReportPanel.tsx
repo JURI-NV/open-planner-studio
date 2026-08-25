@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
-import { renderPrintCanvas, renderReport, REPORT_FONT_SCALES, PrintOptions } from '@/services/print/printPreview';
+import { measurePrintReport, renderPrintCanvas, renderReport, REPORT_FONT_SCALES, REPORT_MAX_ZOOM, REPORT_MIN_ZOOM, PrintOptions } from '@/services/print/printPreview';
+import { computePreviewRasterLimits } from '@/services/print/previewSafety';
 import { getLocalizedMonths, getLocalizedMonthsShort } from '@/i18n/dateFormat';
 import { ensureExtension } from '@/utils/filePath';
 import { projectFileBase } from '@/utils/documents';
@@ -108,11 +109,6 @@ function buildVarianceColumns(t: TFunction<'report'>, dd: DisplayDate): PdfTable
     },
   ];
 }
-
-/** Render-schaal voor de gepagineerde preview (goedkoper dan de export; wordt toch verkleind getoond). */
-const PREVIEW_RENDER_SCALE = 2;
-/** Maximaal aantal papiervellen dat de preview toont (rest verwijst naar de export). */
-const PREVIEW_MAX_PAGES = 30;
 
 /** Instellingenkolom (issue #38 punt 3): startbreedte (oude vaste `w-64`) + sleepgrenzen. Geen
  *  eigen max-constante — de bovengrens is 50% van de kaartbreedte, dus dynamisch (zie `useSplitter`
@@ -422,13 +418,20 @@ export function ReportPanel() {
     const renderPreview = () => {
       if (cancelled) return;
       const offscreen = document.createElement('canvas');
-      // Eerste render (schaal 1) → logische maten + naam-kolombreedte + kop-hoogte; tweede render → preview-raster.
-      const { width: logicalWidth, height: logicalHeight, tableWidth, headerHeight } = renderPrintCanvas(
-        offscreen, tasks, sequences, calendar, projectName, options, 1,
+      // De eerste meting reserveert geen canvas. Op grond daarvan kiest de echte render een
+      // begrensde bronresolutie. Eerder werd altijd eerst een volledige 1×-canvas en daarna een
+      // 2×-canvas opgebouwd; bij veel rijen kon één klik op Auto-fit daardoor honderden MB's tot
+      // GB's reserveren vóór `maxPages` aan de beurt kwam.
+      const { width: logicalWidth, height: logicalHeight, tableWidth, headerHeight } = measurePrintReport(
+        tasks, sequences, calendar, projectName, options,
       );
-      renderPrintCanvas(offscreen, tasks, sequences, calendar, projectName, options, PREVIEW_RENDER_SCALE);
+      const lowerPaper = options.paperSize.toLowerCase() as 'a4' | 'a3' | 'a1';
+      const previewLimits = computePreviewRasterLimits(
+        logicalWidth, logicalHeight, lowerPaper, options.orientation,
+      );
+      renderPrintCanvas(offscreen, tasks, sequences, calendar, projectName, options, previewLimits.renderScale);
       const tiles = paginateCanvasToTiles(offscreen, {
-        paperSize: options.paperSize.toLowerCase() as 'a4' | 'a3' | 'a1',
+        paperSize: lowerPaper,
         orientation: options.orientation,
         mode: options.autoFit ? 'fit-width' : 'actual',
         logicalWidth,
@@ -443,11 +446,15 @@ export function ReportPanel() {
         // pagina een volledig papier-canvas aan (A3 ≈ 4 MB RGBA), dus een rooster van 20×8 zou
         // ~640 MB rasteren waarvan we er 30 tonen — bij elke optiewijziging opnieuw. Met `maxPages`
         // worden de overige pagina's nooit getekend; `rows`/`cols` blijven het volledige rooster.
-        maxPages: PREVIEW_MAX_PAGES,
+        maxPages: previewLimits.maxPages,
       });
       // Goedkope dubbele bodem: mocht de pagineer-limiet ooit wegvallen, dan toont de preview nog
       // steeds niet meer dan PREVIEW_MAX_PAGES vellen. Het echte werk zit in `maxPages` hierboven.
-      const shown = tiles.pages.slice(0, PREVIEW_MAX_PAGES);
+      const shown = tiles.pages;
+      // De pagina-canvassen bevatten nu hun eigen pixels; maak de potentieel grootste tijdelijke
+      // buffer vrij vóór `toDataURL` de previewstrings opbouwt.
+      offscreen.width = 0;
+      offscreen.height = 0;
       setPreviewPages(shown.map(page => ({
         dataUrl: page.toDataURL('image/png'),
         wPt: tiles.pageWidthPt,
@@ -913,8 +920,8 @@ export function ReportPanel() {
                 <label className="text-text-secondary w-20 flex-shrink-0">{t('zoom', { defaultValue: 'Zoom:' })}</label>
                 <input
                   type="range"
-                  min={5}
-                  max={40}
+                  min={REPORT_MIN_ZOOM}
+                  max={REPORT_MAX_ZOOM}
                   value={customZoom}
                   onChange={e => setCustomZoom(Number(e.target.value))}
                   className="flex-1 min-w-0"

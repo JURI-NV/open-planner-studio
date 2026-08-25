@@ -30,14 +30,17 @@ instellingenblok:
 
 - **Papier**: A4, A3 of A1.
 - **Oriëntatie**: liggend of staand.
-- **Auto-fit op papier** (aan = de planning schaalt automatisch naar het gekozen formaat) of een
-  handmatige **zoom**-schuif als je auto-fit uitzet.
+- **Auto-fit op papier** (aan = de tijdas automatisch naar het gekozen formaat comprimeert) of een
+  handmatige **zoom**-schuif als je auto-fit uitzet. Ook bij een meerjarige planning blijven de
+  activiteitenkolom en rapporttekst daarbij even groot op A4, A3 en A1; alleen de tijdas wordt
+  dichter of ruimer.
 - **Lettergrootte** — 90, 100, 110 of 125%; schaalt de rapporttekst, rijhoogte en kop/voet mee, los
   van het zoomniveau hierboven.
 - **Kop op elke pagina herhalen** — standaard aan; houdt de rapportkop zichtbaar op elke afgedrukte
   pagina in plaats van alleen de eerste.
 - **Tijdlijn over** — verdeelt de Gantt-tijdlijn over 1 tot 8 pagina's naast elkaar; alleen
-  beschikbaar met auto-fit aan.
+  beschikbaar met auto-fit aan. Kies meer pagina's wanneer je de tijdas minder wilt comprimeren
+  zonder de tabeltekst kleiner te maken.
 - Aan/uit-schakelaars voor **taaknamen op staafjes**, **voltooiing tonen**, **kritiek pad**,
   **speling tonen**, **afhankelijkheden**, **weekenden** en **legenda**.
 - **Balkkleuren** — één keuze die het Gantt-scherm en het rapport samen gebruiken. *Kritiek pad*

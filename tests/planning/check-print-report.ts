@@ -13,7 +13,9 @@
  *     resource = segmenten in rato van unitsPerDay + rode outline op kritieke taken.
  *  4. LEGENDA: resource-modus toont resourcenamen + rand-verklaring; critical-modus niet.
  */
-import { renderReport, PrintOptions } from '@/services/print/printPreview';
+import { renderReport, PrintOptions, REPORT_MIN_ZOOM } from '@/services/print/printPreview';
+import { computeTileLayout } from '@/services/print/tileLayout';
+import { computePreviewRasterLimits, PREVIEW_MAX_PAGE_PIXELS, PREVIEW_MAX_SOURCE_PIXELS } from '@/services/print/previewSafety';
 import type { Draw2D, TextAlign, TextBaseline } from '@/services/pdf/draw2d';
 import type { ViewRow } from '@/engine/view/visibleRows';
 import type { Task, TaskTime } from '@/types/task';
@@ -311,6 +313,74 @@ const baseOptions = (over: Partial<PrintOptions> = {}): PrintOptions => ({
   for (let i = 1; i <= 8; i++) ok(legend.texts.some(t => t.text === `V${i}`), `categorielegenda bevat zichtbare waarde V${i}`);
   ok(!legend.texts.some(t => t.text === 'V9'), 'categorielegenda kapt af na acht waarden');
   ok(legend.texts.some(t => t.text === '… en 1 meer'), 'categorielegenda meldt één extra waarde');
+}
+
+// ── 5. Rapportbreedte (#74) ───────────────────────────────────────────────────────────────────
+// Een lang project mag de tabeltekst niet mee verkleinen. In auto-fit moet de renderer daarom de
+// tijdlijn zó ver comprimeren dat de pagineerder steeds de vaste CSS→PDF-schaal 0,75 gebruikt
+// (96 CSS-pixels per inch versus 72 PDF-punten per inch), onafhankelijk van het papierformaat.
+{
+  const long = mkTask('long', 'Meerjarig project', {
+    time: mkTime({
+      earlyStart: '2026-01-05', earlyFinish: '2031-01-03',
+      scheduleStart: '2026-01-05', scheduleFinish: '2031-01-03',
+    }),
+  });
+  const physicalTableWidths: number[] = [];
+  // Dek alle papier-/oriëntatie- en tijdlijncombinaties die het gebruikerscontract noemt. Vooral
+  // `timelineColumns: 4` is belangrijk: elke extra pagina herhaalt de tabel en mag daardoor de
+  // schaal niet ongemerkt veranderen.
+  const paperCases = [
+    { paperSize: 'A4', orientation: 'landscape', timelineColumns: 1 },
+    { paperSize: 'A3', orientation: 'landscape', timelineColumns: 1 },
+    { paperSize: 'A1', orientation: 'portrait', timelineColumns: 1 },
+    { paperSize: 'A1', orientation: 'landscape', timelineColumns: 4 },
+  ] as const;
+  for (const { paperSize, orientation, timelineColumns } of paperCases) {
+    const { dims } = record([long], [], cal, baseOptions({ paperSize, orientation, timelineColumns }));
+    const layout = computeTileLayout({
+      paperSize: paperSize.toLowerCase() as 'a4' | 'a3' | 'a1', orientation, mode: 'fit-width',
+      logicalWidth: dims.width, logicalHeight: dims.height, frozenColumnWidthPx: dims.tableWidth, timelineColumns,
+    });
+    physicalTableWidths.push(dims.tableWidth * layout.scale);
+    ok(Math.abs(layout.scale - 0.75) < 0.000_001,
+      `#74 ${paperSize} ${orientation}, tijdlijn over ${timelineColumns}: auto-fit houdt vaste rapporttekst-schaal 0,75 (got ${layout.scale})`);
+    ok(layout.cols === timelineColumns,
+      `#74 ${paperSize} ${orientation}, tijdlijn over ${timelineColumns}: juiste horizontale pagina-indeling (got ${layout.cols})`);
+  }
+  ok(physicalTableWidths.every(width => Math.abs(width - physicalTableWidths[0]) < 0.000_001),
+    `#74 alle papier-/tijdlijncombinaties: tabel houdt gelijke fysieke breedte (got ${physicalTableWidths.join(' / ')})`);
+  const manualLayout = computeTileLayout({
+    paperSize: 'a3', orientation: 'landscape', mode: 'actual',
+    logicalWidth: 720, logicalHeight: 900, frozenColumnWidthPx: 450,
+  });
+  ok(Math.abs(manualLayout.scale - 0.75) < 0.000_001,
+    `#74 handmatige zoom houdt dezelfde rapporttekst-schaal (got ${manualLayout.scale})`);
+  ok(Math.abs(450 * manualLayout.scale - physicalTableWidths[0]) < 0.000_001,
+    `#74 handmatige zoom houdt tabel fysiek even groot als auto-fit (got ${450 * manualLayout.scale})`);
+  ok(REPORT_MIN_ZOOM === 1, 'handmatige rapportzoom kan tot 1 px/dag terug voor lange projecten');
+}
+
+// ── 6. Veilige grote rapportpreview (#74) ────────────────────────────────────────────────────
+// De preview mag niet eerst een broncanvas en tientallen A1-pagina's zonder rasterbudget maken.
+// Dit is puur rekenwerk, dus de bescherming is toetsbaar zonder een browsercanvas te reserveren.
+{
+  const limits = computePreviewRasterLimits(20_000, 10_000, 'a1', 'landscape');
+  ok(20_000 * limits.renderScale * 10_000 * limits.renderScale <= PREVIEW_MAX_SOURCE_PIXELS + 1,
+    `preview-basiscanvas blijft binnen pixelbudget (got ${limits.renderScale})`);
+  ok(limits.maxPages >= 1 && limits.maxPages * 2384 * 1684 <= PREVIEW_MAX_PAGE_PIXELS + 10_000,
+    `A1-preview beperkt tegelijk vastgehouden pagina's (got ${limits.maxPages})`);
+}
+{
+  const absurdlyLong = mkTask('very-long', 'Veilige lange tijdas', {
+    time: mkTime({
+      earlyStart: '2026-01-05', earlyFinish: '2526-01-03',
+      scheduleStart: '2026-01-05', scheduleFinish: '2526-01-03',
+    }),
+  });
+  const rendered = record([absurdlyLong], [], cal, baseOptions({ paperSize: 'A4', orientation: 'landscape' }));
+  ok(rendered.paths.length < 6_000,
+    `lange auto-fit-tijdas begrenst onzichtbare rasterarbeid (got ${rendered.paths.length})`);
 }
 
 if (failures > 0) { console.log(`print-report: ${failures} faalregels`); process.exit(1); }

@@ -22,7 +22,7 @@
 
 import { getSetting, setSetting } from '@/utils/settingsStore';
 import { snapToChoice } from '@/utils/numberChoice';
-import { REPORT_FONT_SCALES } from '@/services/print/printPreview';
+import { REPORT_FONT_SCALES, REPORT_MAX_ZOOM, REPORT_MIN_ZOOM } from '@/services/print/printPreview';
 
 /** localStorage-sleutel (wordt door `setSetting` geprefixt tot `ops-reportSettings`). */
 const STORAGE_KEY = 'reportSettings';
@@ -90,8 +90,8 @@ const STATUS_LINES: readonly ReportSettings['statusLine'][] = ['none', 'statusDa
  *  ene laag iets wat de andere niet kan tonen of tekenen. */
 const FONT_SCALES: readonly number[] = REPORT_FONT_SCALES;
 /** Grenzen van de zoom-slider resp. de tijdlijnkolommen-Select in het paneel. */
-const ZOOM_MIN = 5;
-const ZOOM_MAX = 40;
+const ZOOM_MIN = REPORT_MIN_ZOOM;
+const ZOOM_MAX = REPORT_MAX_ZOOM;
 const TIMELINE_COLUMNS_MIN = 1;
 const TIMELINE_COLUMNS_MAX = 8;
 

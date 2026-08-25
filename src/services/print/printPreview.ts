@@ -6,6 +6,7 @@ import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
 import type { DateNotation } from '@/types/view';
 import type { Draw2D } from '@/services/pdf/draw2d';
 import { CanvasDraw2D } from '@/services/pdf/canvasDraw2d';
+import { printableWidthLogicalPx } from '@/services/print/tileLayout';
 // Print-vriendelijk kleurschema — nu uit het centrale themapalet (audit C5/P17). De naam
 // `PRINT_COLORS` blijft behouden zodat de teken-aanroepen ongewijzigd zijn; waarden zijn identiek.
 import { PRINT_PALETTE as PRINT_COLORS } from '@/engine/renderer/themePalette';
@@ -42,6 +43,19 @@ const FOOTER_HEIGHT = 50;
 // en de latere vector-export identieke measureText geven; systeem-stack als fallback zolang de
 // FontFace nog niet geladen is (§5.1/K2 ontwerpdoc). De swap reflowt bewust bestaande exports.
 const FONT_FAMILY = 'InterPDF, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+/**
+ * De raster- en vectorpaden delen deze tekenroutine. Op een zeer lange, in auto-fit gecomprimeerde
+ * planning zijn individuele daglijnen en weekendvakken kleiner dan één pixel en dus onzichtbaar;
+ * ze toch één voor één tekenen houdt de UI-thread minutenlang bezig. Deze grenzen bewaren de
+ * relevante maand/weekstructuur maar maken de kosten lineair begrensd.
+ */
+const MAX_DAILY_GRID_STEPS = 5_000;
+const MAX_DAILY_WEEKEND_STEPS = 5_000;
+
+/** Handmatige rapportzoom in logische pixels per dag. Eén pixel is de kleinste bruikbare stand. */
+export const REPORT_MIN_ZOOM = 1;
+export const REPORT_MAX_ZOOM = 40;
 
 // Relatielijn-stub: de horizontale afstand die een relatielijn eerst rechtdoor loopt vóórdat hij
 // verticaal afknikt (en spiegelbeeldig links van de opvolger bij de "omheen"-route). Dit is de
@@ -170,16 +184,6 @@ function makeMetrics(reportFontScale: number | undefined): ReportMetrics {
     cols: getColPositions(k),
   };
 }
-
-/** Paper sizes at 96 DPI (landscape) */
-const PAPER_SIZES: Record<string, { w: number; h: number }> = {
-  'A4-landscape': { w: 1123, h: 794 },
-  'A4-portrait': { w: 794, h: 1123 },
-  'A3-landscape': { w: 1587, h: 1123 },
-  'A3-portrait': { w: 1123, h: 1587 },
-  'A1-landscape': { w: 3179, h: 2245 },
-  'A1-portrait': { w: 2245, h: 3179 },
-};
 
 export interface PrintOptions {
   showCritical: boolean;
@@ -554,31 +558,28 @@ export function renderReport(
   const totalDays = diffCalendarDays(minDate, maxDate);
 
   // Calculate zoom: auto-fit or custom
-  const paperKey = `${options.paperSize}-${options.orientation}`;
-  const paper = PAPER_SIZES[paperKey] || PAPER_SIZES['A3-landscape'];
-  const margins = 20; // left + right margins in px
   // Aantal paginabreedtes waarover de tijdlijn uitgesmeerd mag worden (issue #25 punt 5).
   const timelineColumns = Math.max(1, Math.floor(options.timelineColumns ?? 1));
   // Beschikbare chart-breedte over N papierbreedtes.
   //
-  // AFLEIDING — de pagineerder tekent bij N fit-width-kolommen in totaal `canvasWidth +
-  // (N-1)·tableWidth` bron-px (de naam-kolom wordt op elke volgende pagina herhaald) op N
-  // paginabreedtes. Wil je dat die "virtuele" breedte precies N pagina's vult op ~1:1-schaal, dan:
-  //     tableWidth + chartWidth + (N-1)·tableWidth = N·(paper.w - margins)
-  //  ⇒  chartWidth = N·(paper.w - margins) - N·tableWidth = N·(paper.w - tableWidth - margins)
-  // De N herhalingen van de naam-kolom zijn dus AL verrekend doordat we `tableWidth` binnen de
-  // factor N aftrekken; er nog eens `tableWidth·(N-1)` bij optellen zou ze dubbel tellen en de
-  // tijdlijn juist te breed (en dus na schaling te klein) maken. Bij N = 1 is dit exact de oude waarde.
-  // `m.tableWidth` is de GESCHAALDE tabelbreedte: bij een grotere rapport-letter neemt de tabel meer
-  // papier in en houdt de tijdlijn navenant minder over — precies de bedoelde ruil.
-  const availableChartWidth = (paper.w - m.tableWidth - margins) * timelineColumns;
+  //
+  // #74 — `printableWidthLogicalPx` is niet een cosmetische papierbreedte maar de precieze
+  // bronbreedte die de gedeelde pagineerder met zijn vaste 96dpi→72pt-verhouding (0,75) op papier
+  // zet. Daardoor geldt voor N kolommen:
+  //     tableWidth + chartWidth + (N - 1)·tableWidth = N·printableWidth
+  //  ⇒  chartWidth = N·(printableWidth - tableWidth)
+  // De tabel behoudt zo op A4, A3 én A1 dezelfde fysieke tekengrootte; uitsluitend de tijdas krijgt
+  // meer of minder pixels per dag. De oude ondergrens van 5 px/dag maakte een meerjarenplanning
+  // alsnog veel te breed, waarna de pagineerder juist de héle tabel mee verkleinde.
+  const printableWidth = printableWidthLogicalPx(
+    options.paperSize.toLowerCase() as 'a4' | 'a3' | 'a1',
+    options.orientation,
+  );
+  const availableChartWidth = Math.max(1, printableWidth - m.tableWidth) * timelineColumns;
 
   let zoom: number;
   if (options.autoFit && totalDays > 0) {
     zoom = availableChartWidth / totalDays;
-    // De klem blijft ONGESCHAALD: de tijdlijn-zoom (px per dag) is precies de maat die NIET meeschaalt,
-    // anders zou het rapport uniform schalen en op papier niets veranderen (zie {@link ReportMetrics}).
-    zoom = Math.max(5, Math.min(40, zoom));
   } else {
     zoom = options.customZoom || 22;
   }
@@ -630,7 +631,7 @@ export function renderReport(
   // Grid background - weekend/holiday shading. T13: via CalendarEngine (zie de moduleuitleg
   // hierboven bij `calEngine`) — een werkende uitzondering (bv. een ingeroosterde zaterdag) is
   // hierdoor géén van beide meer en print dus ongeschaduwd, zoals elke gewone werkdag.
-  if (options.showWeekends) {
+  if (options.showWeekends && totalDays <= MAX_DAILY_WEEKEND_STEPS && zoom >= 0.5) {
     for (let i = 0; i < totalDays; i++) {
       const date = addCalendarDays(minDate, i);
       const x = dateToX(date);
@@ -658,7 +659,16 @@ export function renderReport(
   }
 
   // Vertical grid lines
-  for (let i = 0; i < totalDays; i++) {
+  // Minder dan één pixel per dag levert geen leesbare dagrastering op. Beperk bovendien de
+  // tekening tot 5.000 lijnen: een project met een foutieve of uitzonderlijk grote datumsprong
+  // mag nooit de UI-thread monopoliseren terwijl de lijn toch niet van de volgende te
+  // onderscheiden is.
+  const gridStep = Math.max(
+    1,
+    Math.ceil(totalDays / MAX_DAILY_GRID_STEPS),
+    Math.ceil(1 / Math.max(zoom, 0.000_001)),
+  );
+  for (let i = 0; i < totalDays; i += gridStep) {
     const date = addCalendarDays(minDate, i);
     const x = dateToX(date);
     const dow = isoDayOfWeek(date);
@@ -1086,6 +1096,43 @@ export function renderPrintCanvas(
   );
 }
 
+/**
+ * Meet een rapport zonder een HTML-canvas of GPU-/systeembuffer te reserveren. De preview gebruikt
+ * dit vóór zijn echte rasterrender om zijn geheugenbudget te bepalen. Tekstbreedtes hoeven hier
+ * niet pixelprecies te zijn: de teruggegeven afmetingen bestaan uitsluitend uit de vaste tabel-,
+ * kop- en rijmaten; de echte render meet daarna met het geladen font.
+ */
+export function measurePrintReport(
+  tasks: Task[],
+  sequences: Sequence[],
+  calendar: WorkCalendar,
+  projectName: string,
+  options: PrintOptions,
+): RenderReportResult {
+  let font = '10px sans-serif';
+  let fillStyle = '';
+  let strokeStyle = '';
+  let lineWidth = 1;
+  let textAlign: import('@/services/pdf/draw2d').TextAlign = 'left';
+  let textBaseline: import('@/services/pdf/draw2d').TextBaseline = 'alphabetic';
+  const d2d: Draw2D = {
+    get font() { return font; }, set font(value) { font = value; },
+    get fillStyle() { return fillStyle; }, set fillStyle(value) { fillStyle = value; },
+    get strokeStyle() { return strokeStyle; }, set strokeStyle(value) { strokeStyle = value; },
+    get lineWidth() { return lineWidth; }, set lineWidth(value) { lineWidth = value; },
+    get textAlign() { return textAlign; }, set textAlign(value) { textAlign = value; },
+    get textBaseline() { return textBaseline; }, set textBaseline(value) { textBaseline = value; },
+    setLineDash() {},
+    fillRect() {}, strokeRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, fill() {}, stroke() {}, roundRect() {},
+    fillText() {},
+    measureText(text) {
+      const size = Number.parseFloat(font) || 10;
+      return { width: text.length * size * 0.55 };
+    },
+  };
+  return renderReport(() => d2d, tasks, sequences, calendar, projectName, options);
+}
+
 
 /** Draw the project header box at the top of the page */
 function drawProjectHeader(
@@ -1299,53 +1346,58 @@ function drawTimelineHeader(
   const wsd = options.weekStartDay ?? 'monday';
   const weekStartDow = wsd === 'sunday' ? 7 : 1;
 
-  let lastMonth = -1;
-  let lastWeek = -1;
   // Rechterrand (x) van het laatst getekende maand-/weeklabel, om overlap te vermijden (klacht 7).
   let lastMonthLabelRight = -Infinity;
   let lastWeekLabelRight = -Infinity;
+  const endExclusive = addCalendarDays(minDate, totalDays);
 
-  for (let i = 0; i < totalDays; i++) {
-    const date = addCalendarDays(minDate, i);
+  // Maand- en weekkoppen hoeven niet eerst alle tussenliggende dagen te bezoeken. Bij een
+  // meerjarenproject kan de dagzoom kleiner dan één pixel zijn, maar deze twee grenzen blijven
+  // leesbaar en de kosten groeien slechts met maanden/weken.
+  // Ook maandgrenzen kunnen bij historische/foutieve datums onbegrensd worden. De stap vergroot
+  // dan alleen waar een afzonderlijke maandlijn minder dan leesbaar is; voor normale planningen
+  // blijft hij precies één maand.
+  const monthStep = Math.max(
+    zoom * 28 < 1 ? 12 : 1,
+    Math.ceil(totalDays / (28 * MAX_DAILY_GRID_STEPS)),
+  );
+  let monthCursor = new Date(Date.UTC(minDate.getUTCFullYear(), minDate.getUTCMonth(), 1));
+  while (monthCursor < endExclusive) {
+    const date = monthCursor < minDate ? minDate : monthCursor;
     const x = dateToX(date);
     const month = date.getUTCMonth();
-    const weekNum = getWeekNumberFor(date, wsd);
-    const dow = isoDayOfWeek(date);
+    const monthName = months[month];
+    const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+    const label = `${capitalizedMonth} ${date.getUTCFullYear()}`;
 
-    // Month headers (capitalize first letter)
-    if (month !== lastMonth) {
-      lastMonth = month;
-      const monthName = months[month];
-      const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-      const label = `${capitalizedMonth} ${date.getUTCFullYear()}`;
+    d2d.strokeStyle = PRINT_COLORS.border;
+    d2d.lineWidth = 0.5;
+    d2d.beginPath();
+    d2d.moveTo(x, top);
+    d2d.lineTo(x, top + monthRowH);
+    d2d.stroke();
 
-      // Vertical separator
-      d2d.strokeStyle = PRINT_COLORS.border;
-      d2d.lineWidth = 0.5;
-      d2d.beginPath();
-      d2d.moveTo(x, top);
-      d2d.lineTo(x, top + monthRowH);
-      d2d.stroke();
-
-      // Alleen het label tekenen als het niet over het vorige maandlabel heen loopt (klacht 7);
-      // liever een gat dan over-elkaar-lopende tekst.
-      // Label-offsets/-tussenruimtes horen bij de TEKST en schalen dus mee.
-      d2d.font = m.font(10, true);
-      const monthLabelStart = x + m.s(4);
-      if (monthLabelStart >= lastMonthLabelRight + m.s(6)) {
-        d2d.fillStyle = PRINT_COLORS.text;
-        d2d.textBaseline = 'middle';
-        d2d.textAlign = 'left';
-        d2d.fillText(label, monthLabelStart, top + monthRowH / 2);
-        lastMonthLabelRight = monthLabelStart + d2d.measureText(label).width;
-      }
+    d2d.font = m.font(10, true);
+    const monthLabelStart = x + m.s(4);
+    if (monthLabelStart >= lastMonthLabelRight + m.s(6)) {
+      d2d.fillStyle = PRINT_COLORS.text;
+      d2d.textBaseline = 'middle';
+      d2d.textAlign = 'left';
+      d2d.fillText(label, monthLabelStart, top + monthRowH / 2);
+      lastMonthLabelRight = monthLabelStart + d2d.measureText(label).width;
     }
+    monthCursor = new Date(Date.UTC(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth() + monthStep, 1));
+  }
 
-    // Week headers
-    if (dow === weekStartDow && weekNum !== lastWeek) {
-      lastWeek = weekNum;
+  // Bij minder dan één pixel per week is een weekraster onzichtbaar. Niet tekenen voorkomt dat
+  // een planning met een veel te groot datumbereik tienduizenden kalenderobjecten maakt.
+  if (zoom * 7 >= 1 && totalDays <= MAX_DAILY_GRID_STEPS * 7) {
+    const firstWeekOffset = (weekStartDow - isoDayOfWeek(minDate) + 7) % 7;
+    let weekCursor = addCalendarDays(minDate, firstWeekOffset);
+    while (weekCursor < endExclusive) {
+      const x = dateToX(weekCursor);
+      const weekLabel = `W${getWeekNumberFor(weekCursor, wsd)}`;
 
-      // Vertical separator
       d2d.strokeStyle = PRINT_COLORS.grid;
       d2d.lineWidth = 0.5;
       d2d.beginPath();
@@ -1353,8 +1405,6 @@ function drawTimelineHeader(
       d2d.lineTo(x, top + h);
       d2d.stroke();
 
-      // Alleen tekenen als er ruimte is t.o.v. het vorige weeklabel (klacht 7).
-      const weekLabel = `W${weekNum}`;
       const weekLabelStart = x + m.s(2);
       d2d.font = m.font(9);
       if (weekLabelStart >= lastWeekLabelRight + m.s(4)) {
@@ -1364,10 +1414,17 @@ function drawTimelineHeader(
         d2d.fillText(weekLabel, weekLabelStart, top + monthRowH + weekRowH / 2);
         lastWeekLabelRight = weekLabelStart + d2d.measureText(weekLabel).width;
       }
+      weekCursor = addCalendarDays(weekCursor, 7);
     }
+  }
 
-    // Day numbers if zoom is large enough
-    if (zoom > 15) {
+  // Dagcijfers zijn alleen zichtbaar op een brede tijdas. Beperk ook daar de iteratie bij een
+  // handmatig extreem grote rapportcanvas; maand/weekkoppen hierboven blijven dan beschikbaar.
+  if (zoom > 15 && totalDays <= MAX_DAILY_GRID_STEPS) {
+    for (let i = 0; i < totalDays; i++) {
+      const date = addCalendarDays(minDate, i);
+      const x = dateToX(date);
+      const dow = isoDayOfWeek(date);
       const dayNum = date.getUTCDate();
       if (dow !== 6 && dow !== 7) { // Skip weekend days for cleaner display
         d2d.fillStyle = PRINT_COLORS.textSecondary;
