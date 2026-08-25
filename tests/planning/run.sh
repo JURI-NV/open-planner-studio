@@ -297,6 +297,12 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   GCCHECK="$DIR/.gantt-coordinator-contracts.mjs"
   if bundle_check "$DIR/check-gantt-coordinator-contracts.ts" "$GCCHECK"; then node "$GCCHECK" || STATUS=1; fi
 
+  # Mechanische Gantt-grenspoort (onderhoudbaarheidsprogramma plan 3): draait dezelfde AST-check
+  # als npm run verify en bewijst met tijdelijke bronfixtures dat echte grenslekken rood worden,
+  # terwijl woorden in commentaar en strings geen vals alarm geven.
+  GBCHECK="$DIR/.gantt-boundaries.mjs"
+  if bundle_check "$DIR/check-gantt-boundaries.ts" "$GBCHECK"; then node "$GBCHECK" || STATUS=1; fi
+
   # Zoomstap-regressie (K-item 34, voorbereidend): de in-/uitzoomstap stond op drie plekken los en
   # twee ervan zoomden in met 10 maar uit met 5 — heen en weer klikken bracht je niet terug waar je
   # begon. Toetst het gedrag én dat er nergens in src/ nog een kale zoomwaarde naast setZoom staat.
