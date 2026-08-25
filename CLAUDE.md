@@ -105,6 +105,11 @@ rest van de regressiedekking.
 
 The Gantt chart is drawn imperatively to a `<canvas>` via `src/engine/renderer/` (`GanttRenderer`). Bars, dependencies, the timescale, and hit-testing all live in renderer code — not React components. When changing visual behavior of the Gantt, edit the renderer; React only owns the surrounding chrome (ribbon, panels, dialogs, status bar). The table view (`TableEditor`) is a separate DOM-based editor over the same store.
 
+Er zijn dus bewust twee taak-tabeloppervlakken: de taaktabel in de Gantt blijft Canvas 2D en
+`TableEditor` blijft de afzonderlijke DOM-editor. Voeg geen nieuwe structurele verantwoordelijkheid
+aan `TableEditor` toe. Een samenvoeging of brede uitbreiding hoort alleen in een latere tabelrevisie
+die navigatie, kolommen, relaties en resources als één productontwerp behandelt.
+
 ### State: één Zustand + Immer store, samengesteld uit slices
 
 `src/state/appStore.ts` is een compositie-root: `create<AppState>()(immer(...))` spreidt veertien slice-creators uit `src/state/slices/` (project, task, sequence, resource, schedule, history, view, ui, file, extension, document, structure, baseline, library). Elke slice is getypeerd als `AppSlice<XSlice>` (zie `slices/types.ts`) tegen de **volledige** `AppState`, zodat cross-slice acties (runCPM, undo/redo, newProject, file-I/O) gewoon de hele Immer-draft muteren. Nieuwe state/acties horen in de passende slice; `slices/types.ts` bevat daarnaast gedeelde type/enum-definities (`ViewState`, `UIState`, …). Domain-types staan in `src/types/`. De renderer leest alleen uit de store.
