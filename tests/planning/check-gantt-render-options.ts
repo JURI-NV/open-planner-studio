@@ -601,12 +601,14 @@ eq('35 secundair: eigen scrollX', optsSecondary.view.scrollX, 400);
   const canvasPath = join(root, 'src/components/canvas/GanttCanvas.tsx');
   const hostPath = join(root, 'src/components/canvas/hooks/useGanttRendererHost.ts');
   const coordinatorPath = join(root, 'src/components/canvas/hooks/useGanttViewportCoordinator.ts');
+  const histogramInteractionPath = join(root, 'src/components/canvas/hooks/useGanttHistogramInteraction.ts');
   const viewportPath = join(root, 'src/utils/ganttViewport.ts');
   // Zonder deze guard eindigt een bundel die BUITEN de repo landt in een ongevangen ENOENT uit
   // readFileSync — een crash in plaats van een faalregel, precies wat de walk hierboven wil
   // vermijden. Zelf gereproduceerd.
   checks++;
-  if (!existsSync(canvasPath) || !existsSync(hostPath) || !existsSync(coordinatorPath) || !existsSync(viewportPath)) {
+  if (!existsSync(canvasPath) || !existsSync(hostPath) || !existsSync(coordinatorPath)
+    || !existsSync(histogramInteractionPath) || !existsSync(viewportPath)) {
     diffs.push(`36 bron-assert overgeslagen: repo-root niet gevonden vanaf ${dirname(fileURLToPath(import.meta.url))}`);
   } else {
   const raw = readFileSync(canvasPath, 'utf8');
@@ -648,6 +650,7 @@ eq('35 secundair: eigen scrollX', optsSecondary.view.scrollX, 400);
   const src = stripComments(raw);
   const hostSrc = stripComments(readFileSync(hostPath, 'utf8'));
   const coordinatorSrc = stripComments(readFileSync(coordinatorPath, 'utf8'));
+  const histogramInteractionSrc = stripComments(readFileSync(histogramInteractionPath, 'utf8'));
   // De stripper zelf toetsen op SYNTHETISCHE invoer, niet op het bestand. Een eerdere versie
   // beweerde "laat strings met // intact" en controleerde toen `src.includes('useCanvasLayer')` —
   // een kale identifier, geen string, en `GanttCanvas.tsx` bevat helemaal geen string met `//`.
@@ -678,6 +681,15 @@ eq('35 secundair: eigen scrollX', optsSecondary.view.scrollX, 400);
     (hostSrc.match(/new GanttRenderer\(/g) ?? []).length);
   eq('38b rendererhost bezit de enige histogramconstructor',
     (hostSrc.match(/new HistogramRenderer\(/g) ?? []).length, 1);
+  eq('38c GanttCanvas bevat geen histogramhittest of bijdragefilter meer', [
+    'pickerAt', 'dayAt', 'contributingTaskNames', 'setHistoTooltip',
+  ].filter(name => src.includes(name)), []);
+  eq('38d histograminteractie gebruikt uitsluitend rendererhittests', [
+    'pickerAt', 'dayAt',
+  ].filter(name => histogramInteractionSrc.includes(name)), ['pickerAt', 'dayAt']);
+  eq('38e histograminteractie dupliceert geen as- of seriesafleiding', [
+    'dateToX', 'buildHistogramPicker', 'buildHistogramSeries', 'useAppStore',
+  ].filter(name => histogramInteractionSrc.includes(name)), []);
 
   // De origin-lus stond drie keer in de codebase: de render-memo, `revealTaskIfOffscreen` en
   // `computeScrollToDate`. Alleen `GanttCanvas.tsx` scannen ving die derde per constructie niet —

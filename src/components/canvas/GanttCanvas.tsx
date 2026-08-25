@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useMemo, useState } from 'react';
+import { useRef, useCallback, useMemo, useState } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
 import type { HistogramSeries, HistogramPickerItem } from '@/engine/renderer/HistogramRenderer';
@@ -32,6 +32,7 @@ import {
 } from './ganttRenderOptions';
 import { useGanttRendererHost } from './hooks/useGanttRendererHost';
 import { useGanttViewportCoordinator } from './hooks/useGanttViewportCoordinator';
+import { useGanttHistogramInteraction } from './hooks/useGanttHistogramInteraction';
 import type { HistogramRenderInput } from './hooks/ganttCoordinatorTypes';
 import { useBarDrag } from './hooks/useBarDrag';
 import { usePan } from './hooks/usePan';
@@ -248,7 +249,6 @@ export function GanttCanvas() {
   // hieronder), dit is puur een correctie-UI.
   const [relationPopover, setRelationPopover] = useState<{ sequenceId: string; x: number; y: number } | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
-  const [histoTooltip, setHistoTooltip] = useState<{ x: number; y: number; lines: string[] } | null>(null);
 
   const localizedMonths = useMemo(() => getLocalizedMonths(i18n.language), [i18n.language]);
   // issue #21 punt 2 (vervolg: dagnamen): 7 weekdag-afkortingen in getUTCDay()-volgorde
@@ -352,13 +352,6 @@ export function GanttCanvas() {
           : undefined,
     } : undefined
   ), [showHistogram, histogramSeries, histogramPicker, histogramResourceId, effectiveView, taskTableWidth, resourceLoadResult, resources.length, tCommon, sharedAxis, canvasFontFamily, fontScale]);
-
-  // Auto-dismiss van de drill-down-tooltip.
-  useEffect(() => {
-    if (!histoTooltip) return;
-    const timer = setTimeout(() => setHistoTooltip(null), 6000);
-    return () => clearTimeout(timer);
-  }, [histoTooltip]);
 
   const primaryRenderInput = useMemo<GanttRenderOptionsSourceInput>(() => ({
     rows: viewRows,
@@ -483,6 +476,25 @@ export function GanttCanvas() {
     onSecondarySize: viewport.onSecondarySize,
   });
 
+  const formatHistogramContributionLabel = useCallback(
+    (count: number, isoDate: string) => tCommon('resource.histogram.overallocatedTooltip', {
+      count,
+      date: isoDate,
+    }),
+    [tCommon],
+  );
+  const histogramInteraction = useGanttHistogramInteraction({
+    canvasRef: histogramCanvasRef,
+    rendererRef: histogramRendererRef,
+    assignments,
+    resources,
+    tasks,
+    selectedResourceId: histogramResourceId,
+    selectResource: setHistogramResource,
+    formatContributionLabel: formatHistogramContributionLabel,
+  });
+  const clearHistogramTooltip = histogramInteraction.clearTooltip;
+
   const boxSelect = useBoxSelect({ canvasRef, rendererRef, selectTasks, deselectAll, justBoxSelectedRef });
   const tasksById = useMemo(() => new Map(tasks.map(t => [t.id, t])), [tasks]);
   const rowDrag = useRowDrag({
@@ -499,49 +511,6 @@ export function GanttCanvas() {
       [],
     ),
   });
-
-  const contributingTaskNames = useCallback((iso: string): string[] => {
-    const names = new Set<string>();
-    for (const a of assignments) {
-      if (histogramResourceId && a.resourceId !== histogramResourceId) continue;
-      if (!histogramResourceId) {
-        const res = resources.find(r => r.id === a.resourceId);
-        if (!res || res.type === 'MATERIAL') continue;
-      }
-      const task = tasks.find(t => t.id === a.taskId);
-      if (!task) continue;
-      const es = task.time.earlyStart || task.time.scheduleStart;
-      const ef = task.time.earlyFinish || task.time.scheduleFinish;
-      if (es && ef && iso >= es && iso <= ef) names.add(task.name || task.id);
-    }
-    return [...names];
-  }, [assignments, resources, tasks, histogramResourceId]);
-
-  const handleHistogramClick = useCallback((e: React.MouseEvent) => {
-    const canvas = histogramCanvasRef.current;
-    const renderer = histogramRendererRef.current;
-    if (!canvas || !renderer) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const pick = renderer.pickerAt(x, y);
-    if (pick) {
-      setHistogramResource(pick.id);
-      setHistoTooltip(null);
-      return;
-    }
-    const iso = renderer.dayAt(x, y);
-    if (iso) {
-      const names = contributingTaskNames(iso);
-      setHistoTooltip({
-        x: e.clientX,
-        y: e.clientY,
-        lines: [tCommon('resource.histogram.overallocatedTooltip', { count: names.length, date: iso }), ...names.slice(0, 8)],
-      });
-    } else {
-      setHistoTooltip(null);
-    }
-  }, [histogramCanvasRef, histogramRendererRef, setHistogramResource, contributingTaskNames, tCommon]);
 
   // Selectie-klik in het secundaire pane (bandkop → collapse-toggle, net als links).
   const handleSecondaryClick = useCallback((e: React.MouseEvent) => {
@@ -623,7 +592,7 @@ export function GanttCanvas() {
       justRowDraggedRef.current = false;
       return;
     }
-    setHistoTooltip(null);
+    clearHistogramTooltip();
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -691,7 +660,7 @@ export function GanttCanvas() {
     } else {
       deselectAll();
     }
-  }, [canvasRef, rendererRef, selectTask, deselectAll, toggleCollapse, addTask, defaultTaskName, setCollapsedGroupKey, revealTaskIfOffscreen, headerHeight]);
+  }, [canvasRef, rendererRef, selectTask, deselectAll, toggleCollapse, addTask, defaultTaskName, setCollapsedGroupKey, revealTaskIfOffscreen, clearHistogramTooltip, headerHeight]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -717,7 +686,7 @@ export function GanttCanvas() {
     // de primaire fix; de z-index-bump hieronder is het vangnet voor tooltips die via mousemove
     // ná het openen alsnog opnieuw gezet zouden worden (zie de guard in handleMouseMove).
     setTooltip(null);
-    setHistoTooltip(null);
+    clearHistogramTooltip();
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -763,7 +732,7 @@ export function GanttCanvas() {
     // pas bij het loslaten bepaald, niet hier.
     const barHit = !!task && !!renderer.getRelationSourceAt(x, y);
     setContextMenu({ x: e.clientX, y: e.clientY, task, barHit, group: null });
-  }, [canvasRef, rendererRef, selectTask, selectedTaskIds, headerHeight]);
+  }, [canvasRef, rendererRef, selectTask, selectedTaskIds, clearHistogramTooltip, headerHeight]);
 
   // Drag and drop: mousedown (task move/resize + dependency drawing)
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -1223,7 +1192,7 @@ export function GanttCanvas() {
               data-testid="gantt-histogram-canvas"
               className="absolute inset-0"
               style={{ cursor: 'pointer' }}
-              onClick={handleHistogramClick}
+              onClick={histogramInteraction.onClick}
             />
             {/* Verouderd-hint (A6): het histogram volgt de belasting direct, maar de CPM-datums
                 eronder kunnen na een datum-mutatie verouderd zijn — subtiel melden. */}
@@ -1235,10 +1204,10 @@ export function GanttCanvas() {
                 ⚠ {tCommon('resource.histogram.staleHint')}
               </div>
             )}
-            {histoTooltip && (
-              <HoverTooltip left={histoTooltip.x + 14} top={histoTooltip.y - 10}>
+            {histogramInteraction.tooltip && (
+              <HoverTooltip left={histogramInteraction.tooltip.x + 14} top={histogramInteraction.tooltip.y - 10}>
                 {/* Issue #58 geldt hier net zo goed: dit zijn resourcenamen, tot 9 regels. */}
-                {histoTooltip.lines.map((l, i) => (
+                {histogramInteraction.tooltip.lines.map((l, i) => (
                   <div key={i} className={i === 0 ? 'tooltip-title' : 'tooltip-row'}>{l}</div>
                 ))}
               </HoverTooltip>
