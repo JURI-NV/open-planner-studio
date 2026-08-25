@@ -967,10 +967,14 @@ export function TimeScaleGroupContent() {
   const requestFitToProject = useAppStore(s => s.requestFitToProject);
   const enableHourPlanning = useAppStore(s => s.ui.enableHourPlanning);
 
-  const zoomButtons = (
+  const zoomInOutButtons = (
     <>
       <RibbonSmallButton icon={<ZoomIn size={14} />} label={tMenu('ribbon.zoomIn')} title={tMenu('ribbon.zoomInTitle')} onClick={() => setZoom(zoom + ZOOM_STEP)} />
       <RibbonSmallButton icon={<ZoomOut size={14} />} label={tMenu('ribbon.zoomOut')} title={tMenu('ribbon.zoomOutTitle')} onClick={() => setZoom(zoom - ZOOM_STEP)} />
+    </>
+  );
+  const resetFitButtons = (
+    <>
       <RibbonSmallButton icon={<Eye size={14} />} label={tMenu('ribbon.zoomReset')} title={tMenu('ribbon.zoomResetTitle')} onClick={() => setZoom(DEFAULT_ZOOM)} />
       {/* Issue #78: "Passend op project" was alleen bereikbaar via het canvas-contextmenu, dat
           verdwijnt zodra de takentabel volledig gevuld is. `requestFitToProject` is dezelfde
@@ -1000,7 +1004,8 @@ export function TimeScaleGroupContent() {
   if (compact) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        {zoomButtons}
+        {zoomInOutButtons}
+        {resetFitButtons}
         <div style={{ minWidth: 96 }}>{dropdown}</div>
       </div>
     );
@@ -1008,7 +1013,10 @@ export function TimeScaleGroupContent() {
 
   return (
     <div style={{ display: 'flex', gap: 6 }}>
-      <RibbonButtonStack>{zoomButtons}</RibbonButtonStack>
+      <div className="ribbon-time-scale-controls">
+        <RibbonButtonStack>{zoomInOutButtons}</RibbonButtonStack>
+        <RibbonButtonStack>{resetFitButtons}</RibbonButtonStack>
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 4px' }}>
         {dropdown}
         <span className="ribbon-info">{tMenu('ribbon.zoomLevel', { level: Math.round(zoom) })}</span>
