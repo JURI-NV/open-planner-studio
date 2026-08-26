@@ -1071,6 +1071,20 @@ function SavedFilterDropdown() {
     previousDialogOpen.current = showFilterDialog;
   }, [showFilterDialog, reload]);
 
+  const openFilterControls = () => {
+    // Lees bij de klik opnieuw: bij het openen van de app kan de asynchrone initiële laadactie
+    // nog lopen. Daardoor wordt een bestaande preset nooit ten onrechte als een lege lijst gezien.
+    void loadSavedFilters().then(filters => {
+      setSavedFilters(filters);
+      if (filters.length === 0) {
+        setUI({ showFilterDialog: true });
+        setOpen(false);
+        return;
+      }
+      setOpen(value => !value);
+    });
+  };
+
   return (
     <Popover
       open={open}
@@ -1079,7 +1093,7 @@ function SavedFilterDropdown() {
       trigger={
         <button
           className={`ribbon-btn small${filter !== null ? ' active' : ''}`}
-          onClick={() => setOpen(value => !value)}
+          onClick={openFilterControls}
           title={tMenu('ribbon.filter')}
           aria-label={tMenu('ribbon.filter')}
         >

@@ -4,7 +4,7 @@ Het venster **Filteren** bepaalt welke taken zichtbaar zijn — in de Gantt én 
 
 ## Openen
 
-**Beeld** → lintgroep **Weergave** → **Filteren…**. De knop licht op zolang er een filter actief is. De pijl op de knop opent ook je opgeslagen filters; een keuze past het filter direct toe en **Wissen** zet het actieve filter uit. **Esc**, het kruisje of een klik buiten het venster sluit zonder toe te passen.
+**Beeld** → lintgroep **Weergave** → **Filteren…**. De knop licht op zolang er een filter actief is. Zijn er nog geen opgeslagen filters, dan opent de knop direct het filtervenster. Anders opent de pijl op de knop je opgeslagen filters; een keuze past het filter direct toe en **Wissen** zet het actieve filter uit. **Esc**, het kruisje of een klik buiten het venster sluit zonder toe te passen.
 
 ## Groepen: alles of iets
 

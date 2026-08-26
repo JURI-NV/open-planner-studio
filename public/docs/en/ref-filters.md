@@ -4,7 +4,7 @@ The **Filter** window controls which tasks are visible — in the Gantt and on t
 
 ## Opening
 
-**View** → ribbon group **Display** → **Filter…**. The button stays highlighted while a filter is active. Its arrow also opens your saved filters, so choosing one applies it immediately; **Clear** switches the active filter off. **Esc**, the close cross or a click outside the window closes without applying.
+**View** → ribbon group **Display** → **Filter…**. The button stays highlighted while a filter is active. If you have no saved filters yet, it opens the Filter window directly. Otherwise its arrow also opens your saved filters, so choosing one applies it immediately; **Clear** switches the active filter off. **Esc**, the close cross or a click outside the window closes without applying.
 
 ## Groups: all or any
 
