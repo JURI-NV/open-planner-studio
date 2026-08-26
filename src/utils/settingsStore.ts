@@ -9,6 +9,8 @@ import type {
   DateNotation,
   DurationDisplay,
   BarSplitMode,
+  FilterNode,
+  SavedFilter,
   UIFontFamily,
 } from '@/state/slices/types';
 
@@ -207,6 +209,43 @@ export async function loadLayouts(): Promise<Layout[]> {
 
 export async function saveLayouts(layouts: Layout[]): Promise<void> {
   await setSetting('layouts', layouts);
+}
+
+// Opgeslagen filters (issue #85): net als layouts app-breed op dit apparaat, maar bewust alleen
+// de filterboom. Daardoor blijft de rest van de actuele weergave onaangetast bij snel wisselen.
+const FILTER_OPERATORS = new Set(['eq', 'neq', 'lt', 'lte', 'gt', 'gte', 'contains', 'startsWith', 'between', 'isEmpty', 'in']);
+
+function isFilterNode(value: unknown): value is FilterNode {
+  if (!value || typeof value !== 'object') return false;
+  const node = value as Record<string, unknown>;
+  if (node.kind === 'group') {
+    return (node.op === 'AND' || node.op === 'OR') && Array.isArray(node.children) && node.children.every(isFilterNode);
+  }
+  if (node.kind !== 'rule' || !FILTER_OPERATORS.has(node.operator as string)) return false;
+  const field = node.field;
+  if (!field || typeof field !== 'object') return false;
+  const ref = field as Record<string, unknown>;
+  return (ref.src === 'builtin' && typeof ref.key === 'string') ||
+    (ref.src === 'activityCode' && typeof ref.typeId === 'string') ||
+    (ref.src === 'customField' && typeof ref.defId === 'string') ||
+    ref.src === 'resource';
+}
+
+function isValidSavedFilter(value: unknown): value is SavedFilter {
+  if (!value || typeof value !== 'object') return false;
+  const filter = value as Record<string, unknown>;
+  return typeof filter.id === 'string' && filter.id.length > 0 &&
+    typeof filter.name === 'string' && filter.name.trim().length > 0 &&
+    isFilterNode(filter.filter);
+}
+
+export async function loadSavedFilters(): Promise<SavedFilter[]> {
+  const raw = await getSetting<unknown>('savedFilters');
+  return Array.isArray(raw) ? raw.filter(isValidSavedFilter) : [];
+}
+
+export async function saveSavedFilters(filters: SavedFilter[]): Promise<void> {
+  await setSetting('savedFilters', filters);
 }
 
 // Automatisch berekenen (fase 2.7 vervolg): app-instelling, dus WEL onder de 3-plekken-regel

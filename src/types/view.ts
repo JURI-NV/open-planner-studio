@@ -65,6 +65,14 @@ export type FilterNode =
       value2?: string | number; // alleen 'between'
     };
 
+/** App-brede filterpreset. Bewust alleen het filter, zodat wisselen nooit kolommen, groepering,
+ * sortering of tijdschaal van de actuele weergave raakt. */
+export interface SavedFilter {
+  id: string;
+  name: string;
+  filter: FilterNode;
+}
+
 export interface GroupLevel {
   field: FieldRef;
   dir: 'asc' | 'desc'; // volgorde waarin de banden zelf verschijnen

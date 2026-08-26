@@ -12,7 +12,7 @@ import {
 import { listWbsTemplates, deleteWbsTemplate, type WbsTemplate } from '@/utils/wbsTemplates';
 import { scaleFromZoom } from '@/engine/renderer/timelineTiers';
 import {
-  saveShowMiniMap, loadLayouts, saveLayouts, loadLastLayoutId, saveLastLayoutId,
+  saveShowMiniMap, loadLayouts, saveLayouts, loadLastLayoutId, saveLastLayoutId, loadSavedFilters,
 } from '@/utils/settingsStore';
 import { saveBarColorSelection } from '@/utils/barColorSettings';
 import { ExportFormat } from '@/state/appStore';
@@ -21,7 +21,7 @@ import { addTaskNearSelection } from '@/state/taskInsertActions';
 import { supportsHandles } from '@/services/fileAccess';
 import { DateTextInput } from '@/components/common/DateTextInput';
 import { ExtensionIcon } from '@/components/common/ExtensionIcon';
-import { RibbonTab, type GroupLevel, type SortLevel, type Layout, type TimeScale } from '@/state/slices/types';
+import { RibbonTab, type GroupLevel, type SortLevel, type Layout, type SavedFilter, type TimeScale } from '@/state/slices/types';
 import type { ResourceCurve } from '@/types/resource';
 import { RESOURCE_CURVES, CURVE_KEY } from '@/components/task-sections/shared';
 import { UnitsInput } from '@/components/common/UnitsInput';
@@ -1053,16 +1053,67 @@ export function useColumnsButtonBinding() {
  * sorteer-popovers. Narrow "small"-knoppen zodat de groep smal blijft en in compacte modus
  * niet overlapt.
  */
-export function DisplayGroupContent() {
+function SavedFilterDropdown() {
   const { t: tMenu } = useTranslation('menu');
+  const { t: tCommon } = useTranslation('common');
   const setUI = useAppStore(s => s.setUI);
   const filter = useAppStore(s => s.view.filter);
+  const setFilter = useAppStore(s => s.setFilter);
+  const showFilterDialog = useAppStore(s => s.ui.showFilterDialog);
+  const [open, setOpen] = useState(false);
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
+
+  const reload = useCallback(() => { void loadSavedFilters().then(setSavedFilters); }, []);
+  useEffect(() => { reload(); }, [reload]);
+  const previousDialogOpen = useRef(showFilterDialog);
+  useEffect(() => {
+    if (previousDialogOpen.current && !showFilterDialog) reload();
+    previousDialogOpen.current = showFilterDialog;
+  }, [showFilterDialog, reload]);
+
+  return (
+    <Popover
+      open={open}
+      onClose={() => setOpen(false)}
+      panelStyle={{ marginTop: 2, zIndex: 9999, minWidth: 190, padding: 4, display: 'flex', flexDirection: 'column', gap: 2 }}
+      trigger={
+        <button
+          className={`ribbon-btn small${filter !== null ? ' active' : ''}`}
+          onClick={() => setOpen(value => !value)}
+          title={tMenu('ribbon.filter')}
+          aria-label={tMenu('ribbon.filter')}
+        >
+          <span className="ribbon-btn-icon"><Filter size={14} /></span>
+          <span className="ribbon-btn-label">{tMenu('ribbon.filter')} ▾</span>
+        </button>
+      }
+    >
+      <button className="ribbon-btn small" style={{ width: '100%' }} onClick={() => { setUI({ showFilterDialog: true }); setOpen(false); }}>
+        <span className="ribbon-btn-icon"><Filter size={14} /></span>
+        <span className="ribbon-btn-label">{tMenu('ribbon.filter')}</span>
+      </button>
+      {filter !== null && (
+        <button className="ribbon-btn small" style={{ width: '100%' }} onClick={() => { setFilter(null); setOpen(false); }}>
+          <span className="ribbon-btn-label">{tCommon('view.filter.clear')}</span>
+        </button>
+      )}
+      {savedFilters.map(saved => (
+        <button key={saved.id} className="ribbon-btn small" style={{ width: '100%', justifyContent: 'flex-start' }} onClick={() => { setFilter(structuredClone(saved.filter)); setOpen(false); }}>
+          <span className="ribbon-btn-label">{saved.name}</span>
+        </button>
+      ))}
+    </Popover>
+  );
+}
+
+export function DisplayGroupContent() {
+  const { t: tMenu } = useTranslation('menu');
   const columns = useColumnsButtonBinding();
 
   return (
     <div className="ribbon-display-grid icons">
       <RibbonSmallButton icon={<Columns3 size={14} />} label={tMenu('ribbon.columns')} title={columns.title} onClick={columns.onClick} />
-      <RibbonSmallButton icon={<Filter size={14} />} label={tMenu('ribbon.filter')} title={tMenu('ribbon.filter')} onClick={() => setUI({ showFilterDialog: true })} active={filter !== null} />
+      <SavedFilterDropdown />
       <GroupPopoverButton />
       <SortPopoverButton />
     </div>

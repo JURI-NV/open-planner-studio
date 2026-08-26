@@ -348,6 +348,11 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   ADFCHECK="$DIR/.active-during-filter.mjs"
   if bundle_check "$DIR/check-active-during-filter.ts" "$ADFCHECK"; then node "$ADFCHECK" || STATUS=1; fi
 
+  # Opgeslagen filters (issue #85): app-brede presetopslag is los van layouts, valideert corrupte
+  # localStorage en houdt meerdere filterbomen in dezelfde volgorde beschikbaar.
+  SFLCHECK="$DIR/.saved-filters.mjs"
+  if bundle_check "$DIR/check-saved-filters.ts" "$SFLCHECK"; then node "$SFLCHECK" || STATUS=1; fi
+
   # Renderer-datumloos-regressie (TODO-item 2026-07-28): `barGeometry` (en `drawMilestone`) gooide
   # per frame een TypeError op een taak zonder start-/finishdatums (`undefined.includes('T')`) en
   # liet de hele Gantt zwart. Draait de echte renderer over datumloze leaf-/summary-/mijlpaal-rijen:

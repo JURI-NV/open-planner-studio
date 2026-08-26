@@ -17,13 +17,13 @@ export type AppSliceFactory<T> = (runtime: StoreRuntime) => AppSlice<T>;
 // (DATE_NOTATIONS, DURATION_DISPLAYS, BAR_SPLIT_MODES) blijven hieronder in de state-laag.
 import type {
   TimeScale, DateNotation, DurationDisplay, BarSplitMode,
-  BuiltinFieldKey, FieldRef, ColumnConfig, FilterOperator, FilterNode,
+  BuiltinFieldKey, FieldRef, ColumnConfig, FilterOperator, FilterNode, SavedFilter,
   GroupLevel, SortLevel, Layout, SplitViewState, ViewState,
 } from '@/types/view';
 import type { BarColorSelection } from '@/types/barColor';
 export type {
   TimeScale, DateNotation, DurationDisplay, BarSplitMode,
-  BuiltinFieldKey, FieldRef, ColumnConfig, FilterOperator, FilterNode,
+  BuiltinFieldKey, FieldRef, ColumnConfig, FilterOperator, FilterNode, SavedFilter,
   GroupLevel, SortLevel, Layout, SplitViewState, ViewState,
 };
 export type { BarColorSelection };
