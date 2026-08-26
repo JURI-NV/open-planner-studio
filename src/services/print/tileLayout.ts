@@ -34,7 +34,7 @@
  * module gedragsneutraal voor aanroepers die niets meegeven.
  */
 
-export type PaperSize = 'a4' | 'a3' | 'a1';
+export type PaperSize = 'a4' | 'a3' | 'a2' | 'a1';
 export type Orientation = 'portrait' | 'landscape';
 export type PaginateMode = 'fit-width' | 'actual';
 
@@ -42,6 +42,7 @@ export type PaginateMode = 'fit-width' | 'actual';
 export const PAPER_PT: Record<PaperSize, { width: number; height: number }> = {
   a4: { width: 595.28, height: 841.89 },
   a3: { width: 841.89, height: 1190.55 },
+  a2: { width: 1190.55, height: 1683.78 },
   a1: { width: 1683.78, height: 2383.94 },
 };
 

@@ -186,7 +186,7 @@ export function ReportPanel() {
   const [showBaselineOverlay, setShowBaselineOverlay] = useState(DEFAULT_REPORT_SETTINGS.showBaselineOverlay);
   const [autoFit, setAutoFit] = useState(DEFAULT_REPORT_SETTINGS.autoFit);
   const [customZoom, setCustomZoom] = useState(DEFAULT_REPORT_SETTINGS.customZoom);
-  const [paperSize, setPaperSize] = useState<'A3' | 'A4' | 'A1'>(DEFAULT_REPORT_SETTINGS.paperSize);
+  const [paperSize, setPaperSize] = useState<'A4' | 'A3' | 'A2' | 'A1'>(DEFAULT_REPORT_SETTINGS.paperSize);
   // K7: reden waarom de laatste export-poging is afgebroken (vandaag alleen een CPM-cyclus).
   // Tussenstand — bevinding K8 (prioriteitsitem 18) trekt dit samen tot één toast in uiSlice.
   const [exportError, setExportError] = useState<string | null>(null);
@@ -425,7 +425,7 @@ export function ReportPanel() {
       const { width: logicalWidth, height: logicalHeight, tableWidth, headerHeight } = measurePrintReport(
         tasks, sequences, calendar, projectName, options,
       );
-      const lowerPaper = options.paperSize.toLowerCase() as 'a4' | 'a3' | 'a1';
+      const lowerPaper = options.paperSize.toLowerCase() as 'a4' | 'a3' | 'a2' | 'a1';
       const previewLimits = computePreviewRasterLimits(
         logicalWidth, logicalHeight, lowerPaper, options.orientation,
       );
@@ -515,7 +515,7 @@ export function ReportPanel() {
     }
     setExportError(null);
 
-    const lowerPaper = paperSize.toLowerCase() as 'a4' | 'a3' | 'a1';
+    const lowerPaper = paperSize.toLowerCase() as 'a4' | 'a3' | 'a2' | 'a1';
     // Basisrichting van de export-taal: stuurt de bidi in het complexe RTL-tekst-pad van de vector-export.
     const exportBaseDir: 'ltr' | 'rtl' =
       RTL_LOCALES.includes((options.locale ?? '') as Locale) ? 'rtl' : 'ltr';
@@ -792,10 +792,11 @@ export function ReportPanel() {
                 className="flex-1 min-w-0"
                 aria-label={t('paper')}
                 value={paperSize}
-                onChange={v => setPaperSize(v as 'A3' | 'A4' | 'A1')}
+                onChange={v => setPaperSize(v as 'A4' | 'A3' | 'A2' | 'A1')}
                 options={[
                   { value: 'A4', label: 'A4' },
                   { value: 'A3', label: 'A3' },
+                  { value: 'A2', label: 'A2' },
                   { value: 'A1', label: 'A1' },
                 ]}
               />

@@ -27,11 +27,11 @@ the left.
 
 A full, formatted printout of the Gantt bars — this is the only report type with a settings block:
 
-- **Paper**: A4, A3 or A1.
+- **Paper**: A4, A3, A2 or A1.
 - **Orientation**: landscape or portrait.
 - **Auto-fit to paper** (on = the time axis is automatically compressed to the chosen size) or a
   manual **zoom** slider if you turn auto-fit off. Even for a multi-year schedule, the activity
-  table and report text remain the same physical size on A4, A3 and A1; only the time axis becomes
+  table and report text remain the same physical size on A4, A3, A2 and A1; only the time axis becomes
   denser or wider.
 - **Font size** — 90, 100, 110 or 125%; scales the report text, row height and header/footer,
   independently of the zoom level above.

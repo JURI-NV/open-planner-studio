@@ -197,7 +197,7 @@ export interface PrintOptions {
   showBaselineOverlay?: boolean;
   autoFit: boolean;
   customZoom: number;
-  paperSize: 'A4' | 'A3' | 'A1';
+  paperSize: 'A4' | 'A3' | 'A2' | 'A1';
   orientation: 'landscape' | 'portrait';
   companyName: string;
   labels?: {
@@ -568,11 +568,11 @@ export function renderReport(
   // zet. Daardoor geldt voor N kolommen:
   //     tableWidth + chartWidth + (N - 1)·tableWidth = N·printableWidth
   //  ⇒  chartWidth = N·(printableWidth - tableWidth)
-  // De tabel behoudt zo op A4, A3 én A1 dezelfde fysieke tekengrootte; uitsluitend de tijdas krijgt
+  // De tabel behoudt zo op A4, A3, A2 én A1 dezelfde fysieke tekengrootte; uitsluitend de tijdas krijgt
   // meer of minder pixels per dag. De oude ondergrens van 5 px/dag maakte een meerjarenplanning
   // alsnog veel te breed, waarna de pagineerder juist de héle tabel mee verkleinde.
   const printableWidth = printableWidthLogicalPx(
-    options.paperSize.toLowerCase() as 'a4' | 'a3' | 'a1',
+    options.paperSize.toLowerCase() as 'a4' | 'a3' | 'a2' | 'a1',
     options.orientation,
   );
   const availableChartWidth = Math.max(1, printableWidth - m.tableWidth) * timelineColumns;

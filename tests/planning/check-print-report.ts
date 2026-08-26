@@ -14,7 +14,7 @@
  *  4. LEGENDA: resource-modus toont resourcenamen + rand-verklaring; critical-modus niet.
  */
 import { renderReport, PrintOptions, REPORT_MIN_ZOOM } from '@/services/print/printPreview';
-import { computeTileLayout } from '@/services/print/tileLayout';
+import { computeTileLayout, PAPER_PT } from '@/services/print/tileLayout';
 import { computePreviewRasterLimits, PREVIEW_MAX_PAGE_PIXELS, PREVIEW_MAX_SOURCE_PIXELS } from '@/services/print/previewSafety';
 import type { Draw2D, TextAlign, TextBaseline } from '@/services/pdf/draw2d';
 import type { ViewRow } from '@/engine/view/visibleRows';
@@ -333,13 +333,14 @@ const baseOptions = (over: Partial<PrintOptions> = {}): PrintOptions => ({
   const paperCases = [
     { paperSize: 'A4', orientation: 'landscape', timelineColumns: 1 },
     { paperSize: 'A3', orientation: 'landscape', timelineColumns: 1 },
+    { paperSize: 'A2', orientation: 'portrait', timelineColumns: 1 },
     { paperSize: 'A1', orientation: 'portrait', timelineColumns: 1 },
     { paperSize: 'A1', orientation: 'landscape', timelineColumns: 4 },
   ] as const;
   for (const { paperSize, orientation, timelineColumns } of paperCases) {
     const { dims } = record([long], [], cal, baseOptions({ paperSize, orientation, timelineColumns }));
     const layout = computeTileLayout({
-      paperSize: paperSize.toLowerCase() as 'a4' | 'a3' | 'a1', orientation, mode: 'fit-width',
+      paperSize: paperSize.toLowerCase() as 'a4' | 'a3' | 'a2' | 'a1', orientation, mode: 'fit-width',
       logicalWidth: dims.width, logicalHeight: dims.height, frozenColumnWidthPx: dims.tableWidth, timelineColumns,
     });
     physicalTableWidths.push(dims.tableWidth * layout.scale);
@@ -361,7 +362,26 @@ const baseOptions = (over: Partial<PrintOptions> = {}): PrintOptions => ({
   ok(REPORT_MIN_ZOOM === 1, 'handmatige rapportzoom kan tot 1 px/dag terug voor lange projecten');
 }
 
-// ── 6. Veilige grote rapportpreview (#74) ────────────────────────────────────────────────────
+// ── 6. A2-papierformaat (#83) ─────────────────────────────────────────────────────────────────
+// Eén definitie voedt zowel de live preview als de raster- en vector-PDF-pagineerder. A2 is precies
+// de ISO-216-tussenmaat: A3 verdubbeld, A1 gehalveerd.
+{
+  const a2 = PAPER_PT.a2;
+  ok(a2.width === PAPER_PT.a3.height && a2.height === PAPER_PT.a1.width,
+    `#83 A2 gebruikt de gedeelde ISO-afmetingen (got ${a2.width}×${a2.height} pt)`);
+  const portrait = computeTileLayout({
+    paperSize: 'a2', orientation: 'portrait', mode: 'fit-width', logicalWidth: 900, logicalHeight: 1200,
+  });
+  const landscape = computeTileLayout({
+    paperSize: 'a2', orientation: 'landscape', mode: 'fit-width', logicalWidth: 900, logicalHeight: 1200,
+  });
+  ok(portrait.pageWidthPt === a2.width && portrait.pageHeightPt === a2.height,
+    '#83 A2-portret behoudt de gedeelde papierafmetingen');
+  ok(landscape.pageWidthPt === a2.height && landscape.pageHeightPt === a2.width,
+    '#83 A2-liggend wisselt de gedeelde papierafmetingen om');
+}
+
+// ── 7. Veilige grote rapportpreview (#74) ────────────────────────────────────────────────────
 // De preview mag niet eerst een broncanvas en tientallen A1-pagina's zonder rasterbudget maken.
 // Dit is puur rekenwerk, dus de bescherming is toetsbaar zonder een browsercanvas te reserveren.
 {

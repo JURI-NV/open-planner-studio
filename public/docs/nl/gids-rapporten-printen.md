@@ -28,11 +28,11 @@ Het scherm is in twee kolommen opgedeeld: links een instellingenpaneel met boven
 Een volledige, opgemaakte afdruk van de Gantt-balken — dit is het enige rapporttype met een
 instellingenblok:
 
-- **Papier**: A4, A3 of A1.
+- **Papier**: A4, A3, A2 of A1.
 - **Oriëntatie**: liggend of staand.
 - **Auto-fit op papier** (aan = de tijdas automatisch naar het gekozen formaat comprimeert) of een
   handmatige **zoom**-schuif als je auto-fit uitzet. Ook bij een meerjarige planning blijven de
-  activiteitenkolom en rapporttekst daarbij even groot op A4, A3 en A1; alleen de tijdas wordt
+  activiteitenkolom en rapporttekst daarbij even groot op A4, A3, A2 en A1; alleen de tijdas wordt
   dichter of ruimer.
 - **Lettergrootte** — 90, 100, 110 of 125%; schaalt de rapporttekst, rijhoogte en kop/voet mee, los
   van het zoomniveau hierboven.

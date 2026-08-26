@@ -28,7 +28,7 @@ import { REPORT_FONT_SCALES, REPORT_MAX_ZOOM, REPORT_MIN_ZOOM } from '@/services
 const STORAGE_KEY = 'reportSettings';
 
 export type ReportType = 'gantt' | 'milestones' | 'variance';
-export type ReportPaperSize = 'A3' | 'A4' | 'A1';
+export type ReportPaperSize = 'A4' | 'A3' | 'A2' | 'A1';
 export type ReportOrientation = 'landscape' | 'portrait';
 
 export interface ReportSettings {
@@ -82,7 +82,7 @@ export const DEFAULT_REPORT_SETTINGS: ReportSettings = {
 
 /** Toegestane waarden voor de keuzelijsten — 1-op-1 met de opties in `ReportPanel`. */
 const REPORT_TYPES: readonly ReportType[] = ['gantt', 'milestones', 'variance'];
-const PAPER_SIZES: readonly ReportPaperSize[] = ['A3', 'A4', 'A1'];
+const PAPER_SIZES: readonly ReportPaperSize[] = ['A4', 'A3', 'A2', 'A1'];
 const ORIENTATIONS: readonly ReportOrientation[] = ['landscape', 'portrait'];
 const STATUS_LINES: readonly ReportSettings['statusLine'][] = ['none', 'statusDate', 'progress'];
 /** De vaste trap uit `printPreview` — bewust GEEN eigen kopie: de Select in het paneel, de klem in
