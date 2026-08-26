@@ -8,6 +8,7 @@
     "mppLegacy": "Bu .mpp dosyası eski bir biçim kullanıyor (Project 2007 veya daha eski). MS Project'te XML olarak dışa aktarın (Dosya → Farklı Kaydet → XML) ve o dosyayı açın.",
     "mppEncrypted": "Bu .mpp dosyası parola ile korunuyor. MS Project'te XML olarak dışa aktarın (Dosya → Farklı Kaydet → XML) ve o dosyayı açın.",
     "saveFailed": "Kaydetme başarısız",
+    "librarySaveFailed": "Kitaplık kaydedilemedi",
     "savedViaDownload": "İndirme olarak kaydedildi: '{{name}}' artık indirmeler klasörünüzde. Bu ortam uygulamanın seçtiğiniz konuma doğrudan yazmasına izin vermiyor.",
     "autoSaveFailed": "Otomatik kaydetme başarısız",
     "recoveryReadFailed": "Kurtarılan dosya okunamadı",

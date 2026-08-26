@@ -8,6 +8,7 @@
     "mppLegacy": "Ten plik .mpp używa starszego formatu (Project 2007 lub starszy). Wyeksportuj go w MS Project jako XML (Plik → Zapisz jako → XML) i otwórz ten plik.",
     "mppEncrypted": "Ten plik .mpp jest zabezpieczony hasłem. Wyeksportuj go w MS Project jako XML (Plik → Zapisz jako → XML) i otwórz ten plik.",
     "saveFailed": "Nie udało się zapisać",
+    "librarySaveFailed": "Nie można było zapisać biblioteki",
     "savedViaDownload": "Zapisano jako pobrany plik: '{{name}}' znajduje się teraz w folderze pobierania. To środowisko nie pozwala aplikacji zapisywać bezpośrednio w wybranej lokalizacji.",
     "autoSaveFailed": "Błąd autozapisu",
     "recoveryReadFailed": "Nie udało się odczytać odzyskanego pliku",

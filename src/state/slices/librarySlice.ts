@@ -1,5 +1,5 @@
 import { current } from 'immer';
-import type { AppSliceFactory } from './types';
+import type { AppSliceFactory, NotifyInput } from './types';
 import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
@@ -225,16 +225,48 @@ export function normalizeLoadedLibrary(lib: Partial<CompanyLibrary> | null | und
   return { companies, defaultCompanyId, pools };
 }
 
-/** Serialiseer de huidige bibliotheek-state en persisteer 'm (fire-and-forget, fouten gaan naar appLog). */
-function persist(get: () => { companies: Company[]; defaultCompanyId: string; pools: Record<string, CompanyPool>; libraryLoaded: boolean }): void {
+type LibraryPersistenceState = {
+  companies: Company[];
+  defaultCompanyId: string;
+  pools: Record<string, CompanyPool>;
+  libraryLoaded: boolean;
+  notify: (notification: NotifyInput) => void;
+};
+
+/**
+ * Serialiseer de huidige bibliotheek-state en persisteer hem.
+ *
+ * Een mislukte achtergrondopslag was eerder uitsluitend zichtbaar in de
+ * debugterminal. Dat is onvoldoende: de gebruiker moet weten dat een zojuist
+ * gewijzigde bibliotheek na herstart verloren kan gaan. De aparte
+ * `library-save`-sleutel voorkomt tegelijk een toast-stapel bij een aanhoudende
+ * opslagfout.
+ */
+export async function persistLibrary(
+  get: () => LibraryPersistenceState,
+  save: (library: CompanyLibrary) => Promise<void> = saveLibrary,
+): Promise<void> {
   // Vóór initLibrary() is de state nog de verse seed; wegschrijven zou die door de async load heen
   // laten overschrijven (of, erger, de echte opgeslagen bibliotheek voortijdig overschrijven).
   if (!get().libraryLoaded) return;
   const s = get();
   const lib: CompanyLibrary = { companies: s.companies, defaultCompanyId: s.defaultCompanyId, pools: s.pools };
-  saveLibrary(lib).catch((err) => {
+  try {
+    await save(lib);
+  } catch (err) {
     appLog.emit('error', 'library', 'saveLibrary faalde', err);
-  });
+    s.notify({
+      severity: 'error',
+      messageKey: 'notifications.librarySaveFailed',
+      detail: err instanceof Error ? err.message : String(err),
+      dedupeKey: 'library-save',
+    });
+  }
+}
+
+/** Fire-and-forget-oproep voor de synchronische slice-acties. */
+function persist(get: () => LibraryPersistenceState): void {
+  void persistLibrary(get);
 }
 
 export const createLibrarySlice: AppSliceFactory<LibrarySlice> = (runtime) => (set, get) => ({

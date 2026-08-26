@@ -8,6 +8,7 @@
     "mppLegacy": "Este arquivo .mpp usa um formato antigo (Project 2007 ou anterior). Exporte-o no MS Project como XML (Arquivo → Salvar como → XML) e abra esse arquivo.",
     "mppEncrypted": "Este arquivo .mpp está protegido por senha. Exporte-o no MS Project como XML (Arquivo → Salvar como → XML) e abra esse arquivo.",
     "saveFailed": "Falha ao salvar",
+    "librarySaveFailed": "Não foi possível guardar a biblioteca",
     "savedViaDownload": "Guardado como transferência: '{{name}}' está agora na sua pasta de transferências. Este ambiente não permite que a aplicação escreva diretamente no local escolhido.",
     "autoSaveFailed": "Falha no salvamento automático",
     "recoveryReadFailed": "Não foi possível ler o arquivo recuperado",

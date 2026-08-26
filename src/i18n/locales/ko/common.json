@@ -8,6 +8,7 @@
     "mppLegacy": "이 .mpp 파일은 이전 형식(Project 2007 이하)을 사용합니다. MS Project에서 XML로 내보낸 후(파일 → 다른 이름으로 저장 → XML) 해당 파일을 여세요.",
     "mppEncrypted": "이 .mpp 파일은 암호로 보호되어 있습니다. MS Project에서 XML로 내보낸 후(파일 → 다른 이름으로 저장 → XML) 해당 파일을 여세요.",
     "saveFailed": "저장하지 못했습니다",
+    "librarySaveFailed": "라이브러리를 저장하지 못했습니다",
     "savedViaDownload": "다운로드로 저장했습니다. '{{name}}' 파일이 다운로드 폴더에 있습니다. 이 환경에서는 앱이 선택한 위치에 직접 쓸 수 없습니다.",
     "autoSaveFailed": "자동 저장 실패",
     "recoveryReadFailed": "복구된 파일을 읽을 수 없습니다",
