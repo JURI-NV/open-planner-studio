@@ -70,6 +70,44 @@ test('hook synchronization: een ander relatieveld wist half ingevoerde lag niet'
   ), sequenceId)).toBe('START_START');
 });
 
+test('hook synchronization: een resourcetoewijzing wist geen niet-opgeslagen taakvelden', async ({ page, ops: _ops }) => {
+  const [taskId] = await seedProject(page, [
+    { name: 'Oorspronkelijke taak', start: '2026-09-07', finish: '2026-09-18', durationDays: 10 },
+  ]);
+  const resourceId = await page.evaluate(() => window.__OPS__!.store.getState().addResource({
+    name: 'Ploeg voor concepttaak', type: 'LABOR', description: '', maxUnits: 1,
+  }));
+  await openTaskDialog(page, taskId);
+
+  const dialog = page.getByRole('dialog');
+  const name = dialog.locator('input').first();
+  const description = dialog.locator('textarea').first();
+  const duration = dialog.locator('[data-ops-duration-days]');
+  await name.fill('Nog niet opgeslagen naam');
+  await description.fill('Nog niet opgeslagen omschrijving');
+  await duration.fill('13');
+
+  // In deze fixture zijn alleen de native constraint- en resourcekeuzevelden aanwezig; de
+  // resourcekeuze staat na de constraint en is daarmee het laatste native select-element.
+  const resourcePicker = dialog.locator('select').last();
+  await expect(resourcePicker).toHaveValue('');
+  await resourcePicker.selectOption(resourceId);
+
+  await expect(name).toHaveValue('Nog niet opgeslagen naam');
+  await expect(description).toHaveValue('Nog niet opgeslagen omschrijving');
+  await expect(duration).toHaveValue('13');
+  await dialog.locator('[data-ops-task-save]').click();
+
+  await expect.poll(() => page.evaluate((id) => {
+    const task = window.__OPS__!.store.getState().tasks.find(candidate => candidate.id === id);
+    return task && { name: task.name, description: task.description, duration: task.time.scheduleDuration };
+  }, taskId)).toEqual({
+    name: 'Nog niet opgeslagen naam',
+    description: 'Nog niet opgeslagen omschrijving',
+    duration: 13,
+  });
+});
+
 test('hook synchronization: een bedrijfsupdate overschrijft de handmatige poolimportkeuze niet', async ({ page, ops: _ops }) => {
   const setup = await page.evaluate(() => {
     const store = window.__OPS__!.store.getState();
