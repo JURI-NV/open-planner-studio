@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import type { HistogramSeries, HistogramPickerItem } from '@/engine/renderer/HistogramRenderer';
 import { saveBranchAsWbsTemplate } from '@/utils/wbsTemplates';
 import { resolveUIFontStack } from '@/utils/uiFont';
+import { scopeTaskResources } from '@/utils/taskResourceScope';
+import { computeResourceLoad } from '@/engine/scheduler/ResourceLoad';
 import { MiniMap } from './MiniMap';
 import { parseDate, parseInstant } from '@/utils/dateUtils';
 import { effectiveCalendarByTask } from '@/services/subdayIo';
@@ -166,6 +168,28 @@ export function GanttCanvas() {
   const activeBaselineId = useAppStore(s => s.activeBaselineId);
   const setHistogramResource = useAppStore(s => s.setHistogramResource);
 
+  const scopedTaskResources = useMemo(
+    () => scopeTaskResources(resources, assignments, selectedTaskIds),
+    [resources, assignments, selectedTaskIds],
+  );
+
+  const scopedResourceLoadResult = useMemo(() => {
+    if (!resourceLoadResult || !scopedTaskResources.isFiltered) return resourceLoadResult;
+    return computeResourceLoad(
+      scopedTaskResources.resources,
+      scopedTaskResources.assignments,
+      tasks,
+      calendar,
+      calendars,
+    );
+  }, [resourceLoadResult, scopedTaskResources, tasks, calendar, calendars]);
+
+  // Een handmatig gekozen histogramresource blijft als voorkeur bewaard. Valt hij buiten de
+  // tijdelijke taakcontext, dan is de samengevoegde scoped reeks het eerlijke alternatief.
+  const effectiveHistogramResourceId = scopedTaskResources.resources.some(
+    resource => resource.id === histogramResourceId,
+  ) ? histogramResourceId : undefined;
+
   const viewport = useGanttViewportCoordinator({
     tasks,
     rows: viewRows,
@@ -263,10 +287,10 @@ export function GanttCanvas() {
   const histogramInteraction = useGanttHistogramInteraction({
     canvasRef: histogramCanvasRef,
     rendererRef: histogramRendererRef,
-    assignments,
-    resources,
+    assignments: scopedTaskResources.assignments,
+    resources: scopedTaskResources.resources,
     tasks,
-    selectedResourceId: histogramResourceId,
+    selectedResourceId: effectiveHistogramResourceId,
     selectResource: setHistogramResource,
     formatContributionLabel: formatHistogramContributionLabel,
   });
@@ -364,20 +388,20 @@ export function GanttCanvas() {
 
   // --- Histogram (fase 2.5, §6.4) ---
   const histogramPicker = useMemo<HistogramPickerItem[]>(
-    () => buildHistogramPicker(resources, resourceLoadResult, tCommon('resource.histogram.allResources')),
-    [resources, resourceLoadResult, tCommon],
+    () => buildHistogramPicker(scopedTaskResources.resources, scopedResourceLoadResult, tCommon('resource.histogram.allResources')),
+    [scopedTaskResources.resources, scopedResourceLoadResult, tCommon],
   );
 
   const histogramSeries = useMemo<HistogramSeries>(
-    () => buildHistogramSeries(resourceLoadResult, histogramResourceId, resources),
-    [resourceLoadResult, histogramResourceId, resources],
+    () => buildHistogramSeries(scopedResourceLoadResult, effectiveHistogramResourceId, scopedTaskResources.resources),
+    [scopedResourceLoadResult, effectiveHistogramResourceId, scopedTaskResources.resources],
   );
 
   const histogramRenderInput = useMemo<HistogramRenderInput | undefined>(() => (
     showHistogram ? {
       series: histogramSeries,
       picker: histogramPicker,
-      selectedResourceId: histogramResourceId,
+      selectedResourceId: effectiveHistogramResourceId,
       view: effectiveView,
       taskTableWidth,
       // Issue #21 punt 5 (fase 2, §10.1): dezelfde as-instantie als de primaire Gantt-pane.
@@ -388,13 +412,13 @@ export function GanttCanvas() {
       // de strooklabels zichtbaar uit de pas op de gedeelde as.
       fontScale,
       labels: { unitsSuffix: tCommon('resource.histogram.units') },
-      emptyHint: !resourceLoadResult
+      emptyHint: !scopedResourceLoadResult
         ? tCommon('resource.histogram.noData')
-        : resources.length === 0
+        : scopedTaskResources.resources.length === 0
           ? tCommon('resource.histogram.noResources')
           : undefined,
     } : undefined
-  ), [showHistogram, histogramSeries, histogramPicker, histogramResourceId, effectiveView, taskTableWidth, resourceLoadResult, resources.length, tCommon, sharedAxis, canvasFontFamily, fontScale]);
+  ), [showHistogram, histogramSeries, histogramPicker, effectiveHistogramResourceId, effectiveView, taskTableWidth, scopedResourceLoadResult, scopedTaskResources.resources.length, tCommon, sharedAxis, canvasFontFamily, fontScale]);
 
   const primaryRenderInput = useMemo<GanttRenderOptionsSourceInput>(() => ({
     rows: viewRows,
