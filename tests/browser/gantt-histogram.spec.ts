@@ -92,6 +92,47 @@ test('histogram picker wisselt echte resourceserie en plotklik toont bijdragers'
   await expect(page.getByText('Overbelaste bijdrage B', { exact: true })).toBeVisible();
 });
 
+test('taakselectie beperkt resourcedock en histogram en wissen herstelt beide', async ({ page, ops: _ops }) => {
+  const taskIds = await seedProject(page, [
+    { name: 'Fundering', start: '2026-09-07', finish: '2026-09-18', durationDays: 10 },
+    { name: 'Afwerking', start: '2026-09-07', finish: '2026-09-18', durationDays: 10 },
+  ]);
+  await page.evaluate(([foundationId, finishingId]) => {
+    const s = window.__OPS__!.store.getState();
+    const bricklayerId = s.addResource({ name: 'Metselaar taak 73', type: 'LABOR', description: '', maxUnits: 2 });
+    const craneId = s.addResource({ name: 'Kraan taak 73', type: 'EQUIPMENT', description: '', maxUnits: 1 });
+    const painterId = s.addResource({ name: 'Schilder taak 73', type: 'LABOR', description: '', maxUnits: 2 });
+    s.assignResource(foundationId, bricklayerId, 1);
+    s.assignResource(foundationId, craneId, 1);
+    s.assignResource(finishingId, painterId, 1);
+    s.runCPM();
+    s.setUI({ showResourcePanel: true, resourcePanelDocked: true, showHistogram: true });
+  }, taskIds);
+
+  const resourceDock = page.locator('[data-ops-rail-panel="resources"]');
+  const dockResource = (name: string) => resourceDock.getByText(name, { exact: true });
+  await expect(dockResource('Metselaar taak 73')).toBeVisible();
+  await expect(dockResource('Kraan taak 73')).toBeVisible();
+  await expect(dockResource('Schilder taak 73')).toBeVisible();
+  const unfilteredHistogram = await digest(page);
+
+  const foundation = await barPoint(page, taskIds[0], 'body');
+  const gantt = page.getByTestId('gantt-primary-canvas');
+  const ganttBounds = await gantt.boundingBox();
+  expect(ganttBounds).not.toBeNull();
+  await gantt.click({ position: { x: foundation.x - ganttBounds!.x, y: foundation.y - ganttBounds!.y } });
+
+  await expect.poll(() => state(page).then(snapshot => snapshot.selectedTaskIds)).toEqual([taskIds[0]]);
+  await expect(dockResource('Metselaar taak 73')).toBeVisible();
+  await expect(dockResource('Kraan taak 73')).toBeVisible();
+  await expect(dockResource('Schilder taak 73')).toHaveCount(0);
+  await expect.poll(() => digest(page)).not.toBe(unfilteredHistogram);
+
+  await gantt.click({ position: { x: ganttBounds!.width - 40, y: ganttBounds!.height - 40 } });
+  await expect.poll(() => state(page).then(snapshot => snapshot.selectedTaskIds)).toEqual([]);
+  await expect(dockResource('Schilder taak 73')).toBeVisible();
+});
+
 test('histogram splitter persisteert pas bij mouseup en paints worden weer stil', async ({ page, ops: _ops }) => {
   await seedResourceLoad(page);
   await waitForTwoQuietWindows(page);

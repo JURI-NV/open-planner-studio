@@ -291,6 +291,11 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   GROCHECK="$DIR/.gantt-render-options.mjs"
   if bundle_check "$DIR/check-gantt-render-options.ts" "$GROCHECK"; then node "$GROCHECK" || STATUS=1; fi
 
+  # Issue #73: de gedeelde scope voor taakcontextuele resources houdt zijpaneel, histogram en
+  # histogramtooltip bij dezelfde geselecteerde taak/taken, zonder de ongescoped weergave te breken.
+  TRSCHECK="$DIR/.task-resource-scope.mjs"
+  if bundle_check "$DIR/check-task-resource-scope.ts" "$TRSCHECK"; then node "$TRSCHECK" || STATUS=1; fi
+
   # Gantt-coördinatorgrenzen (onderhoudbaarheidsprogramma plan 3): de rendererhost, viewport- en
   # pointercoördinator krijgen expliciete input/outputcontracten zonder AppState-megaobject of
   # singletonselector. De browserbatterij bewaakt gedrag; deze headless poort bewaakt eigenaarschap.
