@@ -1,0 +1,12 @@
+{
+  "id": "juri-http-spike",
+  "name": "JURI HTTP-spike (Fase 0, T0.4)",
+  "version": "0.0.1",
+  "apiVersion": "1.0",
+  "minAppVersion": "2026.4.0",
+  "author": "JURI",
+  "description": "Spike: post de huidige planning naar een lokaal HTTP-endpoint en lees hem terug. Onderzoekt of het extensiesysteem volstaat voor een server-backed save/load-flow (implementatieplan T0.4).",
+  "category": "Utility",
+  "main": "main.js",
+  "permissions": ["ribbon", "events", "network"]
+}
