@@ -225,6 +225,9 @@ export const createDocumentSlice: AppSliceFactory<DocumentSlice> = (runtime) => 
       redoStack: [],
       filePath: null,
       fileHandle: null,
+      // JURI-embed-opslaan-doel (T1.1/T1.4): net als filePath/fileHandle genuld — een kopie is een
+      // nieuw, nog nooit naar de server opgeslagen document, geen alias van de bron.
+      fileServerRef: null,
       isDirty: true,
     };
 

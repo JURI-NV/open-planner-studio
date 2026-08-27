@@ -79,6 +79,11 @@ export interface ProjectSlice {
   /** Web-opslaan-doel (spec §4). ALLEEN het FSA-opslaan-doel — nooit voor identiteit/titel;
    *  die blijven bij `filePath` (echt pad in Tauri, bestandsnaam in web). `null` in Tauri/fallback-web. */
   fileHandle: FileSystemFileHandle | null;
+  /** JURI-embed-opslaan-doel (T1.1/T1.4): additief naast `filePath`/`fileHandle`, NIET een refactor
+   *  daarvan (ontwerpnota §3 — kleinste upstream-diff). Gezet door `useJuriEmbed` zodra
+   *  `window.__JURI_PROJECT_ID__` aanwezig is; `saveFile` geeft hieraan voorrang boven
+   *  `fileHandle`/`filePath` (zie `fileSlice.ts`). `null` buiten de embed. */
+  fileServerRef: { projectId: string } | null;
   setProject: (project: Partial<Project>) => void;
   /** Zet WBS-autonummering aan/uit; bij aanzetten wordt de hele boom direct hernummerd. */
   setWbsAutoNumber: (on: boolean) => void;
@@ -163,6 +168,7 @@ export const createProjectSlice: AppSliceFactory<ProjectSlice> = (runtime) => (s
   isDirty: false,
   filePath: null,
   fileHandle: null,
+  fileServerRef: null,
 
   setProject: (updates) => {
     // T7b (plan-§9/O2-vervolg, orkestratorbesluit 2026-08-15 — optie B, ná escalatie T7 + de

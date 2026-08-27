@@ -25,6 +25,7 @@ import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
  *    cpmResult, resourceLoadResult, scheduleStale, activeBaselineId, recordedDates, datesAsRecorded
  *  UIT ('none' — undo mag deze bewust NIET aanraken):
  *    selectedTaskIds, view, collapsedTaskIds, undoStack, redoStack, filePath, fileHandle,
+ *    fileServerRef (T1.1/T1.4 — spiegelt fileHandle: een opslaan-doel, geen projectdata),
  *    isDirty (undo/redo zet isDirty altijd op true).
  *
  * PROJECT — de oude B3-uitzondering is VERVALLEN (pakket H). Historie: het hele `project`-object

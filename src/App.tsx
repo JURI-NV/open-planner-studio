@@ -23,6 +23,8 @@ import { useSettingsBootstrap } from '@/hooks/useSettingsBootstrap';
 import { useAutoCalcCPM } from '@/hooks/useAutoCalcCPM';
 import { useExitRecordedDates } from '@/hooks/useExitRecordedDates';
 import { useAutoSave } from '@/hooks/useAutoSave';
+import { useJuriEmbed } from '@/hooks/useJuriEmbed';
+import { useJuriAutosave } from '@/hooks/useJuriAutosave';
 import { useRecoveryRestore } from '@/hooks/useRecoveryRestore';
 import { useUpdateCheck } from '@/hooks/useUpdateCheck';
 import { useAiAutostart } from '@/hooks/useAiAutostart';
@@ -185,6 +187,14 @@ function AppContent() {
   // geen debounce): recovery-snapshots per open document,
   // plus de web-only beforeunload-waarschuwing bij niet-opgeslagen wijzigingen.
   useAutoSave(autoSaveEnabled);
+
+  // JURI-embed (T1.5/T1.4): allebei onvoorwaardelijk aangeroepen (rules-of-hooks) — de gate op
+  // `window.__JURI_PROJECT_ID__` zit BINNEN de hooks zelf, dus buiten de embed (Tauri, losstaande
+  // web-build) zijn dit no-ops. `useJuriEmbed` laadt het projectdocument van de server bij mount;
+  // `useJuriAutosave` slaat het gedebouncet terug op naar de server — los van, en zonder wijziging
+  // aan, de crash-recovery-hook hierboven.
+  useJuriEmbed();
+  useJuriAutosave();
 
   // Stille opstart-update-check (Tauri-only).
   useUpdateCheck();

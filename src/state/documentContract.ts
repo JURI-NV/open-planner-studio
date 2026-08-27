@@ -73,6 +73,8 @@ export interface DocumentPayload {
   filePath: string | null;
   /** Web-opslaan-doel (browser-bestandstoegang). ALLEEN het FSA-opslaan-doel — nooit identiteit/titel (die blijft filePath: echt pad in Tauri, bestandsnaam in web). null in Tauri/fallback-web. */
   fileHandle: FileSystemFileHandle | null;
+  /** JURI-embed-opslaan-doel (T1.1/T1.4) — additief naast `filePath`/`fileHandle`, zie `ProjectSlice`. */
+  fileServerRef: { projectId: string } | null;
   isDirty: boolean;
 }
 
@@ -216,6 +218,7 @@ export const DOCUMENT_FIELDS = [
   field({ key: 'redoStack', get: (s) => s.redoStack, set: (s, v) => { s.redoStack = v; }, fresh: () => [], snapshot: 'none' }),
   field({ key: 'filePath', get: (s) => s.filePath, set: (s, v) => { s.filePath = v; }, fresh: () => null, snapshot: 'none' }),
   field({ key: 'fileHandle', get: (s) => s.fileHandle, set: (s, v) => { s.fileHandle = v; }, fresh: () => null, snapshot: 'none', fromPayload: (p) => p.fileHandle ?? null }),
+  field({ key: 'fileServerRef', get: (s) => s.fileServerRef, set: (s, v) => { s.fileServerRef = v; }, fresh: () => null, snapshot: 'none', fromPayload: (p) => p.fileServerRef ?? null }),
   field({ key: 'isDirty', get: (s) => s.isDirty, set: (s, v) => { s.isDirty = v; }, fresh: () => false, snapshot: 'none' }),
 ];
 

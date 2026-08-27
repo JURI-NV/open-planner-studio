@@ -56,6 +56,9 @@ export interface ApplyLoadedProjectOpts {
   /** Web-opslaan-doel voor het geladen document. undefined = laat de huidige handle ongemoeid
    *  (loadState-semantiek); null = geen handle (voorbeeld/fallback-web); een handle = FSA-openen. */
   fileHandle?: FileSystemFileHandle | null;
+  /** JURI-embed-opslaan-doel (T1.4). undefined = laat de huidige ref ongemoeid (loadState-semantiek,
+   *  spiegelt `fileHandle`); null = geen server-ref; `{ projectId }` = gezet door `useJuriEmbed`. */
+  fileServerRef?: { projectId: string } | null;
   /** Direct doorrekenen (runCPM) na de load. Open-paden: true; loadState: false. */
   recompute?: boolean;
   /** Canvas op het hele project passen (requestFitToProject). Open-paden: true; loadState: false. */
@@ -150,6 +153,8 @@ export const createFileSlice: AppSliceFactory<FileSlice> = (runtime) => (set, ge
         payload.collapsedTaskIds = s.ui.collapsedTaskIds;
         // Web-opslaan-doel: undefined = ongemoeid laten (loadState-semantiek), anders expliciet zetten.
         payload.fileHandle = opts.fileHandle !== undefined ? opts.fileHandle : s.fileHandle;
+        // JURI-embed-opslaan-doel (T1.4): zelfde undefined-semantiek als fileHandle hierboven.
+        payload.fileServerRef = opts.fileServerRef !== undefined ? opts.fileServerRef : s.fileServerRef;
         hydratePayload(s, payload);
         // Spec §5 (review-punt 3): een volledig-vervangende load zonder open-pad-semantiek levert een
         // LOS document — geen stille koppeling, geen stille herkenning. Strip bedrijfsbinding + stempels.
@@ -284,10 +289,14 @@ export const createFileSlice: AppSliceFactory<FileSlice> = (runtime) => (set, ge
       // letterlijk dezelfde is — bepaald via `sameIFCSource` (bevinding K8b: anders stil verlies).
 
       try {
-        // Bestaand opslaan-doel? Web: fileHandle. Tauri: het echte pad in filePath.
-        const ref: FileRef | null = state.fileHandle
-          ? { kind: 'handle', handle: state.fileHandle }
-          : (isTauri() && state.filePath ? { kind: 'path', path: state.filePath } : null);
+        // Bestaand opslaan-doel? JURI-embed (T1.4): fileServerRef krijgt voorrang zodra gezet —
+        // dat is per definitie het ENIGE geldige doel binnen de embed (zie useJuriEmbed). Anders:
+        // web = fileHandle, Tauri = het echte pad in filePath (ongewijzigd gedrag).
+        const ref: FileRef | null = state.fileServerRef
+          ? { kind: 'server', projectId: state.fileServerRef.projectId }
+          : state.fileHandle
+            ? { kind: 'handle', handle: state.fileHandle }
+            : (isTauri() && state.filePath ? { kind: 'path', path: state.filePath } : null);
 
         if (ref && await saveToRef(ref, content)) {
           // "Nog ongewijzigd?" bewust BUITEN de Immer-producer berekend met get(): binnen een draft
