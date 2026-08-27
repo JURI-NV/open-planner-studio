@@ -93,6 +93,7 @@ export function useGanttPointerCoordinator(
     justRowDraggedRef,
     headerHeight,
   });
+  const startRowDrag = rowDrag.startRowDrag;
   // Alleen de boomweergave heeft een eenduidige structurele doelvolgorde. Een verticale
   // balkgesture geeft daar zijn kandidaat door aan dezelfde rijsleep als de taakrij links;
   // gesorteerde/gegroepeerde weergaven behouden dus hun bestaande blokkering.
@@ -101,8 +102,8 @@ export function useGanttPointerCoordinator(
     startClientX: number;
     startClientY: number;
   }) => {
-    rowDrag.startRowDrag(candidate);
-  }, [rowDrag.startRowDrag]);
+    startRowDrag(candidate);
+  }, [startRowDrag]);
   const barDrag = useBarDrag({
     zoom: view.zoom,
     enableQuarterHourZoom,
