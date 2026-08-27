@@ -494,6 +494,11 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   PRTEXPCHECK="$DIR/.print-report.mjs"
   if bundle_check "$DIR/check-print-report.ts" "$PRTEXPCHECK"; then node "$PRTEXPCHECK" || STATUS=1; fi
 
+  # Issue #21 punt 2 — wanneer alleen werkdagen tonen aan staat, gebruikt het rapport dezelfde
+  # gecomprimeerde as als de scherm-Gantt en vervangt het verdwenen weekendarcering door weekbanden.
+  PRTCOMPRESSCHECK="$DIR/.print-compress-week-banding.mjs"
+  if bundle_check "$DIR/check-print-compress-week-banding.ts" "$PRTCOMPRESSCHECK"; then node "$PRTCOMPRESSCHECK" || STATUS=1; fi
+
   # Resource-accent op het scherm (#21): dun streepje resourcekleur onder bladbalken, gesegmenteerd
   # naar rato van unitsPerDay; zonder vlag niets extra. ECHTE GanttRenderer met opnemende ctx-stub.
   RACCHECK="$DIR/.resource-accent.mjs"

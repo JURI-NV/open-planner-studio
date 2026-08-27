@@ -145,7 +145,7 @@ const eq = (label: string, got: unknown, want: unknown) => {
     // (2) weeklabel én rasterlijn op de INGESTELDE dag.
     eq('6 het weeklabel staat op de ingestelde dag', /dow === weekStartDow/.test(print), true);
     eq('6a de zwaardere rasterlijn ook',
-      /dow === \(options\.weekStartDay === 'sunday' \? 7 : 1\)/.test(print), true);
+      /: dow === \(weekStartDay === 'sunday' \? 7 : 1\)/.test(print), true);
     eq('6b geen harde maandag-grens meer', /dow === 1 \? 0\.8/.test(print), false);
 
     // (3) arcering via de kalender, niet via za/zo. Sinds de merge met de T13-lijn heet de motor

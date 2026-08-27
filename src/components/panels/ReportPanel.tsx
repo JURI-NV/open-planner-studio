@@ -142,6 +142,7 @@ export function ReportPanel() {
   const fileBase = projectFileBase(project.name);
   const dateNotation = useAppStore(s => s.ui.dateNotation);
   const weekStartDay = useAppStore(s => s.ui.weekStartDay);
+  const compressNonWorkdays = useAppStore(s => s.ui.compressNonWorkdays);
   // Issue #56: de lijnstijl van de relaties in het rapport volgt de P6-conventie van het scherm
   // (doorgetrokken = bepalend, gestreept = niet-bepalend). Die informatie zit alleen in `cpmResult`,
   // dus een echte subscription — anders ververst de preview niet na een F5/Bereken.
@@ -375,6 +376,7 @@ export function ReportPanel() {
     // rapport altijd ISO-weeknummers op maandag af, ook als de gebruiker "week begint op zondag"
     // had staan — hetzelfde project, twee antwoorden.
     weekStartDay,
+    compressNonWorkdays,
     timelineColumns,
     reportFontScale,
     // Issue #56 — welke relaties BEPALEND (driving) zijn is een `CPMResult`-veld dat bewust niet
@@ -401,7 +403,7 @@ export function ReportPanel() {
     },
   }), [showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion, showBaselineOverlay,
     autoFit, customZoom, paperSize, orientation, companyName, t, locale, project.startDate,
-    project.endDate, project.author, dateNotation, weekStartDay, timelineColumns, reportFontScale,
+    project.endDate, project.author, dateNotation, weekStartDay, compressNonWorkdays, timelineColumns, reportFontScale,
     cpmResult, barColorSelection, fieldCtx.activityCodeTypes, fieldCtx.customFieldDefs,
     reportTaskTypeLabels, tTask, statusLine, statusDate, resources,
     assignments, baselineOverlay, followView, viewRows]);

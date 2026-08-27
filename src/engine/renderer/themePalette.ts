@@ -221,6 +221,10 @@ export const PRINT_PALETTE = {
   surface: '#f8f9fa',
   grid: '#e5e7eb',
   gridWeekend: '#f0f1f3',
+  // Weekbanden horen alleen op de gecomprimeerde werkdagen-as: daar bestaan geen weekendkolommen
+  // meer om de weekgrens te lezen. Lichter dan `gridWeekend`, omdat een heel weekvlak rustiger
+  // moet blijven dan twee losse vrije dagen (issue #21 punt 2).
+  gridWeekBand: '#f1f4f9',
   gridHoliday: '#fef3c7',
   border: '#d1d5db',
   borderDark: '#9ca3af',
