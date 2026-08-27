@@ -157,6 +157,14 @@ const eq = (label: string, got: unknown, want: unknown) => {
     // En het paneel geeft de instelling ook echt door — zonder dat is alles hierboven dode code.
     eq('8 het rapportpaneel leest ui.weekStartDay', /s\.ui\.weekStartDay/.test(panel), true);
     eq('8a en zet hem in de printopties', /\bweekStartDay,/.test(panel), true);
+
+    // De werkdagen-as hoort sinds issue #21 bij de rapportopties zelf. De schermvoorkeur mag
+    // hier dus niet als impliciete bron binnensluipen.
+    eq('8b het rapport leest niet ui.compressNonWorkdays', /s\.ui\.compressNonWorkdays/.test(panel), false);
+    eq('8c het rapport heeft een eigen werkdagen-state',
+      /useState\(DEFAULT_REPORT_SETTINGS\.compressNonWorkdays\)/.test(panel), true);
+    eq('8d alleen die rapport-state gaat naar de printopties',
+      /compressNonWorkdays: reportCompressNonWorkdays/.test(panel), true);
   }
 }
 
