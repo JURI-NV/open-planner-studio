@@ -18,6 +18,8 @@
   // Ambient globals moeten expliciet mee: `include` volgt imports wél, maar pikt losse
   // .d.ts-declaratiebestanden niet automatisch op (idem tests/planning/tsconfig.check.json).
   // (`src/vite-env.d.ts` levert `__APP_VERSION__` en `import.meta.env`, die de geïmporteerde
-  // src-modules gebruiken; `file-system-access.d.ts` de FSA-typen achter fileAccess/webBackend.)
-  "include": ["scripts", "tests", "src/vite-env.d.ts", "src/types/file-system-access.d.ts"]
+  // src-modules gebruiken; `file-system-access.d.ts` de FSA-typen achter fileAccess/webBackend;
+  // `juri-embed.d.ts` het `window.__JURI_PROJECT_ID__`-global achter `utils/juriEmbed.ts`, sinds
+  // dat getransitiveerd wordt geïmporteerd door ribbon-/backstage-/sneltoets-config.)
+  "include": ["scripts", "tests", "src/vite-env.d.ts", "src/types/file-system-access.d.ts", "src/types/juri-embed.d.ts"]
 }

@@ -263,6 +263,8 @@
     "recentTitle": "Recente projecten",
     "recentSubtitle": "Klik om te openen.",
     "recentEmpty": "Nog geen recent geopende projecten.",
+    "importMsProject": "MS Project importeren",
+    "importMsProjectConfirm": "Dit vervangt de huidige planning door de inhoud van \"{{name}}\". Doorgaan?",
     "examples": "Voorbeelden",
     "examplesTitle": "Voorbeeldprojecten",
     "examplesSubtitle": "Meegeleverde bouwplanningen. Klik om te openen in een nieuw tabblad.",

@@ -263,6 +263,8 @@
     "recentTitle": "最近のプロジェクト",
     "recentSubtitle": "クリックして開きます。",
     "recentEmpty": "最近開いたプロジェクトはありません。",
+    "importMsProject": "MS Projectをインポート",
+    "importMsProjectConfirm": "これにより、現在の計画が\"{{name}}\"の内容に置き換えられます。続行しますか？",
     "examples": "サンプル",
     "examplesTitle": "サンプルプロジェクト",
     "examplesSubtitle": "同梱の建設工程表です。クリックすると新しいタブで開きます。",

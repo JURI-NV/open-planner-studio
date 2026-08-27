@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm run dev          # Browser-dev via scripts/dev-server.mjs (poort per worktree, dubbelstart-guard)
 npm run build        # tsc && vite build → dist/ (noEmit staat in tsconfig)
+npm run build:embed  # tsc && vite build --mode embed --base=/planning-app/ → dist-embed/ (JURI-embed, zie CLAUDE-JURI.md)
 npm run preview      # Serve the built bundle
 npm run tauri:dev    # Run the desktop app (Tauri 2) via scripts/tauri-dev.mjs
 npm run tauri:build  # Produce desktop installers

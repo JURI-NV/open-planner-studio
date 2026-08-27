@@ -263,6 +263,8 @@
     "recentTitle": "Recent projects",
     "recentSubtitle": "Click to open.",
     "recentEmpty": "No recently opened projects yet.",
+    "importMsProject": "Import MS Project",
+    "importMsProjectConfirm": "This replaces the current plan with the contents of \"{{name}}\". Continue?",
     "examples": "Examples",
     "examplesTitle": "Example projects",
     "examplesSubtitle": "Bundled construction schedules. Click to open in a new tab.",

@@ -4,7 +4,7 @@ import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
 import {
   Diamond, ZoomIn, ZoomOut, Trash2, Eye,
-  History, Download, Puzzle,
+  History, Download, Puzzle, FileUp,
   LayoutTemplate, UserPlus, Flag, GitCompareArrows, CalendarClock, X,
   Columns3, Filter, Layers, ArrowUpDown, Maximize2, Minimize2, SplitSquareHorizontal, Palette,
   Map as MapIcon, AlertTriangle, Save, RefreshCw, Settings2,
@@ -16,9 +16,12 @@ import {
 } from '@/utils/settingsStore';
 import { saveBarColorSelection } from '@/utils/barColorSettings';
 import { ExportFormat } from '@/state/appStore';
-import { EXPORT_FORMATS } from '@/services/formatRegistry';
+import { EXPORT_FORMATS, parseOpenedFile, readFormatForFile } from '@/services/formatRegistry';
+import type { ImportResult } from '@/services/importTypes';
+import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
 import { addTaskNearSelection } from '@/state/taskInsertActions';
 import { supportsHandles } from '@/services/fileAccess';
+import { isJuriEmbed } from '@/utils/juriEmbed';
 import { DateTextInput } from '@/components/common/DateTextInput';
 import { ExtensionIcon } from '@/components/common/ExtensionIcon';
 import { RibbonTab, type GroupLevel, type SortLevel, type Layout, type SavedFilter, type TimeScale } from '@/state/slices/types';
@@ -302,8 +305,9 @@ export function RecentFilesDropdown() {
   const recentFiles = useAppStore(s => s.recentFiles);
   const openRecentFile = useAppStore(s => s.openRecentFile);
 
-  // Fallback-web (Firefox/Safari): geen herbruikbare refs → geen (dode) recents tonen (spec §6).
-  if (!supportsHandles()) return null;
+  // JURI-embed: geen "ander document"-concept. Fallback-web (Firefox/Safari): geen herbruikbare
+  // refs → geen (dode) recents tonen (spec §6).
+  if (isJuriEmbed() || !supportsHandles()) return null;
 
   return (
     <Popover
@@ -351,6 +355,72 @@ export function RecentFilesDropdown() {
         })
       )}
     </Popover>
+  );
+}
+
+/** JURI-embed-tegenhanger van "Open" in de ribbon (zie ribbonConfig.tsx's fileGroup): geen ander
+ *  document kiezen, wel MS Project (.mpp/.csv/MSPDI-.xml) IN het huidige, aan het project gebonden
+ *  document importeren. Zelfde handelswijze als Backstage.tsx's gelijknamige actie — bewust
+ *  gedupliceerd (niet als gedeelde hook) omdat de twee aanroeppunten (ribbon-knop vs.
+ *  Backstage-ActionItem) losstaande render-bomen zijn met een eigen bevestigingsdialoog-laag. */
+export function ImportMsProjectButton() {
+  const { t: tMenu } = useTranslation('menu');
+  const { t: tCommon } = useTranslation('common');
+  const loadState = useAppStore(s => s.loadState);
+  const runCPM = useAppStore(s => s.runCPM);
+  const [pendingImport, setPendingImport] = useState<{ result: ImportResult; fileName: string } | null>(null);
+
+  if (!isJuriEmbed()) return null;
+
+  const handleImport = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.mpp,.csv,.xml';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.addEventListener('cancel', () => input.remove());
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) { input.remove(); return; }
+      try {
+        const isBinary = readFormatForFile(file.name).kind === 'binary';
+        const formatInput = isBinary
+          ? { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) }
+          : { name: file.name, text: await file.text() };
+        const result = await parseOpenedFile(formatInput, buildImportLabels(tCommon));
+        setPendingImport({ result, fileName: file.name });
+      } catch (err) {
+        console.error('[MS Project-import] Inlezen mislukt:', err);
+      } finally {
+        input.remove();
+      }
+    };
+    input.click();
+  };
+
+  const confirmImport = () => {
+    if (!pendingImport) return;
+    loadState(pendingImport.result);
+    runCPM();
+    setPendingImport(null);
+  };
+
+  return (
+    <>
+      <button className="ribbon-btn small" onClick={handleImport}>
+        <span className="ribbon-btn-icon"><FileUp size={14} /></span>
+        <span className="ribbon-btn-label">{tMenu('backstage.importMsProject')}</span>
+      </button>
+      {pendingImport && (
+        <ConfirmDialog
+          message={tMenu('backstage.importMsProjectConfirm', { name: pendingImport.fileName })}
+          confirmLabel={tMenu('extensions.import')}
+          danger
+          onConfirm={confirmImport}
+          onCancel={() => setPendingImport(null)}
+        />
+      )}
+    </>
   );
 }
 

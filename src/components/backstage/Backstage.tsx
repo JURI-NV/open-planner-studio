@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft, FileText, FolderOpen, Clock, Save, SaveAll, Download,
-  Printer, Info, Settings, X, FileType, Puzzle, Upload, BookOpen, Compass, LifeBuoy, Building2,
+  Printer, Info, Settings, X, FileType, Puzzle, Upload, FileUp, BookOpen, Compass, LifeBuoy, Building2,
 } from 'lucide-react';
 import { useAppStore, ExportFormat } from '@/state/appStore';
-import { EXPORT_FORMATS } from '@/services/formatRegistry';
+import { EXPORT_FORMATS, parseOpenedFile, readFormatForFile } from '@/services/formatRegistry';
 import { BackstageSection } from '@/state/slices/types';
 import { SettingsPanelContent } from '@/components/settings/SettingsPanelContent';
 import { ProjectInfoPanelContent, type ProjectInfoPanelContentHandle } from '@/components/settings/ProjectInfoPanelContent';
@@ -19,7 +19,9 @@ import { supportsHandles } from '@/services/fileAccess';
 import { fromExtImportResult } from '@/extensions/extMappers';
 import { applyDemoLibraryToShowcaseProject } from '@/state/demoLibraryShowcase';
 import { buildImportLabels } from '@/i18n/importLabels';
-import type { ImportLabels } from '@/services/importTypes';
+import type { ImportLabels, ImportResult } from '@/services/importTypes';
+import { isJuriEmbed } from '@/utils/juriEmbed';
+import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
 import './Backstage.css';
 
 export function Backstage() {
@@ -35,6 +37,50 @@ export function Backstage() {
   const { closeWithGuard } = useDocumentActions();
   const activeDocumentId = useAppStore(s => s.activeDocumentId);
   const isDirty = useAppStore(s => s.isDirty); // top-level = het actieve document
+  const loadState = useAppStore(s => s.loadState);
+  const runCPM = useAppStore(s => s.runCPM);
+
+  // JURI-embed: "MS Project importeren" vervangt in-place de taken/planning van het HUIDIGE,
+  // aan het project gebonden document (loadState — geen nieuw tabblad, fileServerRef blijft
+  // ongemoeid, zie projectSlice.ts's loadState-commentaar). Backstage blijft expres open tijdens
+  // het lezen/parsen (geen closeBackstage() in handleImportMsProject) — anders unmount Backstage
+  // (App.tsx: alleen gerenderd bij activeTab==='file') en verdwijnt deze pending-state voordat de
+  // gebruiker de bevestiging te zien krijgt.
+  const [pendingImport, setPendingImport] = useState<{ result: ImportResult; fileName: string } | null>(null);
+
+  const handleImportMsProject = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.mpp,.csv,.xml';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.addEventListener('cancel', () => input.remove());
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) { input.remove(); return; }
+      try {
+        const isBinary = readFormatForFile(file.name).kind === 'binary';
+        const formatInput = isBinary
+          ? { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) }
+          : { name: file.name, text: await file.text() };
+        const result = await parseOpenedFile(formatInput, buildImportLabels(tCommon));
+        setPendingImport({ result, fileName: file.name });
+      } catch (err) {
+        console.error('[MS Project-import] Inlezen mislukt:', err);
+      } finally {
+        input.remove();
+      }
+    };
+    input.click();
+  };
+
+  const confirmImportMsProject = () => {
+    if (!pendingImport) return;
+    loadState(pendingImport.result);
+    runCPM();
+    setPendingImport(null);
+    closeBackstage();
+  };
 
   const closeBackstage = useCallback(() => {
     // Terug naar Start-tab
@@ -68,10 +114,23 @@ export function Backstage() {
 
         {/* Actie-items: triggeren actie en sluiten backstage */}
         <ActionItem icon={<FileText size={14} />} label={tMenu('ribbon.new')} onClick={() => { handleNewProject(); closeBackstage(); }} />
-        <ActionItem icon={<FolderOpen size={14} />} label={tMenu('ribbon.open')} onClick={() => { handleOpen(buildImportLabels(tCommon)); closeBackstage(); }} />
-        <NavItem icon={<Clock size={14} />} label={tMenu('backstage.recent')} active={section === 'recent'} onClick={() => goTo('recent')} />
+        {/* Open/Recent/Voorbeelden = "naar een ander document wisselen" — zinloos in de JURI-embed,
+            waar elk project precies één levend document heeft (zie useJuriEmbed.ts). */}
+        {!isJuriEmbed() && (
+          <ActionItem icon={<FolderOpen size={14} />} label={tMenu('ribbon.open')} onClick={() => { handleOpen(buildImportLabels(tCommon)); closeBackstage(); }} />
+        )}
+        {!isJuriEmbed() && (
+          <NavItem icon={<Clock size={14} />} label={tMenu('backstage.recent')} active={section === 'recent'} onClick={() => goTo('recent')} />
+        )}
         {/* data-tour-anchor (fase 2.10, onderdeel 3, tourstap 6): voorbeelden-navitem. */}
-        <NavItem icon={<BookOpen size={14} />} label={tMenu('backstage.examples')} active={section === 'examples'} onClick={() => goTo('examples')} tourAnchor="backstage-examples" />
+        {!isJuriEmbed() && (
+          <NavItem icon={<BookOpen size={14} />} label={tMenu('backstage.examples')} active={section === 'examples'} onClick={() => goTo('examples')} tourAnchor="backstage-examples" />
+        )}
+        {/* JURI-embed-tegenhanger van "Open": geen ander document kiezen, wel MS Project (.mpp/.csv/
+            MSPDI-.xml) IN het huidige, aan dit project gebonden document importeren. */}
+        {isJuriEmbed() && (
+          <ActionItem icon={<FileUp size={14} />} label={tMenu('backstage.importMsProject')} onClick={handleImportMsProject} />
+        )}
         <ActionItem icon={<Save size={14} />} label={tMenu('ribbon.save')} onClick={() => { handleSave(); closeBackstage(); }} />
         <ActionItem icon={<SaveAll size={14} />} label={tMenu('backstage.saveAs')} onClick={() => { handleSaveAs(); closeBackstage(); }} />
 
@@ -123,6 +182,16 @@ export function Backstage() {
         {section === 'library' && <LibrarySection />}
         {section === 'help' && <HelpSection />}
       </main>
+
+      {pendingImport && (
+        <ConfirmDialog
+          message={tMenu('backstage.importMsProjectConfirm', { name: pendingImport.fileName })}
+          confirmLabel={tMenu('extensions.import')}
+          danger
+          onConfirm={confirmImportMsProject}
+          onCancel={() => setPendingImport(null)}
+        />
+      )}
     </div>
   );
 }
@@ -192,7 +261,7 @@ function RecentSection() {
   const openRecentFile = useAppStore(s => s.openRecentFile);
   const setUI = useAppStore(s => s.setUI);
 
-  if (!supportsHandles()) return null; // fallback-web: recents verbergen (spec §6)
+  if (isJuriEmbed() || !supportsHandles()) return null; // JURI-embed: geen "ander document"-concept; fallback-web: recents verbergen (spec §6)
 
   return (
     <>
@@ -279,6 +348,8 @@ function ExamplesSection() {
       setLoading(null);
     }
   };
+
+  if (isJuriEmbed()) return null; // JURI-embed: geen "ander document openen"-concept
 
   return (
     <>

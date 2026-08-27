@@ -263,6 +263,8 @@
     "recentTitle": "Son açılan projeler",
     "recentSubtitle": "Açmak için tıklayın.",
     "recentEmpty": "Henüz son açılan proje yok.",
+    "importMsProject": "MS Project içe aktar",
+    "importMsProjectConfirm": "Bu, mevcut planı \"{{name}}\" içeriğiyle değiştirecek. Devam edilsin mi?",
     "examples": "Örnekler",
     "examplesTitle": "Örnek projeler",
     "examplesSubtitle": "Birlikte gelen inşaat planları. Yeni bir sekmede açmak için tıklayın.",

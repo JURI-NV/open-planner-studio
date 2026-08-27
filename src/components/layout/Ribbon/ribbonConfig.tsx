@@ -18,6 +18,7 @@ import { useCommandBinding } from './useCommandBinding';
 import { createRelationWithFeedback } from '@/state/relationActions';
 import { addTaskNearSelection } from '@/state/taskInsertActions';
 import { isTreeMode } from '@/engine/view/visibleRows';
+import { isJuriEmbed } from '@/utils/juriEmbed';
 import {
   saveShowBaselineOverlay, saveShowProgressLine, saveShowResourceAccent, saveShowStatusDateLine,
 } from '@/utils/settingsStore';
@@ -27,7 +28,7 @@ import {
   ScreenColorsPopoverButton,
   ExportDropdown, ResourceAssignDropdown, LayoutGroupContent, PresentationGroupContent,
   TimeScaleGroupContent, DisplayGroupContent, OverallocationIndicator, IfcInfo,
-  useColumnsButtonBinding,
+  useColumnsButtonBinding, ImportMsProjectButton,
 } from './ribbonWidgets';
 import { AiServerGroup } from '@/components/ribbon/ai/AiServerGroup';
 import { AiConnectionGroup } from '@/components/ribbon/ai/AiConnectionGroup';
@@ -258,10 +259,14 @@ const fileGroup: RibbonGroupSpec = {
           kind: 'small', id: 'save', icon: <Save size={14} />, labelKey: 'menu:ribbon.save',
           use: () => useCommandBinding(COMMANDS.save),
         },
-        {
-          kind: 'small', id: 'open', icon: <FolderOpen size={14} />, labelKey: 'menu:ribbon.open',
-          use: () => useCommandBinding(COMMANDS.open),
-        },
+        // JURI-embed: geen "ander document"-concept, dus geen Open-knop — wel MS Project-import
+        // IN het huidige document (zie ribbonWidgets.tsx's ImportMsProjectButton).
+        ...(isJuriEmbed()
+          ? [{ kind: 'component', id: 'importMsProject', Component: ImportMsProjectButton } satisfies RibbonComponentSpec]
+          : [{
+              kind: 'small', id: 'open', icon: <FolderOpen size={14} />, labelKey: 'menu:ribbon.open',
+              use: () => useCommandBinding(COMMANDS.open),
+            } satisfies RibbonButtonSpec]),
       ],
     },
     {

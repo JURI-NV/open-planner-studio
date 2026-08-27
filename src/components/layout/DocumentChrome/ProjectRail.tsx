@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LayoutGrid, Plus } from 'lucide-react';
 import { useDocumentCards, useDocumentActions, type DocumentCard } from './useDocumentCards';
+import { isJuriEmbed } from '@/utils/juriEmbed';
 import './DocumentChrome.css';
 
 interface HoverState { card: DocumentCard; top: number; }
@@ -35,9 +36,12 @@ export function ProjectRail() {
         </div>
       ))}
 
-      <button className="ops-rail-add" title={t('documents.openProject')} onClick={openProject}>
-        <Plus size={16} />
-      </button>
+      {/* JURI-embed: geen "ander document"-concept, zie Backstage.tsx. */}
+      {!isJuriEmbed() && (
+        <button className="ops-rail-add" title={t('documents.openProject')} onClick={openProject}>
+          <Plus size={16} />
+        </button>
+      )}
 
       {hover && (
         <div className="ops-flyout" style={{ left: 64, top: hover.top }}>

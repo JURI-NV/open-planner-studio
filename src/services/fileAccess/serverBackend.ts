@@ -36,9 +36,13 @@ interface ServerSaveResponse {
 }
 
 function apiBase(): string {
-  // Alleen relevant wanneer `activeBackend()` al 'server' koos — dat gebeurt uitsluitend als deze
-  // env-var gezet is (zie `index.ts`'s `SERVER_BACKEND_ENABLED`), dus hier geen extra guard nodig.
-  return import.meta.env.VITE_JURI_API_BASE_URL as string;
+  // De JURI-embed is per architectuurkeuze ALTIJD same-origin (§4 van het implementatieplan: de
+  // OPS-bundel wordt onder /planning-app/ geserveerd door dezelfde Next.js-app als /api/planning/*,
+  // bewust geen iframe/cross-origin-opzet). Fetch-aanroepen met een relatief pad lossen dus vanzelf
+  // tegen de juiste host op — een prefix zou hier alleen een dubbele/foute origin kunnen introduceren.
+  // `VITE_JURI_API_BASE_URL` (zie `index.ts`'s `SERVER_BACKEND_ENABLED`) is uitsluitend de
+  // build-time AAN/UIT-vlag; de waarde zelf wordt hier bewust niet als prefix gebruikt.
+  return '';
 }
 
 function documentUrl(projectId: string): string {

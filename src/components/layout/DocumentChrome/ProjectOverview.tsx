@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, X } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
 import { useDocumentCards, useDocumentActions, type DocumentCard } from './useDocumentCards';
+import { isJuriEmbed } from '@/utils/juriEmbed';
 import './DocumentChrome.css';
 
 /**
@@ -44,18 +45,21 @@ export function ProjectOverview() {
               {t('documents.openBadge', { count: cards.length })} · {t('documents.switchHint')}
             </span>
           </div>
-          <button
-            onClick={() => { openProject(); closeOverview(); }}
-            title={t('documents.openProject')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: 'var(--theme-accent)', color: 'var(--theme-accent-on)',
-              border: 'none', borderRadius: 'var(--radius-md)', padding: '7px 13px',
-              fontSize: 'calc(12px * var(--ui-font-scale, 1))', fontWeight: 600, cursor: 'pointer',
-            }}
-          >
-            <Plus size={14} />{t('documents.openProject')}
-          </button>
+          {/* JURI-embed: geen "ander document"-concept, zie Backstage.tsx. */}
+          {!isJuriEmbed() && (
+            <button
+              onClick={() => { openProject(); closeOverview(); }}
+              title={t('documents.openProject')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'var(--theme-accent)', color: 'var(--theme-accent-on)',
+                border: 'none', borderRadius: 'var(--radius-md)', padding: '7px 13px',
+                fontSize: 'calc(12px * var(--ui-font-scale, 1))', fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              <Plus size={14} />{t('documents.openProject')}
+            </button>
+          )}
         </div>
 
         {/* Kaartraster */}

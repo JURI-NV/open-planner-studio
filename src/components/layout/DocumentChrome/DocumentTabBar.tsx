@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Menu, Plus, X } from 'lucide-react';
 import { useDocumentCards, useDocumentActions } from './useDocumentCards';
+import { isJuriEmbed } from '@/utils/juriEmbed';
 import './DocumentChrome.css';
 
 /** A · Documenttabs — horizontale tabstrip onder het lint. */
@@ -42,13 +43,16 @@ export function DocumentTabBar() {
         </div>
       ))}
 
-      <button
-        className="ops-iconbtn ops-tabstrip-add"
-        title={t('documents.openProject')}
-        onClick={openProject}
-      >
-        <Plus size={15} />
-      </button>
+      {/* JURI-embed: geen "ander document"-concept, zie Backstage.tsx. */}
+      {!isJuriEmbed() && (
+        <button
+          className="ops-iconbtn ops-tabstrip-add"
+          title={t('documents.openProject')}
+          onClick={openProject}
+        >
+          <Plus size={15} />
+        </button>
+      )}
     </div>
   );
 }

@@ -263,6 +263,8 @@
     "recentTitle": "Zuletzt verwendete Projekte",
     "recentSubtitle": "Klicken zum Öffnen.",
     "recentEmpty": "Noch keine kürzlich geöffneten Projekte.",
+    "importMsProject": "MS Project importieren",
+    "importMsProjectConfirm": "Dies ersetzt den aktuellen Plan durch den Inhalt von \"{{name}}\". Fortfahren?",
     "examples": "Beispiele",
     "examplesTitle": "Beispielprojekte",
     "examplesSubtitle": "Mitgelieferte Bauzeitpläne. Klicken zum Öffnen in einem neuen Tab.",

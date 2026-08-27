@@ -263,6 +263,8 @@
     "recentTitle": "Progetti recenti",
     "recentSubtitle": "Fai clic per aprire.",
     "recentEmpty": "Nessun progetto aperto di recente.",
+    "importMsProject": "Importa MS Project",
+    "importMsProjectConfirm": "Questo sostituirà il piano attuale con il contenuto di \"{{name}}\". Continuare?",
     "examples": "Esempi",
     "examplesTitle": "Progetti di esempio",
     "examplesSubtitle": "Pianificazioni edilizie incluse. Fai clic per aprire in una nuova scheda.",

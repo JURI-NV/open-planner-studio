@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "node scripts/dev-server.mjs",
     "build": "tsc && vite build",
+    "build:embed": "tsc && vite build --mode embed --base=/planning-app/ --outDir dist-embed",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
     "lint": "eslint src",
     "test": "npm run test:planning && npm run test:library && npm run test:mcp && npm run test:dev-server && npm run test:browser",

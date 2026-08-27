@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
 import { isTauri } from '@/utils/platform';
+import { isJuriEmbed } from '@/utils/juriEmbed';
 import {
   FileText, FolderOpen, Save, Undo2, Redo2, Minus, Square, Copy, X, Settings,
 } from 'lucide-react';
@@ -82,9 +83,12 @@ export function TitleBar() {
           <button className="quick-access-btn" title={tMenu('ribbon.newProjectTitle')} onClick={() => setUI({ showNewProjectDialog: true })}>
             <FileText size={16} />
           </button>
-          <button className="quick-access-btn" title={tMenu('ribbon.open')} onClick={() => { void openFile(buildImportLabels(tCommon)); }}>
-            <FolderOpen size={16} />
-          </button>
+          {/* JURI-embed: geen "ander document"-concept, zie Backstage.tsx/ribbonConfig.tsx. */}
+          {!isJuriEmbed() && (
+            <button className="quick-access-btn" title={tMenu('ribbon.open')} onClick={() => { void openFile(buildImportLabels(tCommon)); }}>
+              <FolderOpen size={16} />
+            </button>
+          )}
           <button className="quick-access-btn" title={tMenu('ribbon.saveTitle')} onClick={() => { void saveFile(); }}>
             <Save size={16} />
           </button>

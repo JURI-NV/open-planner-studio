@@ -263,6 +263,8 @@
     "recentTitle": "المشاريع الأخيرة",
     "recentSubtitle": "انقر للفتح.",
     "recentEmpty": "لا توجد مشاريع مفتوحة مؤخراً.",
+    "importMsProject": "استيراد MS Project",
+    "importMsProjectConfirm": "سيؤدي هذا إلى استبدال الخطة الحالية بمحتوى \"{{name}}\". هل تريد المتابعة؟",
     "examples": "أمثلة",
     "examplesTitle": "مشاريع نموذجية",
     "examplesSubtitle": "جداول بناء مرفقة. انقر للفتح في علامة تبويب جديدة.",

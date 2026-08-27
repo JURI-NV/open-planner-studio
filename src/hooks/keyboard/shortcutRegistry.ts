@@ -35,6 +35,7 @@ import { computeScrollToDate } from '@/utils/ganttViewport';
 // K-item 34: de acties die het lint EN het toetsenbord delen, staan nu één keer gedefinieerd.
 import { COMMANDS } from '@/state/commands';
 import i18n from '@/i18n/config';
+import { isJuriEmbed } from '@/utils/juriEmbed';
 
 export type ShortcutCategory = 'file' | 'edit' | 'structure' | 'view' | 'nav';
 
@@ -142,6 +143,8 @@ export const SHORTCUTS: ShortcutDef[] = [
     combo: { key: 'o', mod: true },
     category: 'file',
     labelKey: 'menu:ribbon.open',
+    // JURI-embed: geen "ander document"-concept — zelfde soort guard als file.newProject hieronder.
+    when: () => !isJuriEmbed(),
     run: COMMANDS.open.run,
   },
   {
